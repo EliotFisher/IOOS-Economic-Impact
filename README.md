@@ -104,6 +104,21 @@ SUPABASE_URL=https://spfyejzxqornsfmoansk.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
+For Streamlit secrets, either use flat keys:
+
+```toml
+SUPABASE_URL = "https://spfyejzxqornsfmoansk.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY = "your-service-role-key"
+```
+
+or a nested Supabase section:
+
+```toml
+[supabase]
+url = "https://spfyejzxqornsfmoansk.supabase.co"
+service_role_key = "your-service-role-key"
+```
+
 Keep the service-role key private. It can bypass row-level security.
 
 3. Preview the migration locally:

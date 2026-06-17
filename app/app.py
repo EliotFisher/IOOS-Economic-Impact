@@ -124,6 +124,21 @@ SUPABASE_KEY_NAMES = [
     "SUPABASE_SERVICE_KEY",
     "SUPABASE_KEY",
     "SUPABASE_ANON_KEY",
+    "service_role_key",
+    "service_key",
+    "anon_key",
+    "key",
+]
+
+SUPABASE_URL_NAMES = [
+    "SUPABASE_URL",
+    "supabase_url",
+    "url",
+]
+
+SUPABASE_SECRET_SECTIONS = [
+    ("supabase",),
+    ("connections", "supabase"),
 ]
 
 INTAKE_REQUIRED_VALUES = [
@@ -214,6 +229,23 @@ def load_dotenv(path: Path) -> None:
         os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
+def is_placeholder_secret(value: str) -> bool:
+    lowered = value.lower()
+    return not value or "replace" in lowered or "your-" in lowered
+
+
+def get_nested_secret(section_path: tuple[str, ...], name: str) -> str:
+    """Read a nested Streamlit secret without assuming a specific TOML shape."""
+    try:
+        current = st.secrets
+        for section in section_path:
+            current = current.get(section, {})
+        value = current.get(name, "") if hasattr(current, "get") else ""
+    except Exception:
+        value = ""
+    return str(value or "").strip()
+
+
 def get_secret(name: str) -> str:
     """Read Supabase settings from Streamlit secrets or the local environment."""
     try:
@@ -223,14 +255,25 @@ def get_secret(name: str) -> str:
     return str(secret_value or os.environ.get(name, "")).strip()
 
 
+def first_config_value(names: list[str]) -> str:
+    """Find the first configured value across env, flat secrets, and nested secrets."""
+    for name in names:
+        value = get_secret(name)
+        if value and not is_placeholder_secret(value):
+            return value
+
+    for section_path in SUPABASE_SECRET_SECTIONS:
+        for name in names:
+            value = get_nested_secret(section_path, name)
+            if value and not is_placeholder_secret(value):
+                return value
+
+    return ""
+
+
 def supabase_settings() -> tuple[str, str]:
     load_dotenv(REPO_ROOT / ".env")
-    key = ""
-    for name in SUPABASE_KEY_NAMES:
-        key = get_secret(name)
-        if key:
-            break
-    return get_secret("SUPABASE_URL"), key
+    return first_config_value(SUPABASE_URL_NAMES), first_config_value(SUPABASE_KEY_NAMES)
 
 
 def supabase_enabled() -> bool:
@@ -242,9 +285,9 @@ def supabase_missing_settings() -> list[str]:
     url, service_key = supabase_settings()
     missing = []
     if not url:
-        missing.append("SUPABASE_URL")
+        missing.append("Supabase URL")
     if not service_key:
-        missing.append("one of " + ", ".join(SUPABASE_KEY_NAMES))
+        missing.append("Supabase API key")
     return missing
 
 
