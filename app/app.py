@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import csv
+import hashlib
+import io
 import re
 import subprocess
 import sys
@@ -942,8 +944,11 @@ def render_intake_upload() -> None:
     if uploaded_file is None:
         return
 
+    file_bytes = uploaded_file.getvalue()
+    upload_hash = hashlib.sha256(file_bytes).hexdigest()
+
     try:
-        candidate_df = pd.read_csv(uploaded_file, dtype=str, keep_default_na=False)
+        candidate_df = pd.read_csv(io.BytesIO(file_bytes), dtype=str, keep_default_na=False)
     except Exception as exc:
         st.error(f"Could not read CSV: {exc}")
         return
@@ -957,14 +962,17 @@ def render_intake_upload() -> None:
         return
 
     normalized = normalize_intake_df(candidate_df)
-    st.success(f"CSV passed intake validation with {len(normalized):,} candidate rows.")
-    st.dataframe(normalized, use_container_width=True, hide_index=True)
-
-    if st.button("Stage candidate rows", type="primary"):
+    staged_hashes = st.session_state.setdefault("staged_upload_hashes", set())
+    if upload_hash in staged_hashes:
+        st.info("This CSV has already been staged in this session.")
+    else:
         append_rows(STAGED_EVIDENCE_PATH, normalized.to_dict("records"), INTAKE_SCHEMA)
+        staged_hashes.add(upload_hash)
         clear_data_cache()
-        st.success("Candidate rows staged for human review.")
-        st.rerun()
+        st.success(f"CSV passed intake validation and staged {len(normalized):,} candidate rows.")
+
+    st.dataframe(normalized, use_container_width=True, hide_index=True)
+    st.caption("Open Staged Evidence in the sidebar to review, edit, and accept verified rows.")
 
 
 def page_evidence_intake() -> None:
