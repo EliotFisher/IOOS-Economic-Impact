@@ -140,25 +140,92 @@ def run_validation() -> subprocess.CompletedProcess[str]:
     )
 
 
+def count_summary(df: pd.DataFrame, column: str) -> pd.DataFrame:
+    """Build a readable count and percent table for one categorical column."""
+    if df.empty or column not in df.columns:
+        return pd.DataFrame(columns=["Category", "Rows", "Share"])
+
+    counts = df[column].replace("", "Blank").value_counts().reset_index()
+    counts.columns = ["Category", "Rows"]
+    total = counts["Rows"].sum()
+    counts["Share"] = (counts["Rows"] / total * 100) if total else 0
+    return counts
+
+
+def render_summary_table(df: pd.DataFrame, title: str) -> None:
+    """Render category counts with bars that stay readable for long labels."""
+    st.subheader(title)
+    if df.empty:
+        st.info("No data available.")
+        return
+
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Category": st.column_config.TextColumn(width="large"),
+            "Rows": st.column_config.NumberColumn(width="small"),
+            "Share": st.column_config.ProgressColumn(
+                "Share",
+                format="%.0f%%",
+                min_value=0,
+                max_value=100,
+                width="medium",
+            ),
+        },
+    )
+
+
 def page_dashboard_summary(evidence_df: pd.DataFrame, review_df: pd.DataFrame) -> None:
     st.title("Dashboard Summary")
+    st.caption("At-a-glance status for evidence coverage, claim strength, and review workload.")
 
     rows_needing_review = len(review_df) if not review_df.empty else 0
-    col1, col2 = st.columns(2)
+    verified_rows = 0
+    if "source_verification_needed" in evidence_df.columns:
+        verified_rows = int((evidence_df["source_verification_needed"] == "No").sum())
+
+    review_errors = 0
+    review_warnings = 0
+    if "severity" in review_df.columns:
+        review_errors = int((review_df["severity"] == "error").sum())
+        review_warnings = int((review_df["severity"] == "warning").sum())
+
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Evidence rows", len(evidence_df))
-    col2.metric("Rows needing review", rows_needing_review)
+    col2.metric("Sources", len(load_csv(SOURCE_PATH)))
+    col3.metric("Rows not flagged for source verification", verified_rows)
+    col4.metric("Review items", rows_needing_review)
 
-    chart_specs = [
-        ("impact_domain", "Rows by Impact Domain"),
-        ("evidence_strength", "Rows by Evidence Strength"),
-        ("ioos_attribution_strength", "Rows by IOOS Attribution Strength"),
-    ]
+    if rows_needing_review:
+        st.warning(f"Validation review currently shows {review_errors} errors and {review_warnings} warnings.")
+    else:
+        st.success("No review items are currently listed.")
 
-    for column, title in chart_specs:
-        if column in evidence_df.columns:
-            st.subheader(title)
-            counts = evidence_df[column].replace("", "Blank").value_counts()
-            st.bar_chart(counts)
+    domain_counts = count_summary(evidence_df, "impact_domain")
+    evidence_counts = count_summary(evidence_df, "evidence_strength")
+    attribution_counts = count_summary(evidence_df, "ioos_attribution_strength")
+
+    left, right = st.columns([1.25, 1])
+    with left:
+        render_summary_table(domain_counts, "Rows by Impact Domain")
+    with right:
+        render_summary_table(evidence_counts, "Rows by Evidence Strength")
+        render_summary_table(attribution_counts, "Rows by IOOS Attribution Strength")
+
+    if not review_df.empty:
+        st.subheader("Review Snapshot")
+        snapshot_columns = [
+            column
+            for column in ["severity", "row_id", "source_id", "check", "message"]
+            if column in review_df.columns
+        ]
+        st.dataframe(
+            review_df[snapshot_columns].head(8),
+            use_container_width=True,
+            hide_index=True,
+        )
 
 
 def page_evidence_matrix(evidence_df: pd.DataFrame) -> None:
