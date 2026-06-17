@@ -119,6 +119,13 @@ TABLE_ORDER_COLUMNS = {
     "staged_evidence": "id",
 }
 
+SUPABASE_KEY_NAMES = [
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_SERVICE_KEY",
+    "SUPABASE_KEY",
+    "SUPABASE_ANON_KEY",
+]
+
 INTAKE_REQUIRED_VALUES = [
     "Source",
     "Source URL",
@@ -218,12 +225,27 @@ def get_secret(name: str) -> str:
 
 def supabase_settings() -> tuple[str, str]:
     load_dotenv(REPO_ROOT / ".env")
-    return get_secret("SUPABASE_URL"), get_secret("SUPABASE_SERVICE_ROLE_KEY")
+    key = ""
+    for name in SUPABASE_KEY_NAMES:
+        key = get_secret(name)
+        if key:
+            break
+    return get_secret("SUPABASE_URL"), key
 
 
 def supabase_enabled() -> bool:
     url, service_key = supabase_settings()
     return bool(url and service_key)
+
+
+def supabase_missing_settings() -> list[str]:
+    url, service_key = supabase_settings()
+    missing = []
+    if not url:
+        missing.append("SUPABASE_URL")
+    if not service_key:
+        missing.append("one of " + ", ".join(SUPABASE_KEY_NAMES))
+    return missing
 
 
 def supabase_request(
@@ -1176,7 +1198,8 @@ def render_intake_upload() -> None:
     if supabase_enabled():
         st.caption("Storage: Supabase live tables, with local CSV mirror.")
     else:
-        st.caption("Storage: local CSV fallback. Add Supabase credentials to write live tables.")
+        missing = "; ".join(supabase_missing_settings())
+        st.warning(f"Supabase upload is not configured in this runtime. Missing: {missing}.")
 
     uploaded_file = st.file_uploader("Upload AI-generated candidate rows", type=["csv"])
     if uploaded_file is None:
@@ -1199,19 +1222,30 @@ def render_intake_upload() -> None:
         return
 
     normalized = normalize_intake_df(candidate_df)
-    storage_target = "Supabase staged_evidence" if supabase_enabled() else "local staged_evidence.csv"
     st.success(f"CSV passed intake validation with {len(normalized):,} candidate rows.")
     st.dataframe(normalized, use_container_width=True, hide_index=True)
 
-    if st.button(f"Upload {len(normalized):,} rows to {storage_target}", type="primary"):
-        try:
-            append_rows(STAGED_EVIDENCE_PATH, normalized.to_dict("records"), INTAKE_SCHEMA)
-        except Exception as exc:
-            st.error(f"Upload failed: {exc}")
-            return
-        else:
-            clear_data_cache()
-            st.success(f"Uploaded {len(normalized):,} candidate rows to {storage_target}.")
+    if supabase_enabled():
+        if st.button(f"Upload {len(normalized):,} rows to Supabase staged_evidence", type="primary"):
+            try:
+                append_rows(STAGED_EVIDENCE_PATH, normalized.to_dict("records"), INTAKE_SCHEMA)
+            except Exception as exc:
+                st.error(f"Supabase upload failed: {exc}")
+                return
+            else:
+                clear_data_cache()
+                st.success(f"Uploaded {len(normalized):,} candidate rows to Supabase staged_evidence.")
+    else:
+        st.button("Upload rows to Supabase staged_evidence", disabled=True, type="primary")
+        if st.button(f"Save {len(normalized):,} rows to local staged_evidence.csv only"):
+            try:
+                append_rows(STAGED_EVIDENCE_PATH, normalized.to_dict("records"), INTAKE_SCHEMA)
+            except Exception as exc:
+                st.error(f"Local CSV save failed: {exc}")
+                return
+            else:
+                clear_data_cache()
+                st.success(f"Saved {len(normalized):,} candidate rows to local staged_evidence.csv.")
 
     st.caption("Open Staged Evidence in the sidebar to review, edit, and accept verified rows.")
 
