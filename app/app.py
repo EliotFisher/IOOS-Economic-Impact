@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -26,6 +27,47 @@ REQUIRED_ADD_FIELDS = [
     "limitations",
     "evidence_strength",
     "ioos_attribution_strength",
+]
+
+REPORT_STATUS_ORDER = [
+    "report-ready",
+    "use-with-caution",
+    "background-only",
+    "needs-follow-up",
+]
+
+UPDATE_FREQUENCY_BUCKETS = {
+    "Quarterly": [r"\bquarterly\b"],
+    "Annual": [r"\bannual\b", r"\byearly\b"],
+    "Real-time": [r"\breal[- ]?time\b"],
+    "Periodic": [r"\bperiodic\b", r"\bongoing\b"],
+    "Event-based": [r"\bevent[- ]?based\b"],
+}
+
+CAUSAL_TERMS = [
+    r"\bcaused?\b",
+    r"\bcreated?\b",
+    r"\battribut(?:e|ed|able|ion)\b",
+    r"\bsaved?\b",
+    r"\bprevent(?:ed|s|ing)?\b",
+    r"\bavoided?\b",
+    r"\breduced?\b",
+    r"\bincreased?\b",
+    r"\bprotected?\b",
+    r"\bROI\b",
+]
+
+CONSERVATIVE_CLAIM_TERMS = [
+    r"\bcan\b",
+    r"\bcould\b",
+    r"\bsupport",
+    r"\bhelp",
+    r"\bsuggest",
+    r"\bestimated\b",
+    r"\bmodeled\b",
+    r"\bpotential\b",
+    r"\bpending\b",
+    r"\bwhere documented\b",
 ]
 
 
@@ -177,55 +219,392 @@ def render_summary_table(df: pd.DataFrame, title: str) -> None:
     )
 
 
-def page_dashboard_summary(evidence_df: pd.DataFrame, review_df: pd.DataFrame) -> None:
+def normalize_text(value: object) -> str:
+    """Normalize text used by derived dashboard classifications."""
+    return str(value or "").strip()
+
+
+def row_warning_map(review_df: pd.DataFrame) -> dict[str, dict[str, object]]:
+    """Group validator issues by evidence row_id for dashboard-only rollups."""
+    if review_df.empty or "row_id" not in review_df.columns:
+        return {}
+
+    warning_map: dict[str, dict[str, object]] = {}
+    for _, issue in review_df.iterrows():
+        row_id = normalize_text(issue.get("row_id"))
+        if not row_id:
+            continue
+        entry = warning_map.setdefault(
+            row_id,
+            {"checks": set(), "errors": 0, "warnings": 0, "messages": []},
+        )
+        severity = normalize_text(issue.get("severity")).lower()
+        check = normalize_text(issue.get("check"))
+        message = normalize_text(issue.get("message"))
+        if check:
+            entry["checks"].add(check)
+        if message:
+            entry["messages"].append(message)
+        if severity == "error":
+            entry["errors"] += 1
+        elif severity == "warning":
+            entry["warnings"] += 1
+    return warning_map
+
+
+def has_unclear_limitations(value: object) -> bool:
+    """Flag limitations that are blank or too vague to support report drafting."""
+    text = normalize_text(value).lower()
+    return text in {"", "none", "n/a", "na", "not applicable", "unknown", "unclear", "tbd"}
+
+
+def has_causal_language(value: object) -> bool:
+    text = normalize_text(value)
+    return any(re.search(pattern, text, re.I) for pattern in CAUSAL_TERMS)
+
+
+def has_conservative_claim_language(row: pd.Series, checks: set[str]) -> bool:
+    """Return True when claim text is cautious enough for shortlist review."""
+    claim = normalize_text(row.get("claim_allowed"))
+    if not claim:
+        return False
+    if "unsupported_causal_language" in checks:
+        return False
+    if not has_causal_language(claim):
+        return True
+    return any(re.search(pattern, claim, re.I) for pattern in CONSERVATIVE_CLAIM_TERMS)
+
+
+def infer_report_status(row: pd.Series, checks: set[str], errors: int) -> str:
+    """Infer report-readiness when the matrix has no explicit status column."""
+    evidence = normalize_text(row.get("evidence_strength"))
+    attribution = normalize_text(row.get("ioos_attribution_strength"))
+    verification_needed = normalize_text(row.get("source_verification_needed")) == "Yes"
+    claim_missing = not normalize_text(row.get("claim_allowed"))
+    limitations_unclear = has_unclear_limitations(row.get("limitations"))
+
+    if (
+        errors
+        or verification_needed
+        or evidence == "Needs verification"
+        or attribution == "Needs verification"
+        or "source_verification_needed" in checks
+        or "quantified_metric_needs_verification" in checks
+        or "unsupported_causal_language" in checks
+        or claim_missing
+        or limitations_unclear
+    ):
+        return "needs-follow-up"
+
+    if evidence == "Contextual" or attribution == "Contextual":
+        return "background-only"
+
+    if (
+        evidence in {"Strong", "Medium"}
+        and attribution in {"Strong", "Medium"}
+        and not checks
+    ):
+        return "report-ready"
+
+    return "use-with-caution"
+
+
+def add_dashboard_fields(evidence_df: pd.DataFrame, review_df: pd.DataFrame) -> pd.DataFrame:
+    """Add derived fields used only for dashboard display and filtering."""
+    if evidence_df.empty:
+        return evidence_df.copy()
+
+    enriched = evidence_df.copy()
+    warnings_by_row = row_warning_map(review_df)
+    status_column = next((column for column in enriched.columns if column.lower() == "status"), None)
+
+    statuses: list[str] = []
+    warning_counts: list[int] = []
+    error_counts: list[int] = []
+    warning_checks: list[str] = []
+
+    for _, row in enriched.iterrows():
+        row_id = normalize_text(row.get("row_id"))
+        issues = warnings_by_row.get(row_id, {})
+        checks = set(issues.get("checks", set()))
+        errors = int(issues.get("errors", 0))
+        warnings = int(issues.get("warnings", 0))
+
+        if status_column:
+            status = normalize_text(row.get(status_column)) or "Unspecified"
+        else:
+            status = infer_report_status(row, checks, errors)
+
+        statuses.append(status)
+        warning_counts.append(warnings)
+        error_counts.append(errors)
+        warning_checks.append("; ".join(sorted(checks)))
+
+    enriched["dashboard_status"] = statuses
+    enriched["validation_warning_count"] = warning_counts
+    enriched["validation_error_count"] = error_counts
+    enriched["validation_warning_types"] = warning_checks
+    return enriched
+
+
+def status_counts_table(evidence_df: pd.DataFrame) -> pd.DataFrame:
+    counts = evidence_df["dashboard_status"].value_counts().rename_axis("Status").reset_index(name="Rows")
+    order = {status: index for index, status in enumerate(REPORT_STATUS_ORDER)}
+    counts["_order"] = counts["Status"].map(lambda status: order.get(status, len(order)))
+    return counts.sort_values(["_order", "Status"]).drop(columns="_order")
+
+
+def render_status_cards(evidence_df: pd.DataFrame, source_df: pd.DataFrame, review_df: pd.DataFrame) -> None:
+    status_counts = evidence_df["dashboard_status"].value_counts() if "dashboard_status" in evidence_df else {}
+    unique_sources = evidence_df["source_id"].replace("", pd.NA).dropna().nunique() if "source_id" in evidence_df else len(source_df)
+    errors = int((review_df["severity"].str.lower() == "error").sum()) if "severity" in review_df.columns else 0
+    warnings = int((review_df["severity"].str.lower() == "warning").sum()) if "severity" in review_df.columns else 0
+
+    cards = [
+        ("Total evidence rows", len(evidence_df)),
+        ("Unique sources", unique_sources),
+        ("Report-ready rows", int(status_counts.get("report-ready", 0))),
+        ("Use-with-caution rows", int(status_counts.get("use-with-caution", 0))),
+        ("Background-only rows", int(status_counts.get("background-only", 0))),
+        ("Needs-follow-up rows", int(status_counts.get("needs-follow-up", 0))),
+        ("Validation errors", errors),
+        ("Validation warnings", warnings),
+    ]
+
+    for row_start in range(0, len(cards), 4):
+        columns = st.columns(4)
+        for column, (label, value) in zip(columns, cards[row_start : row_start + 4]):
+            column.metric(label, f"{value:,}")
+
+
+def render_report_readiness_breakdown(evidence_df: pd.DataFrame) -> None:
+    st.subheader("Report-Readiness Breakdown")
+    if evidence_df.empty:
+        st.info("No evidence rows available.")
+        return
+
+    counts = status_counts_table(evidence_df)
+    chart_data = counts.set_index("Status")
+    st.bar_chart(chart_data, y="Rows")
+    st.dataframe(counts, use_container_width=True, hide_index=True)
+
+
+def render_strength_crosstab(evidence_df: pd.DataFrame) -> None:
+    st.subheader("Evidence Strength x IOOS Attribution Strength")
+    required = {"evidence_strength", "ioos_attribution_strength"}
+    if evidence_df.empty or not required.issubset(evidence_df.columns):
+        st.info("Evidence and attribution strength columns are required for this table.")
+        return
+
+    crosstab = pd.crosstab(
+        evidence_df["evidence_strength"].replace("", "Blank"),
+        evidence_df["ioos_attribution_strength"].replace("", "Blank"),
+        margins=True,
+        margins_name="Total",
+    )
+    crosstab.index.name = "Evidence strength"
+    st.dataframe(crosstab, use_container_width=True)
+
+
+def domain_notes(domain_df: pd.DataFrame) -> str:
+    notes: list[str] = []
+    warning_count = int(domain_df["validation_warning_count"].sum()) if "validation_warning_count" in domain_df else 0
+    if warning_count:
+        notes.append("Warnings present")
+    if "source_verification_needed" in domain_df and (domain_df["source_verification_needed"] == "Yes").any():
+        notes.append("Source verification needed")
+    if "ioos_attribution_strength" in domain_df and domain_df["ioos_attribution_strength"].isin(["Contextual", "Needs verification"]).any():
+        notes.append("Weak or unverified attribution")
+    if "evidence_strength" in domain_df and domain_df["evidence_strength"].isin(["Contextual", "Modeled", "Needs verification"]).any():
+        notes.append("Contextual, modeled, or unverified evidence")
+    return "; ".join(notes) if notes else "No current flags"
+
+
+def render_domain_coverage(evidence_df: pd.DataFrame) -> None:
+    st.subheader("Domain Coverage")
+    if evidence_df.empty or "impact_domain" not in evidence_df.columns:
+        st.info("No impact domain data available.")
+        return
+
+    rows: list[dict[str, object]] = []
+    for domain, domain_df in evidence_df.groupby("impact_domain", dropna=False):
+        rows.append(
+            {
+                "Impact domain": domain or "Blank",
+                "total rows": len(domain_df),
+                "strong evidence rows": int((domain_df["evidence_strength"] == "Strong").sum()) if "evidence_strength" in domain_df else 0,
+                "strong IOOS attribution rows": int((domain_df["ioos_attribution_strength"] == "Strong").sum()) if "ioos_attribution_strength" in domain_df else 0,
+                "report-ready rows": int((domain_df["dashboard_status"] == "report-ready").sum()),
+                "warnings": int(domain_df["validation_warning_count"].sum()) if "validation_warning_count" in domain_df else 0,
+                "notes": domain_notes(domain_df),
+            }
+        )
+
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+
+def render_review_workload(review_df: pd.DataFrame) -> None:
+    st.subheader("Review Workload by Warning Type")
+    if review_df.empty:
+        st.success("No review workload is currently listed.")
+        return
+    if "check" not in review_df.columns:
+        st.info("review_needed.csv does not include a check column.")
+        return
+
+    grouped = (
+        review_df.assign(
+            severity=review_df.get("severity", "").replace("", "unspecified"),
+            row_id=review_df.get("row_id", "").astype(str),
+        )
+        .groupby(["check", "severity"], dropna=False)
+        .agg(
+            items=("check", "size"),
+            affected_rows=("row_id", lambda values: ", ".join(sorted({value for value in values if value}))),
+        )
+        .reset_index()
+        .sort_values(["severity", "items", "check"], ascending=[True, False, True])
+    )
+    st.dataframe(grouped, use_container_width=True, hide_index=True)
+
+
+def display_columns(df: pd.DataFrame) -> list[str]:
+    preferred = [
+        "row_id",
+        "dashboard_status",
+        "impact_domain",
+        "ioos_component",
+        "region",
+        "metric",
+        "evidence_strength",
+        "ioos_attribution_strength",
+        "source_verification_needed",
+        "claim_allowed",
+        "limitations",
+        "validation_warning_types",
+    ]
+    return [column for column in preferred if column in df.columns]
+
+
+def render_best_candidates(evidence_df: pd.DataFrame) -> None:
+    st.subheader("Best Candidate Rows for Final Report")
+    if evidence_df.empty:
+        st.info("No evidence rows available.")
+        return
+
+    mask = evidence_df["dashboard_status"] == "report-ready"
+    for index, row in evidence_df.iterrows():
+        checks = set(filter(None, normalize_text(row.get("validation_warning_types")).split("; ")))
+        strong_or_medium = (
+            normalize_text(row.get("evidence_strength")) in {"Strong", "Medium"}
+            and normalize_text(row.get("ioos_attribution_strength")) in {"Strong", "Medium"}
+        )
+        if strong_or_medium and has_conservative_claim_language(row, checks):
+            mask.loc[index] = True
+
+    candidates = evidence_df[mask].copy()
+    if candidates.empty:
+        st.info("No rows currently meet the candidate criteria.")
+        return
+    st.dataframe(candidates[display_columns(candidates)], use_container_width=True, hide_index=True)
+
+
+def follow_up_reasons(row: pd.Series) -> str:
+    reasons: list[str] = []
+    checks = set(filter(None, normalize_text(row.get("validation_warning_types")).split("; ")))
+    attribution = normalize_text(row.get("ioos_attribution_strength"))
+
+    if normalize_text(row.get("source_verification_needed")) == "Yes" or "source_verification_needed" in checks:
+        reasons.append("source verification")
+    if attribution in {"Contextual", "Needs verification"} or "weak_attribution" in checks:
+        reasons.append("weak attribution")
+    if "unsupported_causal_language" in checks:
+        reasons.append("risky language")
+    if has_unclear_limitations(row.get("limitations")):
+        reasons.append("missing/unclear limitations")
+    if normalize_text(row.get("evidence_strength")) == "Needs verification":
+        reasons.append("evidence needs verification")
+    return "; ".join(reasons)
+
+
+def render_follow_up_rows(evidence_df: pd.DataFrame) -> None:
+    st.subheader("Rows Needing Follow-Up")
+    if evidence_df.empty:
+        st.info("No evidence rows available.")
+        return
+
+    follow_up = evidence_df.copy()
+    follow_up["follow_up_reasons"] = follow_up.apply(follow_up_reasons, axis=1)
+    follow_up = follow_up[follow_up["follow_up_reasons"] != ""]
+    if follow_up.empty:
+        st.success("No rows currently match the follow-up criteria.")
+        return
+
+    columns = ["follow_up_reasons"] + display_columns(follow_up)
+    st.dataframe(follow_up[columns], use_container_width=True, hide_index=True)
+
+
+def render_update_frequency_breakdown(evidence_df: pd.DataFrame) -> None:
+    st.subheader("Update-Frequency Breakdown")
+    if evidence_df.empty or "update_frequency" not in evidence_df.columns:
+        st.info("No update_frequency column available.")
+        return
+
+    rows: list[dict[str, object]] = []
+    for bucket, patterns in UPDATE_FREQUENCY_BUCKETS.items():
+        count = int(
+            evidence_df["update_frequency"].apply(
+                lambda value: any(re.search(pattern, normalize_text(value), re.I) for pattern in patterns)
+            ).sum()
+        )
+        rows.append({"Update frequency": bucket, "Rows": count})
+
+    st.caption("Rows can count in more than one category when the update_frequency field names multiple cadences.")
+    frequency_df = pd.DataFrame(rows)
+    st.bar_chart(frequency_df.set_index("Update frequency"), y="Rows")
+    st.dataframe(frequency_df, use_container_width=True, hide_index=True)
+
+
+def render_source_type_breakdown(source_df: pd.DataFrame) -> None:
+    st.subheader("Source-Type Breakdown")
+    if source_df.empty or "source_type" not in source_df.columns:
+        st.info("No source_type data available.")
+        return
+
+    source_counts = count_summary(source_df, "source_type")
+    st.dataframe(source_counts, use_container_width=True, hide_index=True)
+
+
+def page_dashboard_summary(evidence_df: pd.DataFrame, source_df: pd.DataFrame, review_df: pd.DataFrame) -> None:
     st.title("Dashboard Summary")
     st.caption("At-a-glance status for evidence coverage, claim strength, and review workload.")
 
-    rows_needing_review = len(review_df) if not review_df.empty else 0
-    verified_rows = 0
-    if "source_verification_needed" in evidence_df.columns:
-        verified_rows = int((evidence_df["source_verification_needed"] == "No").sum())
+    evidence_dashboard_df = add_dashboard_fields(evidence_df, review_df)
+    render_status_cards(evidence_dashboard_df, source_df, review_df)
 
-    review_errors = 0
-    review_warnings = 0
-    if "severity" in review_df.columns:
-        review_errors = int((review_df["severity"] == "error").sum())
-        review_warnings = int((review_df["severity"] == "warning").sum())
-
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Evidence rows", len(evidence_df))
-    col2.metric("Sources", len(load_csv(SOURCE_PATH)))
-    col3.metric("Rows not flagged for source verification", verified_rows)
-    col4.metric("Review items", rows_needing_review)
-
-    if rows_needing_review:
+    if not review_df.empty:
+        review_errors = int((review_df["severity"].str.lower() == "error").sum()) if "severity" in review_df.columns else 0
+        review_warnings = int((review_df["severity"].str.lower() == "warning").sum()) if "severity" in review_df.columns else 0
         st.warning(f"Validation review currently shows {review_errors} errors and {review_warnings} warnings.")
     else:
         st.success("No review items are currently listed.")
 
-    domain_counts = count_summary(evidence_df, "impact_domain")
-    evidence_counts = count_summary(evidence_df, "evidence_strength")
-    attribution_counts = count_summary(evidence_df, "ioos_attribution_strength")
+    top_left, top_right = st.columns([1.15, 1])
+    with top_left:
+        render_report_readiness_breakdown(evidence_dashboard_df)
+    with top_right:
+        render_strength_crosstab(evidence_dashboard_df)
 
-    left, right = st.columns([1.25, 1])
-    with left:
-        render_summary_table(domain_counts, "Rows by Impact Domain")
-    with right:
-        render_summary_table(evidence_counts, "Rows by Evidence Strength")
-        render_summary_table(attribution_counts, "Rows by IOOS Attribution Strength")
+    render_domain_coverage(evidence_dashboard_df)
+    render_review_workload(review_df)
+    render_best_candidates(evidence_dashboard_df)
+    render_follow_up_rows(evidence_dashboard_df)
 
-    if not review_df.empty:
-        st.subheader("Review Snapshot")
-        snapshot_columns = [
-            column
-            for column in ["severity", "row_id", "source_id", "check", "message"]
-            if column in review_df.columns
-        ]
-        st.dataframe(
-            review_df[snapshot_columns].head(8),
-            use_container_width=True,
-            hide_index=True,
-        )
+    bottom_left, bottom_right = st.columns(2)
+    with bottom_left:
+        render_update_frequency_breakdown(evidence_dashboard_df)
+    with bottom_right:
+        render_source_type_breakdown(source_df)
 
 
 def page_evidence_matrix(evidence_df: pd.DataFrame) -> None:
@@ -353,7 +732,7 @@ def main() -> None:
     )
 
     if page == "Dashboard Summary":
-        page_dashboard_summary(evidence_df, review_df)
+        page_dashboard_summary(evidence_df, source_df, review_df)
     elif page == "Evidence Matrix":
         page_evidence_matrix(evidence_df)
     elif page == "Review Needed":
