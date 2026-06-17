@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.streamlit/secrets.toml
+.venv/
+venv/
+env/
+.DS_Store
+Thumbs.db
+outputs/summary_tables/*
+!outputs/summary_tables/.gitkeep
+ioos-impact-matrix/
+scripts/*.js

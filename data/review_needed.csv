@@ -1,0 +1,17 @@
+severity,row_id,source_id,check,message
+warning,2,,source_verification_needed,row 2 should be checked against the original/full source before use
+warning,2,,quantified_metric_needs_verification,row 2 has quantified metric values that need source verification
+warning,3,,source_verification_needed,row 3 should be checked against the original/full source before use
+warning,3,,quantified_metric_needs_verification,row 3 has quantified metric values that need source verification
+warning,7,,weak_attribution,row 7 has weak IOOS attribution: Contextual
+warning,7,,source_verification_needed,row 7 should be checked against the original/full source before use
+warning,7,,quantified_metric_needs_verification,row 7 has quantified metric values that need source verification
+warning,8,,source_verification_needed,row 8 should be checked against the original/full source before use
+warning,8,,quantified_metric_needs_verification,row 8 has quantified metric values that need source verification
+warning,12,,source_verification_needed,row 12 should be checked against the original/full source before use
+warning,12,,quantified_metric_needs_verification,row 12 has quantified metric values that need source verification
+warning,12,,unsupported_causal_language,row 12 uses causal language that is stronger than the evidence/attribution flags support
+warning,13,,source_verification_needed,row 13 should be checked against the original/full source before use
+warning,13,,quantified_metric_needs_verification,row 13 has quantified metric values that need source verification
+warning,14,,weak_attribution,row 14 has weak IOOS attribution: Contextual
+warning,17,,weak_attribution,row 17 has weak IOOS attribution: Contextual
