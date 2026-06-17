@@ -68,6 +68,8 @@ From the repository root:
 streamlit run app/app.py
 ```
 
+When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are available in `.env` or Streamlit secrets, the dashboard reads and writes the live Supabase tables. Local CSV files remain as import/export mirrors and as a fallback when Supabase credentials are not configured.
+
 The dashboard includes:
 
 - Dashboard summary charts
@@ -78,6 +80,56 @@ The dashboard includes:
 - Searchable source registry with clickable URLs
 - Add Evidence Row form
 - Run Validation button
+
+## Migrate Data To Supabase
+
+This repository includes a migration path for Supabase project `spfyejzxqornsfmoansk`.
+
+1. Open the Supabase SQL editor for the project and run:
+
+```text
+supabase/schema.sql
+```
+
+2. Create a local `.env` file from `.env.example` and paste the project service-role key:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+The final `.env` should contain:
+
+```text
+SUPABASE_URL=https://spfyejzxqornsfmoansk.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+Keep the service-role key private. It can bypass row-level security.
+
+3. Preview the migration locally:
+
+```powershell
+python scripts/upload_to_supabase.py --dry-run
+```
+
+4. Upload the CSV data:
+
+```powershell
+python scripts/upload_to_supabase.py
+```
+
+The upload script validates the matrix first, clears the destination tables in foreign-key-safe order, then inserts:
+
+- `source_registry`
+- `evidence_matrix`
+- `review_needed`
+- `staged_evidence`
+
+To upload only selected tables, pass `--tables`, for example:
+
+```powershell
+python scripts/upload_to_supabase.py --tables review_needed staged_evidence
+```
 
 ## Evidence Intake Workflow
 

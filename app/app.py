@@ -5,10 +5,15 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 import pandas as pd
 import streamlit as st
@@ -61,6 +66,58 @@ INTAKE_TO_EVIDENCE_COLUMNS = {
     "Claim allowed": "claim_allowed",
     "Update frequency": "update_frequency",
     "AI extraction notes": "ai_extraction_notes",
+}
+
+STAGED_DB_TO_INTAKE_COLUMNS = {
+    "row_id": "row_id",
+    "impact_domain": "Impact domain",
+    "ioos_component": "IOOS component",
+    "region": "Region",
+    "user_group": "User group",
+    "decision_supported": "Decision supported",
+    "economic_pathway": "Economic pathway",
+    "metric": "Metric",
+    "metric_year_or_dollar_year": "Metric year / dollar year",
+    "source": "Source",
+    "source_url": "Source URL",
+    "evidence_strength": "Evidence strength",
+    "ioos_attribution_strength": "IOOS attribution strength",
+    "source_verification_needed": "Source verification needed",
+    "limitations": "Limitations",
+    "claim_allowed": "Claim allowed",
+    "update_frequency": "Update frequency",
+    "ai_extraction_notes": "AI extraction notes",
+}
+
+INTAKE_TO_STAGED_DB_COLUMNS = {
+    intake_column: db_column
+    for db_column, intake_column in STAGED_DB_TO_INTAKE_COLUMNS.items()
+}
+
+PATH_TABLES = {
+    EVIDENCE_PATH: "evidence_matrix",
+    SOURCE_PATH: "source_registry",
+    REVIEW_PATH: "review_needed",
+    STAGED_EVIDENCE_PATH: "staged_evidence",
+}
+
+TABLE_DELETE_FILTERS = {
+    "source_registry": ("source_id", "not.is.null"),
+    "evidence_matrix": ("row_id", "not.is.null"),
+    "review_needed": ("id", "not.is.null"),
+    "staged_evidence": ("id", "not.is.null"),
+}
+
+TABLE_CONFLICT_KEYS = {
+    "source_registry": "source_id",
+    "evidence_matrix": "row_id",
+}
+
+TABLE_ORDER_COLUMNS = {
+    "source_registry": "source_id",
+    "evidence_matrix": "row_id",
+    "review_needed": "id",
+    "staged_evidence": "id",
 }
 
 INTAKE_REQUIRED_VALUES = [
@@ -139,9 +196,177 @@ st.set_page_config(
 )
 
 
+def load_dotenv(path: Path) -> None:
+    """Load simple KEY=VALUE pairs without adding a runtime dependency."""
+    if not path.exists():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+def get_secret(name: str) -> str:
+    """Read Supabase settings from Streamlit secrets or the local environment."""
+    try:
+        secret_value = st.secrets.get(name, "")
+    except Exception:
+        secret_value = ""
+    return str(secret_value or os.environ.get(name, "")).strip()
+
+
+def supabase_settings() -> tuple[str, str]:
+    load_dotenv(REPO_ROOT / ".env")
+    return get_secret("SUPABASE_URL"), get_secret("SUPABASE_SERVICE_ROLE_KEY")
+
+
+def supabase_enabled() -> bool:
+    url, service_key = supabase_settings()
+    return bool(url and service_key)
+
+
+def supabase_request(
+    method: str,
+    table: str,
+    query: dict[str, str] | None = None,
+    body: object | None = None,
+    prefer: str | None = None,
+) -> object:
+    """Call Supabase PostgREST using the service role key."""
+    supabase_url, service_key = supabase_settings()
+    if not supabase_url or not service_key:
+        raise RuntimeError("Supabase settings are not configured.")
+
+    query_string = f"?{urlencode(query)}" if query else ""
+    url = f"{supabase_url.rstrip('/')}/rest/v1/{table}{query_string}"
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+    }
+    payload = None
+    if body is not None:
+        payload = json.dumps(body).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    if prefer:
+        headers["Prefer"] = prefer
+
+    request = Request(url, data=payload, headers=headers, method=method)
+    try:
+        with urlopen(request, timeout=60) as response:
+            text = response.read().decode("utf-8")
+    except HTTPError as exc:
+        message = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"{method} {table} failed with HTTP {exc.code}: {message}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"{method} {table} failed: {exc.reason}") from exc
+
+    if not text:
+        return []
+    return json.loads(text)
+
+
+def map_supabase_rows_for_app(table: str, rows: list[dict[str, object]]) -> pd.DataFrame:
+    """Convert Supabase rows back to the app's CSV-facing column names."""
+    if table == "staged_evidence":
+        mapped = [
+            {
+                intake_column: str(row.get(db_column, "") or "")
+                for db_column, intake_column in STAGED_DB_TO_INTAKE_COLUMNS.items()
+            }
+            for row in rows
+        ]
+        return pd.DataFrame(mapped, columns=INTAKE_SCHEMA)
+
+    if table == "review_needed":
+        mapped = []
+        for row in rows:
+            mapped.append(
+                {
+                    "severity": str(row.get("severity", "") or ""),
+                    "row_id": str(row.get("row_id", "") or ""),
+                    "source_id": str(row.get("source_id", "") or ""),
+                    "check": str(row.get("check_name", row.get("check", "")) or ""),
+                    "message": str(row.get("message", "") or ""),
+                }
+            )
+        return pd.DataFrame(mapped, columns=["severity", "row_id", "source_id", "check", "message"])
+
+    records = []
+    for row in rows:
+        records.append(
+            {
+                key: str(value or "")
+                for key, value in row.items()
+                if key not in {"id", "updated_at"}
+            }
+        )
+    return pd.DataFrame(records)
+
+
+def map_rows_for_supabase(table: str, rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Convert app/CSV rows to Supabase table columns."""
+    mapped_rows: list[dict[str, str]] = []
+    for row in rows:
+        if table == "staged_evidence":
+            mapped_rows.append(
+                {
+                    db_column: normalize_text(row.get(intake_column))
+                    for intake_column, db_column in INTAKE_TO_STAGED_DB_COLUMNS.items()
+                }
+            )
+        elif table == "review_needed":
+            mapped_rows.append(
+                {
+                    "severity": normalize_text(row.get("severity")),
+                    "row_id": normalize_text(row.get("row_id")),
+                    "source_id": normalize_text(row.get("source_id")),
+                    "check_name": normalize_text(row.get("check", row.get("check_name"))),
+                    "message": normalize_text(row.get("message")),
+                }
+            )
+        else:
+            mapped_rows.append({key: normalize_text(value) for key, value in row.items()})
+    return mapped_rows
+
+
+def load_supabase_table(table: str) -> pd.DataFrame:
+    query = {"select": "*"}
+    order_column = TABLE_ORDER_COLUMNS.get(table)
+    if order_column:
+        query["order"] = f"{order_column}.asc"
+    rows = supabase_request("GET", table, query=query)
+    return map_supabase_rows_for_app(table, rows if isinstance(rows, list) else [])
+
+
+def replace_supabase_table(table: str, rows: list[dict[str, str]]) -> None:
+    delete_column, delete_filter = TABLE_DELETE_FILTERS[table]
+    supabase_request(
+        "DELETE",
+        table,
+        query={delete_column: delete_filter},
+        prefer="return=minimal",
+    )
+    append_supabase_rows(table, rows)
+
+
+def append_supabase_rows(table: str, rows: list[dict[str, str]]) -> None:
+    if not rows:
+        return
+    mapped_rows = map_rows_for_supabase(table, rows)
+    conflict = TABLE_CONFLICT_KEYS.get(table)
+    query = {"on_conflict": conflict} if conflict else None
+    prefer = "resolution=merge-duplicates,return=minimal" if conflict else "return=minimal"
+    supabase_request("POST", table, query=query, body=mapped_rows, prefer=prefer)
+
+
 @st.cache_data(show_spinner=False)
 def load_csv(path: Path) -> pd.DataFrame:
     """Load a CSV as strings so identifiers and matrix text are preserved."""
+    table = PATH_TABLES.get(path)
+    if table and supabase_enabled():
+        return load_supabase_table(table)
     if not path.exists():
         return pd.DataFrame()
     return pd.read_csv(path, dtype=str, keep_default_na=False)
@@ -276,14 +501,19 @@ def next_row_id(df: pd.DataFrame) -> str:
 
 
 def append_evidence_row(row: dict[str, str], columns: list[str]) -> None:
-    """Append one row to the evidence CSV while preserving existing rows."""
-    with EVIDENCE_PATH.open("a", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=columns)
-        writer.writerow(row)
+    """Append one row to the evidence store while preserving existing rows."""
+    append_rows(EVIDENCE_PATH, [row], columns)
 
 
 def write_csv(path: Path, rows: list[dict[str, str]], columns: list[str]) -> None:
-    """Write rows with a fixed header."""
+    """Write rows with a fixed header and mirror supported tables to Supabase."""
+    table = PATH_TABLES.get(path)
+    if table and supabase_enabled():
+        if table == "source_registry":
+            append_supabase_rows(table, rows)
+        else:
+            replace_supabase_table(table, rows)
+
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns, extrasaction="ignore")
@@ -292,7 +522,11 @@ def write_csv(path: Path, rows: list[dict[str, str]], columns: list[str]) -> Non
 
 
 def append_rows(path: Path, rows: list[dict[str, str]], columns: list[str]) -> None:
-    """Append rows to a CSV, creating the file and header when needed."""
+    """Append rows to local CSV and supported Supabase tables."""
+    table = PATH_TABLES.get(path)
+    if table and supabase_enabled():
+        append_supabase_rows(table, rows)
+
     path.parent.mkdir(parents=True, exist_ok=True)
     file_exists = path.exists() and path.stat().st_size > 0
     with path.open("a", encoding="utf-8", newline="") as handle:
@@ -940,6 +1174,11 @@ def page_source_registry(source_df: pd.DataFrame) -> None:
 
 def render_intake_upload() -> None:
     st.subheader("Import Candidate CSV")
+    if supabase_enabled():
+        st.caption("Storage: Supabase live tables, with local CSV mirror.")
+    else:
+        st.caption("Storage: local CSV fallback. Add Supabase credentials to write live tables.")
+
     uploaded_file = st.file_uploader("Upload AI-generated candidate rows", type=["csv"])
     if uploaded_file is None:
         return
@@ -966,10 +1205,18 @@ def render_intake_upload() -> None:
     if upload_hash in staged_hashes:
         st.info("This CSV has already been staged in this session.")
     else:
-        append_rows(STAGED_EVIDENCE_PATH, normalized.to_dict("records"), INTAKE_SCHEMA)
-        staged_hashes.add(upload_hash)
-        clear_data_cache()
-        st.success(f"CSV passed intake validation and staged {len(normalized):,} candidate rows.")
+        try:
+            append_rows(STAGED_EVIDENCE_PATH, normalized.to_dict("records"), INTAKE_SCHEMA)
+        except Exception as exc:
+            st.error(f"CSV passed intake validation, but staging failed: {exc}")
+            return
+        else:
+            staged_hashes.add(upload_hash)
+            clear_data_cache()
+            storage_target = "Supabase staged_evidence" if supabase_enabled() else "local staged_evidence.csv"
+            st.success(
+                f"CSV passed intake validation and staged {len(normalized):,} candidate rows to {storage_target}."
+            )
 
     st.dataframe(normalized, use_container_width=True, hide_index=True)
     st.caption("Open Staged Evidence in the sidebar to review, edit, and accept verified rows.")
@@ -1070,8 +1317,8 @@ def page_staged_evidence(staged_df: pd.DataFrame, evidence_df: pd.DataFrame, sou
             official_rows, updated_sources = accepted_rows_to_official(verified_rows, evidence_df, source_df)
 
             if official_rows:
-                append_rows(EVIDENCE_PATH, official_rows, list(evidence_df.columns))
                 write_csv(SOURCE_PATH, updated_sources.to_dict("records"), list(updated_sources.columns))
+                append_rows(EVIDENCE_PATH, official_rows, list(evidence_df.columns))
 
             remaining = normalized[~verified_mask]
             write_csv(STAGED_EVIDENCE_PATH, remaining.to_dict("records"), INTAKE_SCHEMA)
