@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import hashlib
 import io
 import json
 import os
@@ -1184,7 +1183,6 @@ def render_intake_upload() -> None:
         return
 
     file_bytes = uploaded_file.getvalue()
-    upload_hash = hashlib.sha256(file_bytes).hexdigest()
 
     try:
         candidate_df = pd.read_csv(io.BytesIO(file_bytes), dtype=str, keep_default_na=False)
@@ -1201,24 +1199,20 @@ def render_intake_upload() -> None:
         return
 
     normalized = normalize_intake_df(candidate_df)
-    staged_hashes = st.session_state.setdefault("staged_upload_hashes", set())
-    if upload_hash in staged_hashes:
-        st.info("This CSV has already been staged in this session.")
-    else:
+    storage_target = "Supabase staged_evidence" if supabase_enabled() else "local staged_evidence.csv"
+    st.success(f"CSV passed intake validation with {len(normalized):,} candidate rows.")
+    st.dataframe(normalized, use_container_width=True, hide_index=True)
+
+    if st.button(f"Upload {len(normalized):,} rows to {storage_target}", type="primary"):
         try:
             append_rows(STAGED_EVIDENCE_PATH, normalized.to_dict("records"), INTAKE_SCHEMA)
         except Exception as exc:
-            st.error(f"CSV passed intake validation, but staging failed: {exc}")
+            st.error(f"Upload failed: {exc}")
             return
         else:
-            staged_hashes.add(upload_hash)
             clear_data_cache()
-            storage_target = "Supabase staged_evidence" if supabase_enabled() else "local staged_evidence.csv"
-            st.success(
-                f"CSV passed intake validation and staged {len(normalized):,} candidate rows to {storage_target}."
-            )
+            st.success(f"Uploaded {len(normalized):,} candidate rows to {storage_target}.")
 
-    st.dataframe(normalized, use_container_width=True, hide_index=True)
     st.caption("Open Staged Evidence in the sidebar to review, edit, and accept verified rows.")
 
 
