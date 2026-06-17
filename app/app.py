@@ -17,7 +17,66 @@ DATA_DIR = REPO_ROOT / "data"
 EVIDENCE_PATH = DATA_DIR / "evidence_matrix.csv"
 SOURCE_PATH = DATA_DIR / "source_registry.csv"
 REVIEW_PATH = DATA_DIR / "review_needed.csv"
+STAGED_EVIDENCE_PATH = DATA_DIR / "staged_evidence.csv"
 VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_matrix.py"
+
+INTAKE_SCHEMA = [
+    "row_id",
+    "Impact domain",
+    "IOOS component",
+    "Region",
+    "User group",
+    "Decision supported",
+    "Economic pathway",
+    "Metric",
+    "Metric year / dollar year",
+    "Source",
+    "Source URL",
+    "Evidence strength",
+    "IOOS attribution strength",
+    "Source verification needed",
+    "Limitations",
+    "Claim allowed",
+    "Update frequency",
+    "AI extraction notes",
+]
+
+INTAKE_TO_EVIDENCE_COLUMNS = {
+    "row_id": "row_id",
+    "Impact domain": "impact_domain",
+    "IOOS component": "ioos_component",
+    "Region": "region",
+    "User group": "user_group",
+    "Decision supported": "decision_supported",
+    "Economic pathway": "economic_pathway",
+    "Metric": "metric",
+    "Metric year / dollar year": "metric_year_or_dollar_year",
+    "Source": "source_id",
+    "Evidence strength": "evidence_strength",
+    "IOOS attribution strength": "ioos_attribution_strength",
+    "Source verification needed": "source_verification_needed",
+    "Limitations": "limitations",
+    "Claim allowed": "claim_allowed",
+    "Update frequency": "update_frequency",
+    "AI extraction notes": "ai_extraction_notes",
+}
+
+INTAKE_REQUIRED_VALUES = [
+    "Source",
+    "Source URL",
+    "Claim allowed",
+    "Limitations",
+    "Evidence strength",
+    "IOOS attribution strength",
+]
+
+ALLOWED_RATINGS = {
+    "Strong",
+    "Medium",
+    "Contextual",
+    "Modeled",
+    "Needs verification",
+}
 
 REQUIRED_ADD_FIELDS = [
     "impact_domain",
@@ -154,6 +213,56 @@ def render_filtered_table(df: pd.DataFrame, key_prefix: str) -> pd.DataFrame:
     return filtered
 
 
+def intake_schema_csv_header() -> str:
+    return ",".join(INTAKE_SCHEMA)
+
+
+def research_prompt(topic: str) -> str:
+    topic_text = topic.strip() or "[INSERT TOPIC]"
+    return f"""You are generating candidate evidence rows for the IOOS Economic Evidence App.
+
+Return only CSV rows using this exact schema:
+
+{intake_schema_csv_header()}
+
+Task:
+Research the following IOOS economic impact topic:
+{topic_text}
+
+Rules:
+- Use only real sources.
+- Do not invent numbers, metrics, source titles, or URLs.
+- If the evidence is qualitative, say so in the Metric field.
+- If the source supports economic context but not IOOS-attributable benefit, set IOOS attribution strength to Contextual.
+- If the claim is modeled, set Evidence strength to Modeled.
+- If the source has not been manually checked, set Source verification needed to Yes.
+- Use conservative claim language in Claim allowed.
+- Include limitations for every row.
+- Return CSV only."""
+
+
+def source_prompt(source_text: str) -> str:
+    source_body = source_text.strip() or "[PASTE SOURCE URL, TITLE, TEXT, ABSTRACT, OR REPORT EXCERPT]"
+    return f"""You are extracting candidate rows for the IOOS Economic Evidence App.
+
+Source:
+{source_body}
+
+Return only rows that fit this exact schema:
+
+{intake_schema_csv_header()}
+
+Rules:
+- Extract only evidence actually supported by the source.
+- Do not create a row if the source is too vague.
+- Do not overstate IOOS attribution.
+- If the source is not IOOS-specific, mark IOOS attribution strength as Contextual.
+- If the source provides economic exposure but not avoided cost or benefit, say that in Limitations.
+- Set Source verification needed to Yes unless the row has been manually checked.
+- Write Claim allowed as a cautious sentence that COL could safely use.
+- Return CSV only."""
+
+
 def next_row_id(df: pd.DataFrame) -> str:
     """Suggest the next numeric row_id without changing existing rows."""
     if "row_id" not in df.columns or df.empty:
@@ -169,6 +278,178 @@ def append_evidence_row(row: dict[str, str], columns: list[str]) -> None:
     with EVIDENCE_PATH.open("a", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writerow(row)
+
+
+def write_csv(path: Path, rows: list[dict[str, str]], columns: list[str]) -> None:
+    """Write rows with a fixed header."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def append_rows(path: Path, rows: list[dict[str, str]], columns: list[str]) -> None:
+    """Append rows to a CSV, creating the file and header when needed."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    file_exists = path.exists() and path.stat().st_size > 0
+    with path.open("a", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns, extrasaction="ignore")
+        if not file_exists:
+            writer.writeheader()
+        writer.writerows(rows)
+
+
+def normalize_intake_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Keep candidate rows on the exact intake contract and set review defaults."""
+    normalized = df.copy()
+    normalized.columns = [str(column).strip().lstrip("\ufeff") for column in normalized.columns]
+    for column in INTAKE_SCHEMA:
+        if column not in normalized.columns:
+            normalized[column] = ""
+    normalized = normalized[INTAKE_SCHEMA].fillna("").astype(str)
+    normalized["Source verification needed"] = normalized["Source verification needed"].apply(
+        lambda value: normalize_text(value) or "Yes"
+    )
+    return normalized
+
+
+def validate_intake_df(df: pd.DataFrame) -> list[str]:
+    """Validate AI candidate rows before they can enter staging or the matrix."""
+    errors: list[str] = []
+    columns = [str(column).strip().lstrip("\ufeff") for column in df.columns]
+    missing_columns = [column for column in INTAKE_SCHEMA if column not in columns]
+    extra_columns = [column for column in columns if column not in INTAKE_SCHEMA]
+
+    if missing_columns:
+        errors.append("Missing required columns: " + ", ".join(missing_columns))
+    if extra_columns:
+        errors.append("Unexpected columns: " + ", ".join(extra_columns))
+    if errors:
+        return errors
+
+    normalized = normalize_intake_df(df)
+    for index, row in normalized.iterrows():
+        label = f"row {index + 1}"
+        for column in INTAKE_REQUIRED_VALUES:
+            if not normalize_text(row.get(column)):
+                errors.append(f"{label} missing required value: {column}")
+        for column in ["Evidence strength", "IOOS attribution strength"]:
+            value = normalize_text(row.get(column))
+            if value and value not in ALLOWED_RATINGS:
+                errors.append(f"{label} has invalid {column}: {value}")
+        verification = normalize_text(row.get("Source verification needed"))
+        if verification not in {"Yes", "No"}:
+            errors.append(f"{label} Source verification needed must be Yes or No")
+    return errors
+
+
+def slugify_source_id(value: str, existing_ids: set[str]) -> str:
+    """Create a stable source_id from a staged Source value."""
+    base = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-") or "ai-intake-source"
+    base = base[:60].strip("-") or "ai-intake-source"
+    candidate = base
+    suffix = 2
+    while candidate in existing_ids:
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    existing_ids.add(candidate)
+    return candidate
+
+
+def map_staged_row_to_evidence(row: dict[str, str], source_id: str, row_id: str) -> dict[str, str]:
+    """Convert one exact-schema candidate row into the official matrix columns."""
+    evidence_row = {
+        evidence_column: normalize_text(row.get(intake_column))
+        for intake_column, evidence_column in INTAKE_TO_EVIDENCE_COLUMNS.items()
+    }
+    evidence_row["row_id"] = row_id
+    evidence_row["source_id"] = source_id
+    return evidence_row
+
+
+def source_lookup(source_df: pd.DataFrame) -> tuple[dict[tuple[str, str], str], set[str]]:
+    """Build source matching helpers from the source registry."""
+    lookup: dict[tuple[str, str], str] = {}
+    existing_ids: set[str] = set()
+    if source_df.empty:
+        return lookup, existing_ids
+
+    for _, source in source_df.iterrows():
+        source_id = normalize_text(source.get("source_id"))
+        if not source_id:
+            continue
+        existing_ids.add(source_id)
+        key = (
+            normalize_text(source.get("source_name")).lower(),
+            normalize_text(source.get("source_url")).lower(),
+        )
+        lookup[key] = source_id
+    return lookup, existing_ids
+
+
+def accepted_rows_to_official(
+    staged_rows: list[dict[str, str]],
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+) -> tuple[list[dict[str, str]], pd.DataFrame]:
+    """Convert verified staged rows to official evidence rows and source records."""
+    lookup, existing_ids = source_lookup(source_df)
+    source_records = source_df.to_dict("records") if not source_df.empty else []
+    source_row_index = {normalize_text(row.get("source_id")): row for row in source_records}
+    used_row_ids = {normalize_text(row_id) for row_id in evidence_df.get("row_id", pd.Series(dtype=str))}
+    next_id = int(next_row_id(evidence_df) or "1")
+    evidence_rows: list[dict[str, str]] = []
+
+    for row in staged_rows:
+        source_name = normalize_text(row.get("Source"))
+        source_url = normalize_text(row.get("Source URL"))
+        key = (source_name.lower(), source_url.lower())
+        source_id = lookup.get(key)
+        if not source_id:
+            source_id = slugify_source_id(source_name or source_url, existing_ids)
+            lookup[key] = source_id
+            source_record = {
+                "source_id": source_id,
+                "source_name": source_name,
+                "source_url": source_url,
+                "source_type": "AI intake",
+                "verification_status": "Verified",
+                "rows_supported": "",
+                "notes": normalize_text(row.get("AI extraction notes")),
+            }
+            source_records.append(source_record)
+            source_row_index[source_id] = source_record
+
+        row_id = normalize_text(row.get("row_id"))
+        if not row_id or row_id in used_row_ids:
+            row_id = str(next_id)
+            next_id += 1
+        used_row_ids.add(row_id)
+
+        evidence_rows.append(map_staged_row_to_evidence(row, source_id, row_id))
+        source_record = source_row_index.get(source_id)
+        if source_record is not None:
+            supported = [
+                value.strip()
+                for value in normalize_text(source_record.get("rows_supported")).split(";")
+                if value.strip()
+            ]
+            if row_id not in supported:
+                supported.append(row_id)
+            source_record["rows_supported"] = "; ".join(supported)
+
+    source_columns = list(source_df.columns) if not source_df.empty else [
+        "source_id",
+        "source_name",
+        "source_url",
+        "source_type",
+        "verification_status",
+        "rows_supported",
+        "notes",
+    ]
+    updated_sources = pd.DataFrame(source_records, columns=source_columns)
+    return evidence_rows, updated_sources
 
 
 def run_validation() -> subprocess.CompletedProcess[str]:
@@ -655,6 +936,149 @@ def page_source_registry(source_df: pd.DataFrame) -> None:
     )
 
 
+def render_intake_upload() -> None:
+    st.subheader("Import Candidate CSV")
+    uploaded_file = st.file_uploader("Upload AI-generated candidate rows", type=["csv"])
+    if uploaded_file is None:
+        return
+
+    try:
+        candidate_df = pd.read_csv(uploaded_file, dtype=str, keep_default_na=False)
+    except Exception as exc:
+        st.error(f"Could not read CSV: {exc}")
+        return
+
+    errors = validate_intake_df(candidate_df)
+    if errors:
+        st.error("Candidate CSV was not staged.")
+        st.write("Fix these issues and upload again:")
+        for error in errors:
+            st.write(f"- {error}")
+        return
+
+    normalized = normalize_intake_df(candidate_df)
+    st.success(f"CSV passed intake validation with {len(normalized):,} candidate rows.")
+    st.dataframe(normalized, use_container_width=True, hide_index=True)
+
+    if st.button("Stage candidate rows", type="primary"):
+        append_rows(STAGED_EVIDENCE_PATH, normalized.to_dict("records"), INTAKE_SCHEMA)
+        clear_data_cache()
+        st.success("Candidate rows staged for human review.")
+        st.rerun()
+
+
+def page_evidence_intake() -> None:
+    st.title("Evidence Intake")
+    st.caption("Generate copy-ready prompts, then stage AI candidate rows before they become official evidence.")
+
+    research_tab, source_tab, import_tab = st.tabs(["Research Topic", "Add Source", "Import CSV"])
+
+    with research_tab:
+        topic = st.text_area("Research question or topic", placeholder="Find 5 new evidence rows on HF radar and search and rescue.")
+        prompt = research_prompt(topic)
+        st.text_area("Copy-ready research prompt", value=prompt, height=420)
+        st.download_button(
+            "Download prompt",
+            prompt.encode("utf-8"),
+            file_name="ioos_research_to_row_prompt.txt",
+            mime="text/plain",
+        )
+
+    with source_tab:
+        source_text = st.text_area(
+            "Source URL, title, report text, abstract, or excerpt",
+            placeholder="Paste a NOAA report URL, title, abstract, or excerpt.",
+            height=180,
+        )
+        prompt = source_prompt(source_text)
+        st.text_area("Copy-ready source extraction prompt", value=prompt, height=420)
+        st.download_button(
+            "Download prompt",
+            prompt.encode("utf-8"),
+            file_name="ioos_source_to_row_prompt.txt",
+            mime="text/plain",
+        )
+
+    with import_tab:
+        st.code(intake_schema_csv_header(), language="text")
+        render_intake_upload()
+
+
+def page_staged_evidence(staged_df: pd.DataFrame, evidence_df: pd.DataFrame, source_df: pd.DataFrame) -> None:
+    st.title("Staged Evidence")
+    if not STAGED_EVIDENCE_PATH.exists():
+        st.info("No staged evidence file exists yet. Use Evidence Intake to stage candidate rows.")
+        return
+    if staged_df.empty:
+        st.success("No candidate rows are currently staged.")
+        return
+
+    staged_df = normalize_intake_df(staged_df)
+    staged_df["review_status"] = staged_df["Source verification needed"].map(
+        lambda value: "Verified / ready to accept" if value == "No" else "Needs verification"
+    )
+
+    edited = st.data_editor(
+        staged_df,
+        use_container_width=True,
+        hide_index=True,
+        num_rows="dynamic",
+        column_config={
+            "review_status": st.column_config.TextColumn(disabled=True),
+        },
+        disabled=["review_status"],
+        key="staged_evidence_editor",
+    )
+
+    staged_to_save = edited.drop(columns=["review_status"], errors="ignore")
+    save_errors = validate_intake_df(staged_to_save)
+    left, right = st.columns([1, 1])
+
+    with left:
+        if st.button("Save staged edits"):
+            if save_errors:
+                st.error("Staged edits were not saved.")
+                for error in save_errors:
+                    st.write(f"- {error}")
+            else:
+                normalized = normalize_intake_df(staged_to_save)
+                write_csv(STAGED_EVIDENCE_PATH, normalized.to_dict("records"), INTAKE_SCHEMA)
+                clear_data_cache()
+                st.success("Staged evidence saved.")
+                st.rerun()
+
+    with right:
+        verified_mask = staged_to_save["Source verification needed"].map(normalize_text) == "No"
+        verified_count = int(verified_mask.sum())
+        if st.button(f"Accept {verified_count} verified rows", type="primary", disabled=verified_count == 0):
+            if save_errors:
+                st.error("Fix staged validation errors before accepting rows.")
+                for error in save_errors:
+                    st.write(f"- {error}")
+                return
+
+            normalized = normalize_intake_df(staged_to_save)
+            verified_rows = normalized[verified_mask].to_dict("records")
+            official_rows, updated_sources = accepted_rows_to_official(verified_rows, evidence_df, source_df)
+
+            if official_rows:
+                append_rows(EVIDENCE_PATH, official_rows, list(evidence_df.columns))
+                write_csv(SOURCE_PATH, updated_sources.to_dict("records"), list(updated_sources.columns))
+
+            remaining = normalized[~verified_mask]
+            write_csv(STAGED_EVIDENCE_PATH, remaining.to_dict("records"), INTAKE_SCHEMA)
+            clear_data_cache()
+            st.success(f"Accepted {len(official_rows):,} rows into the official matrix.")
+            st.rerun()
+
+    st.download_button(
+        "Download staged CSV",
+        staged_to_save.to_csv(index=False).encode("utf-8"),
+        file_name="staged_evidence.csv",
+        mime="text/csv",
+    )
+
+
 def page_add_evidence_row(evidence_df: pd.DataFrame) -> None:
     st.title("Add Evidence Row")
     if evidence_df.empty:
@@ -717,6 +1141,7 @@ def main() -> None:
     evidence_df = load_csv(EVIDENCE_PATH)
     source_df = load_csv(SOURCE_PATH)
     review_df = load_csv(REVIEW_PATH)
+    staged_df = load_csv(STAGED_EVIDENCE_PATH)
 
     st.sidebar.title("IOOS Matrix")
     page = st.sidebar.radio(
@@ -724,6 +1149,8 @@ def main() -> None:
         [
             "Dashboard Summary",
             "Evidence Matrix",
+            "Evidence Intake",
+            "Staged Evidence",
             "Review Needed",
             "Source Registry",
             "Add Evidence Row",
@@ -735,6 +1162,10 @@ def main() -> None:
         page_dashboard_summary(evidence_df, source_df, review_df)
     elif page == "Evidence Matrix":
         page_evidence_matrix(evidence_df)
+    elif page == "Evidence Intake":
+        page_evidence_intake()
+    elif page == "Staged Evidence":
+        page_staged_evidence(staged_df, evidence_df, source_df)
     elif page == "Review Needed":
         page_review_needed(review_df)
     elif page == "Source Registry":

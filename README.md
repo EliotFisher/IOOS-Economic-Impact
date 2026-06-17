@@ -9,6 +9,7 @@ data/
   evidence_matrix.csv
   source_registry.csv
   review_needed.csv
+  staged_evidence.csv
 scripts/
   validate_matrix.py
 app/
@@ -26,6 +27,8 @@ outputs/
 The project tracks evidence that can support IOOS economic impact claims. Each evidence row captures the impact domain, IOOS component, user group, decision supported, economic pathway, metric, source, claim language, limitations, update frequency, and evidence ratings.
 
 The source registry stores one record per source so that evidence rows can cite sources by `source_id` without repeating source metadata.
+
+The dashboard also includes an AI-assisted intake workflow. AI output is not imported directly into the official matrix. It first goes into `data/staged_evidence.csv` using a strict candidate-row schema, then a human reviewer verifies the source, claim, attribution, and limitations before accepting rows into the official evidence matrix.
 
 ## How The Evidence Matrix Works
 
@@ -69,10 +72,36 @@ The dashboard includes:
 
 - Dashboard summary charts
 - Searchable and filterable evidence matrix
+- Evidence Intake prompt templates for research-to-row and source-to-row workflows
+- Strict candidate CSV validation and staged evidence review
 - Review-needed table
 - Searchable source registry with clickable URLs
 - Add Evidence Row form
 - Run Validation button
+
+## Evidence Intake Workflow
+
+Use the Streamlit dashboard page named `Evidence Intake` for two AI-assisted workflows:
+
+- `Research Topic`: enter a research question or topic and copy the generated prompt.
+- `Add Source`: paste a source URL, title, report text, abstract, or excerpt and copy the generated extraction prompt.
+
+Both prompts require AI to return CSV only, using this exact candidate schema:
+
+```text
+row_id,Impact domain,IOOS component,Region,User group,Decision supported,Economic pathway,Metric,Metric year / dollar year,Source,Source URL,Evidence strength,IOOS attribution strength,Source verification needed,Limitations,Claim allowed,Update frequency,AI extraction notes
+```
+
+Upload the AI-generated CSV on the `Evidence Intake` page. The app rejects candidate rows unless all required columns are present and these fields are populated:
+
+- `Source`
+- `Source URL`
+- `Claim allowed`
+- `Limitations`
+- `Evidence strength`
+- `IOOS attribution strength`
+
+Blank `Source verification needed` values are defaulted to `Yes`. Candidate rows appear on the `Staged Evidence` page, where reviewers can edit staged rows. Rows can only be accepted into the official matrix after `Source verification needed` is set to `No`; accepted rows are mapped into the existing `evidence_matrix.csv` and `source_registry.csv` structure.
 
 ## Add New Evidence Rows
 
