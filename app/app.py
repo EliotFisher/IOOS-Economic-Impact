@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import csv
+import html as html_lib
 import io
 import json
 import os
 import re
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -16,6 +18,7 @@ from urllib.request import Request, urlopen
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +28,7 @@ SOURCE_PATH = DATA_DIR / "source_registry.csv"
 REVIEW_PATH = DATA_DIR / "review_needed.csv"
 STAGED_EVIDENCE_PATH = DATA_DIR / "staged_evidence.csv"
 VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_matrix.py"
+FILLED_BRIEFING_PATH = REPO_ROOT / "outputs" / "IOOS_Congressional_Briefing_Filled.html"
 
 INTAKE_SCHEMA = [
     "row_id",
@@ -308,6 +312,7 @@ def supabase_request(
     headers = {
         "apikey": service_key,
         "Authorization": f"Bearer {service_key}",
+        "User-Agent": "IOOSStreamlitApp/1.0",
     }
     payload = None
     if body is not None:
@@ -805,6 +810,305 @@ def normalize_text(value: object) -> str:
     return str(value or "").strip()
 
 
+def brief_escape(value: object) -> str:
+    """Escape matrix text for the congressional briefing HTML preview."""
+    return html_lib.escape(normalize_text(value), quote=False).replace("\u00ae", "&reg;")
+
+
+def evidence_row_by_id(evidence_df: pd.DataFrame, row_id: str) -> pd.Series | None:
+    if evidence_df.empty or "row_id" not in evidence_df.columns:
+        return None
+    matches = evidence_df[evidence_df["row_id"].map(normalize_text) == row_id]
+    if matches.empty:
+        return None
+    return matches.iloc[0]
+
+
+def source_records_by_id(source_df: pd.DataFrame) -> dict[str, pd.Series]:
+    if source_df.empty or "source_id" not in source_df.columns:
+        return {}
+    return {
+        normalize_text(row.get("source_id")): row
+        for _, row in source_df.iterrows()
+        if normalize_text(row.get("source_id"))
+    }
+
+
+def source_label_for_brief(row: pd.Series | None, sources_by_id: dict[str, pd.Series]) -> str:
+    if row is None:
+        return "Evidence matrix"
+
+    source_id = normalize_text(row.get("source_id"))
+    source = sources_by_id.get(source_id)
+    label = brief_escape(source.get("source_name") if source is not None else source_id)
+    if not label:
+        label = "Evidence matrix"
+
+    verification = normalize_text(source.get("verification_status") if source is not None else "").lower()
+    needs_verification = normalize_text(row.get("source_verification_needed")).lower() == "yes"
+    if needs_verification or "needs" in verification:
+        label += " (needs verification)"
+    return label
+
+
+def row_field(row: pd.Series | None, column: str, fallback: str = "") -> str:
+    if row is None:
+        return fallback
+    value = normalize_text(row.get(column))
+    return value or fallback
+
+
+def build_congressional_briefing_html(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    prepared_for: str,
+    prepared_date: date,
+) -> str:
+    """Build a print-friendly congressional briefing from the current matrix rows."""
+    sources_by_id = source_records_by_id(source_df)
+    rows = {
+        row_id: evidence_row_by_id(evidence_df, row_id)
+        for row_id in ["1", "3", "9", "14", "17"]
+    }
+    evidence_count = len(evidence_df)
+    source_count = len(source_df)
+    prepared_for = normalize_text(prepared_for) or "Congressional Staff"
+    date_label = prepared_date.strftime("%B %#d, %Y") if os.name == "nt" else prepared_date.strftime("%B %-d, %Y")
+
+    ocean_enterprise_metric = row_field(
+        rows["14"],
+        "metric",
+        "Ocean Enterprise business, employment, revenue, and export metrics are tracked in the evidence matrix.",
+    )
+    tampa_claim = row_field(
+        rows["1"],
+        "claim_allowed",
+        "PORTS data support maritime navigation and port decision-making.",
+    )
+    tampa_metric = row_field(rows["1"], "metric", "Tampa Bay PORTS case-study benefits are tracked in the matrix.")
+    ports_scenario_metric = row_field(
+        rows["3"],
+        "metric",
+        "Expanded PORTS scenario estimates are tracked in the matrix.",
+    )
+    hf_radar_claim = row_field(
+        rows["9"],
+        "claim_allowed",
+        "HF radar surface-current data support USCG search planning through SAROPS.",
+    )
+    digital_coast_metric = row_field(
+        rows["17"],
+        "metric",
+        "Related coastal data infrastructure benefit estimates are tracked in the matrix.",
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {{
+    --teal: #00A3B4;
+    --teal-dark: #007785;
+    --blue: #4A94B1;
+    --ink: #2A2A2A;
+    --gray: #6B6B6B;
+    --line: #D8D8D8;
+    --panel: #EFF7F8;
+  }}
+  * {{ box-sizing: border-box; }}
+  body {{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: #888;
+    margin: 0;
+    padding: 20px 0 56px;
+  }}
+  .page {{
+    width: 8.5in;
+    min-height: 11in;
+    margin: 0 auto 28px;
+    background: #fff;
+    padding: 0.55in 0.65in;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+    font-size: 10.3pt;
+    line-height: 1.32;
+  }}
+  .masthead {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 3px solid var(--teal);
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+  }}
+  .brand {{ font-size: 17pt; font-weight: 700; color: var(--teal-dark); }}
+  .doc-label {{
+    text-align: right;
+    font-size: 9pt;
+    color: var(--gray);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }}
+  .title-band {{
+    background: var(--teal);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 3px;
+    margin-bottom: 8px;
+  }}
+  .title-band .kicker {{
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #DFF6F9;
+    margin-bottom: 2px;
+  }}
+  .title-band h1 {{ font-size: 15pt; margin: 0; font-weight: 700; }}
+  .meta-line {{
+    display: flex;
+    justify-content: space-between;
+    font-size: 9pt;
+    color: var(--gray);
+    font-style: italic;
+    margin-bottom: 12px;
+  }}
+  p.lead {{ margin: 0 0 12px; }}
+  .callout {{
+    background: var(--panel);
+    border-left: 4px solid var(--blue);
+    border-radius: 2px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+  }}
+  .callout .label {{
+    font-weight: 700;
+    color: var(--teal-dark);
+    font-size: 9.5pt;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }}
+  h2.section {{
+    font-size: 11pt;
+    color: var(--teal-dark);
+    border-bottom: 1.5px solid var(--teal);
+    padding-bottom: 3px;
+    margin: 14px 0 8px;
+    font-weight: 700;
+  }}
+  ul {{ margin: 0 0 10px; padding-left: 18px; }}
+  li {{ margin-bottom: 4px; }}
+  .vignette {{ margin-bottom: 8px; }}
+  .vignette .sector {{ font-weight: 700; color: var(--blue); }}
+  table.numbers {{ width: 100%; border-collapse: collapse; margin-bottom: 6px; }}
+  table.numbers th {{
+    background: var(--teal);
+    color: #fff;
+    font-size: 9pt;
+    text-align: left;
+    padding: 5px 8px;
+  }}
+  table.numbers td {{ border: 1px solid var(--line); padding: 5px 8px; font-size: 9.5pt; }}
+  table.numbers td.value {{ font-weight: 700; color: var(--teal-dark); }}
+  table.numbers td.source {{ font-style: italic; color: var(--gray); }}
+  .footnote {{ font-size: 8.3pt; color: var(--gray); font-style: italic; margin-bottom: 4px; }}
+  .ask-box {{ background: var(--teal-dark); color: #fff; padding: 12px 14px; border-radius: 3px; margin-top: 14px; }}
+  .ask-box .label {{ font-weight: 700; font-size: 10.5pt; letter-spacing: 0.05em; margin-bottom: 5px; }}
+  .footer {{
+    border-top: 1px solid var(--line);
+    margin-top: 16px;
+    padding-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 8.3pt;
+    color: var(--gray);
+  }}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="masthead">
+    <div class="brand">IOOS Economic Impact</div>
+    <div class="doc-label">Policy&nbsp;Briefing</div>
+  </div>
+  <div class="title-band">
+    <div class="kicker">IOOS Economic Impact</div>
+    <h1>The Forecast Behind the Forecast: Ocean Observations Power America&rsquo;s Coastal Economy</h1>
+  </div>
+  <div class="meta-line">
+    <span>Prepared for: {brief_escape(prepared_for)}</span>
+    <span>{brief_escape(date_label)}</span>
+  </div>
+  <p class="lead">America&rsquo;s coastal economy depends on forecasts that start in the water. IOOS and NOAA observing systems turn water-level, current, biological, chemical, and storm data into operational decisions for ports, shellfish managers, emergency responders, hatcheries, and coastal planners. The live evidence matrix behind this brief currently contains {evidence_count} evidence rows and {source_count} registered sources; its strongest national business context is the Ocean Enterprise survey row, which reports: {brief_escape(ocean_enterprise_metric)}. Case-study and modeled rows show measurable value in port navigation and coastal data infrastructure, while other rows document decision pathways that need updated valuation.</p>
+  <div class="callout">
+    <div class="label">WHY THIS MATTERS TO YOUR OFFICE</div>
+    <ul>
+      <li><b>Ports and maritime commerce:</b> {brief_escape(tampa_claim)} The Tampa Bay case-study metric is {brief_escape(tampa_metric)}.</li>
+      <li><b>Ocean data businesses:</b> The Ocean Enterprise is a measurable business cluster tied to ocean observing and information services. The survey metric reports: {brief_escape(ocean_enterprise_metric)}.</li>
+      <li><b>Public safety and hazards:</b> HF radar data support USCG search planning, glider observations support hurricane intensity forecasting, and NOAA water-level observations support coastal inundation decisions.</li>
+      <li><b>Working waterfronts:</b> HAB forecasts and ocean acidification observations support shellfish closure, sampling, and hatchery timing decisions, but the matrix does not yet quantify IOOS-attributable savings for these rows.</li>
+    </ul>
+  </div>
+  <h2 class="section">How IOOS Creates Economic Value</h2>
+  <p style="margin:0 0 6px;">IOOS converts sustained ocean observations into trusted data products, forecasts, and decisions that keep coastal commerce and public safety systems moving.</p>
+  <ul>
+    <li><b>Observations:</b> PORTS&reg; water levels and currents, HF radar surface currents, gliders, ocean acidification stations, HAB observations, and long-term coastal water-level stations.</li>
+    <li><b>Data Integration:</b> IOOS regional associations and NOAA systems standardize, quality-control, and distribute observations for operational users.</li>
+    <li><b>Models &amp; Forecasts:</b> HAB forecasts, SAROPS drift prediction, hurricane intensity models, inundation dashboards, and port decision-support tools depend on these inputs.</li>
+    <li><b>Decisions:</b> Pilots, port operators, shellfish managers, hatcheries, the Coast Guard, emergency managers, and planners act on the resulting information.</li>
+    <li><b>Economic Outcomes:</b> The matrix documents avoided costs, loading efficiency, targeted closures, search efficiency, preparedness, business revenue, and time savings where sources support those claims.</li>
+  </ul>
+  <h2 class="section">Sector Snapshots</h2>
+  <div class="vignette"><span class="sector">Commercial Fishing &amp; Shellfish: </span>HAB forecasts help managers focus testing and guide closure or advisory decisions; related project rows say forecasts can reduce unnecessary response costs and support targeted closures where operational use is documented. Ocean acidification rows show real-time observations used by shellfish growers and hatcheries, while the West Coast shellfish industry value in the matrix is risk context rather than a quantified IOOS savings claim.</div>
+  <div class="vignette"><span class="sector">Maritime Shipping &amp; Navigation: </span>{brief_escape(tampa_claim)} The matrix also includes a modeled national PORTS&reg; scenario: {brief_escape(ports_scenario_metric)}. That scenario is useful for investment framing but is labeled modeled and needs source verification.</div>
+  <div class="vignette"><span class="sector">Coastal Hazards &amp; Emergency Response: </span>{brief_escape(hf_radar_claim)} IOOS-coordinated glider observations support hurricane intensity forecasting, and NOAA water-level observations support coastal inundation monitoring and local flood decision-making. These are strong operational pathways, but the current rows do not assign avoided-loss dollars.</div>
+</div>
+<div class="page">
+  <h2 class="section" style="margin-top:0;">By the Numbers</h2>
+  <table class="numbers">
+    <tr><th>Metric</th><th>Value</th><th>Source</th></tr>
+    <tr>
+      <td>Ocean observing and information business cluster</td>
+      <td class="value">{brief_escape(ocean_enterprise_metric)}</td>
+      <td class="source">{source_label_for_brief(rows["14"], sources_by_id)}</td>
+    </tr>
+    <tr>
+      <td>Tampa Bay PORTS&reg; case-study benefits</td>
+      <td class="value">{brief_escape(tampa_metric)} ({brief_escape(row_field(rows["1"], "metric_year_or_dollar_year", "dollar year listed in matrix"))})</td>
+      <td class="source">{source_label_for_brief(rows["1"], sources_by_id)}</td>
+    </tr>
+    <tr>
+      <td>Expanded national PORTS&reg; scenario</td>
+      <td class="value">{brief_escape(ports_scenario_metric)}</td>
+      <td class="source">{source_label_for_brief(rows["3"], sources_by_id)}</td>
+    </tr>
+    <tr>
+      <td>Related coastal data infrastructure benefits</td>
+      <td class="value">{brief_escape(digital_coast_metric)}</td>
+      <td class="source">{source_label_for_brief(rows["17"], sources_by_id)}</td>
+    </tr>
+  </table>
+  <div class="footnote">Auto-filled from the current evidence matrix and source registry. Wording follows each row&rsquo;s claim_allowed field; modeled, contextual, and needs-verification values are not presented as direct IOOS-attributable benefits.</div>
+  <h2 class="section">Risk of Underinvestment</h2>
+  <p style="margin:0 0 6px;">Underinvestment erodes the observing, integration, and forecast chain before users see it: fewer trusted inputs, less reliable decision support, and weaker evidence for economic returns.</p>
+  <ul>
+    <li>Ports and pilots lose real-time water-level, current, meteorological, and air-gap information that supports safe navigation and loading decisions.</li>
+    <li>Shellfish managers and hatcheries lose forecast and early-warning data used for targeted monitoring, closures, intake timing, and production scheduling.</li>
+    <li>USCG planners, hurricane forecasters, emergency managers, and coastal planners lose surface-current, glider, and water-level observations that support search planning, intensity forecasts, and flood response.</li>
+  </ul>
+  <div class="ask-box">
+    <div class="label">THE ASK</div>
+    <div>Sustain and strengthen NOAA IOOS observing, regional data integration, and decision-support services, and direct NOAA to update economic valuation for PORTS&reg;, HF radar, HAB forecasts, ocean acidification monitoring, hurricane gliders, and coastal hazards products so appropriators have current benefit estimates.</div>
+  </div>
+  <div class="footer">
+    <span>IOOS Economic Impact Evidence Matrix | Supabase-backed draft</span>
+    <span>Source rows: {source_count} | Evidence rows: {evidence_count}</span>
+  </div>
+</div>
+</body>
+</html>"""
+
+
 def row_warning_map(review_df: pd.DataFrame) -> dict[str, dict[str, object]]:
     """Group validator issues by evidence row_id for dashboard-only rollups."""
     if review_df.empty or "row_id" not in review_df.columns:
@@ -1236,6 +1540,93 @@ def page_source_registry(source_df: pd.DataFrame) -> None:
     )
 
 
+def page_congressional_briefing(evidence_df: pd.DataFrame, source_df: pd.DataFrame) -> None:
+    st.title("Congressional Briefing")
+    st.caption("A print-friendly policy brief generated from the current evidence matrix and source registry.")
+
+    if evidence_df.empty:
+        st.warning("No evidence matrix rows are available.")
+        return
+
+    st.sidebar.subheader("Briefing Draft")
+    prepared_for = st.sidebar.text_input("Prepared for", value="Congressional Staff")
+    prepared_date = st.sidebar.date_input("Brief date", value=date.today())
+
+    briefing_html = build_congressional_briefing_html(
+        evidence_df,
+        source_df,
+        prepared_for,
+        prepared_date,
+    )
+
+    preview_tab, evidence_tab = st.tabs(["Preview", "Evidence Used"])
+
+    with preview_tab:
+        components.html(briefing_html, height=1550, scrolling=True)
+        st.download_button(
+            "Download live briefing HTML",
+            briefing_html.encode("utf-8"),
+            file_name="ioos_congressional_briefing_live.html",
+            mime="text/html",
+        )
+
+        if FILLED_BRIEFING_PATH.exists():
+            st.download_button(
+                "Download original-template draft",
+                FILLED_BRIEFING_PATH.read_bytes(),
+                file_name=FILLED_BRIEFING_PATH.name,
+                mime="text/html",
+            )
+
+    with evidence_tab:
+        briefing_row_ids = ["1", "3", "9", "14", "17"]
+        if "row_id" not in evidence_df.columns:
+            st.info("The evidence matrix has no row_id column.")
+            return
+
+        rows_used = evidence_df[evidence_df["row_id"].map(normalize_text).isin(briefing_row_ids)].copy()
+        if rows_used.empty:
+            st.info("The briefing row IDs are not present in the current matrix.")
+            return
+
+        display_columns = [
+            column
+            for column in [
+                "row_id",
+                "impact_domain",
+                "region",
+                "metric",
+                "source_id",
+                "evidence_strength",
+                "ioos_attribution_strength",
+                "source_verification_needed",
+                "claim_allowed",
+                "limitations",
+            ]
+            if column in rows_used.columns
+        ]
+        st.dataframe(rows_used[display_columns], use_container_width=True, hide_index=True)
+
+        if not source_df.empty and "source_id" in source_df.columns:
+            source_ids = {
+                normalize_text(value)
+                for value in rows_used.get("source_id", pd.Series(dtype=str)).tolist()
+                if normalize_text(value)
+            }
+            sources_used = source_df[source_df["source_id"].map(normalize_text).isin(source_ids)]
+            if not sources_used.empty:
+                st.subheader("Sources")
+                source_config = {}
+                if "source_url" in sources_used.columns:
+                    source_config["source_url"] = st.column_config.LinkColumn("Source URL")
+                st.dataframe(
+                    sources_used,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config=source_config,
+                )
+
+
 def render_intake_upload() -> None:
     st.subheader("Import Candidate CSV")
     if supabase_enabled():
@@ -1475,6 +1866,7 @@ def main() -> None:
         [
             "Dashboard Summary",
             "Evidence Matrix",
+            "Congressional Briefing",
             "Evidence Intake",
             "Staged Evidence",
             "Review Needed",
@@ -1488,6 +1880,8 @@ def main() -> None:
         page_dashboard_summary(evidence_df, source_df, review_df)
     elif page == "Evidence Matrix":
         page_evidence_matrix(evidence_df)
+    elif page == "Congressional Briefing":
+        page_congressional_briefing(evidence_df, source_df)
     elif page == "Evidence Intake":
         page_evidence_intake()
     elif page == "Staged Evidence":
