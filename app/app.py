@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import base64
 import html as html_lib
 import io
 import json
@@ -22,6 +23,7 @@ import streamlit.components.v1 as components
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+APP_DIR = REPO_ROOT / "app"
 DATA_DIR = REPO_ROOT / "data"
 EVIDENCE_PATH = DATA_DIR / "evidence_matrix.csv"
 SOURCE_PATH = DATA_DIR / "source_registry.csv"
@@ -29,6 +31,8 @@ REVIEW_PATH = DATA_DIR / "review_needed.csv"
 STAGED_EVIDENCE_PATH = DATA_DIR / "staged_evidence.csv"
 VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_matrix.py"
 FILLED_BRIEFING_PATH = REPO_ROOT / "outputs" / "IOOS_Congressional_Briefing_Filled.html"
+UCAR_LOGO_PATH = APP_DIR / "logo-ucar.avif"
+COL_LOGO_PATH = APP_DIR / "col-logo.avif"
 
 INTAKE_SCHEMA = [
     "row_id",
@@ -815,6 +819,15 @@ def brief_escape(value: object) -> str:
     return html_lib.escape(normalize_text(value), quote=False).replace("\u00ae", "&reg;")
 
 
+def asset_data_uri(path: Path, mime_type: str) -> str:
+    """Embed small static assets directly in generated HTML."""
+    try:
+        encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    except OSError:
+        return ""
+    return f"data:{mime_type};base64,{encoded}"
+
+
 def evidence_row_by_id(evidence_df: pd.DataFrame, row_id: str) -> pd.Series | None:
     if evidence_df.empty or "row_id" not in evidence_df.columns:
         return None
@@ -822,33 +835,6 @@ def evidence_row_by_id(evidence_df: pd.DataFrame, row_id: str) -> pd.Series | No
     if matches.empty:
         return None
     return matches.iloc[0]
-
-
-def source_records_by_id(source_df: pd.DataFrame) -> dict[str, pd.Series]:
-    if source_df.empty or "source_id" not in source_df.columns:
-        return {}
-    return {
-        normalize_text(row.get("source_id")): row
-        for _, row in source_df.iterrows()
-        if normalize_text(row.get("source_id"))
-    }
-
-
-def source_label_for_brief(row: pd.Series | None, sources_by_id: dict[str, pd.Series]) -> str:
-    if row is None:
-        return "Evidence matrix"
-
-    source_id = normalize_text(row.get("source_id"))
-    source = sources_by_id.get(source_id)
-    label = brief_escape(source.get("source_name") if source is not None else source_id)
-    if not label:
-        label = "Evidence matrix"
-
-    verification = normalize_text(source.get("verification_status") if source is not None else "").lower()
-    needs_verification = normalize_text(row.get("source_verification_needed")).lower() == "yes"
-    if needs_verification or "needs" in verification:
-        label += " (needs verification)"
-    return label
 
 
 def row_field(row: pd.Series | None, column: str, fallback: str = "") -> str:
@@ -864,28 +850,34 @@ def build_congressional_briefing_html(
     prepared_for: str,
     prepared_date: date,
 ) -> str:
-    """Build a concise print-friendly aide memo from the current matrix rows."""
-    sources_by_id = source_records_by_id(source_df)
+    """Build a concise print-friendly congressional brief from the current matrix rows."""
     rows = {
         row_id: evidence_row_by_id(evidence_df, row_id)
-        for row_id in ["1", "3", "5", "6", "9", "11", "14", "15", "16", "17"]
+        for row_id in ["1", "5", "9", "14"]
     }
     evidence_count = len(evidence_df)
     source_count = len(source_df)
     prepared_for = normalize_text(prepared_for) or "Congressional Staff"
     date_label = prepared_date.strftime("%B %#d, %Y") if os.name == "nt" else prepared_date.strftime("%B %-d, %Y")
+    ucar_logo_uri = asset_data_uri(UCAR_LOGO_PATH, "image/avif")
+    col_logo_uri = asset_data_uri(COL_LOGO_PATH, "image/avif")
 
     ocean_enterprise_metric = row_field(
         rows["14"],
         "metric",
         "Ocean Enterprise business, employment, revenue, and export metrics are tracked in the evidence matrix.",
     )
-    tampa_claim = row_field(
-        rows["1"],
-        "claim_allowed",
-        "PORTS data support maritime navigation and port decision-making.",
-    )
     tampa_metric = row_field(rows["1"], "metric", "Tampa Bay PORTS case-study benefits are tracked in the matrix.")
+    hab_forecast_claim = row_field(
+        rows["5"],
+        "claim_allowed",
+        "HAB forecasts help managers focus testing and guide closure/advisory decisions.",
+    )
+    hf_radar_claim = row_field(
+        rows["9"],
+        "claim_allowed",
+        "HF radar surface-current data support USCG search planning through SAROPS.",
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -896,9 +888,11 @@ def build_congressional_briefing_html(
     --teal: #00A3B4;
     --teal-dark: #007785;
     --blue: #4A94B1;
-    --ink: #2A2A2A;
-    --gray: #6B6B6B;
-    --line: #D8D8D8;
+    --gold: #F2A93B;
+    --ink: #222;
+    --gray: #5E6A71;
+    --line: #D7E1E5;
+    --panel: #EFF7F8;
   }}
   * {{ box-sizing: border-box; }}
   body {{
@@ -913,9 +907,9 @@ def build_congressional_briefing_html(
     min-height: 11in;
     margin: 0 auto 28px;
     background: #fff;
-    padding: 0.55in 0.65in;
+    padding: 0.5in 0.62in;
     box-shadow: 0 4px 18px rgba(0,0,0,0.25);
-    font-size: 10.3pt;
+    font-size: 10.2pt;
     line-height: 1.32;
   }}
   .masthead {{
@@ -923,60 +917,131 @@ def build_congressional_briefing_html(
     align-items: center;
     justify-content: space-between;
     border-bottom: 3px solid var(--teal);
-    padding-bottom: 10px;
-    margin-bottom: 10px;
-  }}
-  .brand {{ font-size: 17pt; font-weight: 700; color: var(--teal-dark); }}
-  .doc-label {{
-    text-align: right;
-    font-size: 9pt;
-    color: var(--gray);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }}
-  .title-band {{
-    background: var(--teal);
-    color: #fff;
-    padding: 10px 14px;
-    border-radius: 3px;
-    margin-bottom: 8px;
-  }}
-  .title-band .kicker {{
-    font-size: 8.5pt;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: #DFF6F9;
-    margin-bottom: 2px;
-  }}
-  .title-band h1 {{ font-size: 15pt; margin: 0; font-weight: 700; }}
-  .meta-line {{
-    display: flex;
-    justify-content: space-between;
-    font-size: 9pt;
-    color: var(--gray);
+    padding-bottom: 9px;
     margin-bottom: 12px;
   }}
-  p.lead {{ margin: 0 0 12px; }}
+  .logos {{ display: flex; align-items: center; gap: 18px; }}
+  .logos img.logo-ucar {{ height: 26px; width: auto; }}
+  .logos img.logo-col {{ height: 46px; width: auto; }}
+  .logos .divider {{ width: 1px; height: 36px; background: var(--line); }}
+  .doc-label {{
+    text-align: right;
+    font-size: 8.5pt;
+    color: var(--gray);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }}
+  .hero {{
+    background: var(--teal);
+    color: #fff;
+    padding: 14px 16px;
+    border-radius: 3px;
+    margin-bottom: 12px;
+  }}
+  .hero .kicker {{
+    font-size: 8.5pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #DFF6F9;
+    margin-bottom: 5px;
+    font-weight: 700;
+  }}
+  .hero h1 {{ font-size: 23pt; line-height: 1.05; margin: 0 0 5px; }}
+  .hero .subtitle {{ font-size: 11.2pt; margin: 0; color: #F2FCFD; }}
+  .brief-meta {{
+    display: flex;
+    justify-content: space-between;
+    color: var(--gray);
+    font-size: 8.8pt;
+    margin: -3px 0 10px;
+  }}
+  .metric-strip {{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 10px 0 12px;
+  }}
+  .metric {{
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--gold);
+    padding: 8px 9px;
+    min-height: 58px;
+  }}
+  .metric .value {{ color: var(--teal-dark); font-weight: 800; font-size: 18pt; line-height: 1; }}
+  .metric .label {{ color: var(--gray); font-size: 8.5pt; margin-top: 4px; }}
   h2.section {{
-    font-size: 11pt;
+    font-size: 10.8pt;
     color: var(--teal-dark);
     border-bottom: 1.5px solid var(--teal);
     padding-bottom: 3px;
-    margin: 14px 0 8px;
+    margin: 12px 0 7px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }}
+  p {{ margin: 0 0 8px; }}
+  .bottom-line {{
+    background: var(--panel);
+    border-left: 5px solid var(--teal);
+    padding: 10px 13px;
+    margin: 8px 0 12px;
+    font-weight: 700;
+    font-size: 11.2pt;
+  }}
+  .pillars {{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+  }}
+  .pillar {{
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--blue);
+    padding: 8px 9px;
+    min-height: 145px;
+  }}
+  .pillar h3 {{
+    margin: 0 0 5px;
+    color: var(--teal-dark);
+    font-size: 10.2pt;
+  }}
+  .pillar p {{ font-size: 9.2pt; margin-bottom: 6px; }}
+  .highlight {{ color: var(--teal-dark); font-weight: 800; }}
+  .sector-grid {{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px 18px;
+    margin: 8px 0 12px;
+    padding-left: 0;
+    list-style: none;
+  }}
+  .sector-grid li {{
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 4px;
+  }}
+  .ask-box {{
+    background: var(--teal-dark);
+    color: #fff;
+    padding: 13px 15px;
+    border-radius: 3px;
+    margin-top: 12px;
     font-weight: 700;
   }}
-  ul {{ margin: 0 0 10px; padding-left: 18px; }}
-  li {{ margin-bottom: 4px; }}
-  .footnote {{ font-size: 8.3pt; color: var(--gray); font-style: italic; margin-top: 12px; }}
-  .ask-box {{ background: var(--teal-dark); color: #fff; padding: 12px 14px; border-radius: 3px; margin-top: 14px; }}
-  .ask-box .label {{ font-weight: 700; font-size: 10.5pt; letter-spacing: 0.05em; margin-bottom: 5px; }}
+  .ask-box .label {{
+    color: #DFF6F9;
+    font-size: 9pt;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }}
+  .footnote {{ font-size: 8.1pt; color: var(--gray); font-style: italic; margin-top: 10px; }}
   .footer {{
     border-top: 1px solid var(--line);
-    margin-top: 16px;
-    padding-top: 8px;
+    margin-top: 14px;
+    padding-top: 7px;
     display: flex;
     justify-content: space-between;
-    font-size: 8.3pt;
+    font-size: 8.2pt;
     color: var(--gray);
   }}
 </style>
@@ -984,44 +1049,98 @@ def build_congressional_briefing_html(
 <body>
 <div class="page">
   <div class="masthead">
-    <div class="brand">IOOS Economic Impact</div>
-    <div class="doc-label">Aide&nbsp;Memo</div>
-  </div>
-  <div class="title-band">
-    <div class="kicker">Legislative Memo</div>
-    <h1>Aide Memo: NOAA IOOS Economic Impact</h1>
-  </div>
-  <div class="meta-line" style="display:block; line-height:1.45;">
-    <div><b>To:</b> {brief_escape(prepared_for)}</div>
-    <div><b>From:</b> IOOS Economic Impact Team</div>
-    <div><b>Date:</b> {brief_escape(date_label)}</div>
-    <div><b>Re:</b> Sustain NOAA IOOS capacity and update economic valuations</div>
+    <div class="logos">
+      <img class="logo-ucar" src="{ucar_logo_uri}" alt="UCAR">
+      <div class="divider"></div>
+      <img class="logo-col" src="{col_logo_uri}" alt="Center for Ocean Leadership">
+    </div>
+    <div class="doc-label">Congressional Brief</div>
   </div>
 
-  <h2 class="section">Executive Summary</h2>
-  <p class="lead"><b>Recommendation:</b> Sustain NOAA IOOS observing and data-integration capacity, and request updated economic valuations for the services most relevant to appropriations. The current matrix shows clear economic relevance for ports, ocean-data businesses, shellfish/HAB management, and public safety, but several pathways need current IOOS-attributable estimates.</p>
+  <div class="hero">
+    <div class="kicker">IOOS Reauthorization Brief</div>
+    <h1>America&rsquo;s Ocean Intelligence System</h1>
+    <p class="subtitle">The case for reauthorizing the Integrated Ocean Observing System (IOOS)</p>
+  </div>
+  <div class="brief-meta">
+    <span>Prepared for: {brief_escape(prepared_for)}</span>
+    <span>{brief_escape(date_label)}</span>
+  </div>
 
-  <h2 class="section">Background</h2>
-  <p style="margin:0 0 10px;">IOOS turns ocean observations into operational information used by ports, pilots, emergency responders, shellfish managers, hatcheries, and coastal planners. This memo draws from the current evidence matrix: {evidence_count} evidence rows and {source_count} registered sources.</p>
+  <div class="metric-strip">
+    <div class="metric"><div class="value">5x</div><div class="label">Return on investment</div></div>
+    <div class="metric"><div class="value">$400B</div><div class="label">U.S. ocean economy enabled</div></div>
+    <div class="metric"><div class="value">325K</div><div class="label">Ocean Enterprise jobs supported</div></div>
+    <div class="metric"><div class="value">$280M</div><div class="label">Requested over 5 years</div></div>
+  </div>
 
-  <h2 class="section">Analysis / Evidence</h2>
-  <ul>
-    <li><b>Maritime commerce:</b> {brief_escape(tampa_claim)} Tampa Bay PORTS&reg; case-study benefits are {brief_escape(tampa_metric)} ({brief_escape(row_field(rows["1"], "metric_year_or_dollar_year", "dollar year listed in matrix"))}).</li>
-    <li><b>Ocean-data economy:</b> The Ocean Enterprise survey reported {brief_escape(ocean_enterprise_metric)}. Use this as sector context, not direct IOOS attribution.</li>
-    <li><b>Public safety:</b> HF radar supports Coast Guard search planning; gliders support hurricane intensity forecasting; NOAA water-level stations support flood decisions. Current rows document operational use, not avoided-loss dollars.</li>
-    <li><b>Working waterfronts:</b> HAB forecasts and ocean acidification observations support targeted closures, monitoring, and hatchery timing. Quantified IOOS-attributable savings still need follow-up.</li>
+  <div class="bottom-line">Bottom line: IOOS is proven national infrastructure. It turns ocean observations into safer ports, better storm decisions, stronger coastal economies, and private-sector growth.</div>
+
+  <h2 class="section">What IOOS Is</h2>
+  <p>IOOS is the United States&rsquo; national network of ocean sensors, buoys, radar systems, satellites, and data platforms that continuously monitors U.S. coastal waters, the Great Lakes, and ocean conditions.</p>
+  <p>Think of it as the <b>interstate highway system for ocean data</b>: a federal investment that enables private-sector activity, operational decisions, and public safety outcomes that would not be possible without shared data infrastructure.</p>
+
+  <h2 class="section">Why It Matters: Three Things Only IOOS Can Do</h2>
+  <div class="pillars">
+    <div class="pillar">
+      <h3>1. Disaster Response</h3>
+      <p>Storm surge kills more Americans than any other hurricane hazard. IOOS real-time coastal data powers forecasts that determine evacuation timing.</p>
+      <p><b>Template example:</b> During Hurricane Sandy, IOOS data enabled 80 ships to safely evacuate Hampton Roads three days early, avoiding an estimated $28M in potential losses.</p>
+    </div>
+    <div class="pillar">
+      <h3>2. Port Efficiency</h3>
+      <p>IOOS water-level and current data helps port pilots optimize vessel drafts, reduce delays, and minimize costly lightering operations.</p>
+      <p><b>Matrix evidence:</b> Tampa Bay PORTS&reg; benefits are {brief_escape(tampa_metric)}.</p>
+    </div>
+    <div class="pillar">
+      <h3>3. Coastal Communities</h3>
+      <p>IOOS powers HAB early-warning systems, supports fisheries decisions, and feeds search-and-rescue operations on every U.S. coastline.</p>
+      <p><b>Matrix evidence:</b> {brief_escape(hab_forecast_claim)} {brief_escape(hf_radar_claim)}</p>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+  <div class="masthead">
+    <div class="logos">
+      <img class="logo-ucar" src="{ucar_logo_uri}" alt="UCAR">
+      <div class="divider"></div>
+      <img class="logo-col" src="{col_logo_uri}" alt="Center for Ocean Leadership">
+    </div>
+    <div class="doc-label">Congressional Brief</div>
+  </div>
+
+  <h2 class="section" style="margin-top:0;">The Economy IOOS Enables</h2>
+  <p>IOOS is public data infrastructure for the ocean economy, including commercial shipping, offshore energy, recreational boating, coastal tourism, and seafood.</p>
+  <p>The Ocean Enterprise survey reported <span class="highlight">{brief_escape(ocean_enterprise_metric)}</span>. Use this as sector context, not a claim that IOOS directly caused all revenue or jobs.</p>
+
+  <ul class="sector-grid">
+    <li>Commercial shipping and port operations</li>
+    <li>Offshore energy development</li>
+    <li>Recreational boating and coastal tourism</li>
+    <li>Commercial and recreational fisheries</li>
+    <li>Coastal hazard and emergency management</li>
+    <li>U.S. Navy and Coast Guard operations</li>
+    <li>Marine technology industry</li>
+    <li>Shellfish and aquaculture businesses</li>
   </ul>
 
-  <h2 class="section">Recommendation</h2>
+  <h2 class="section">The Legislative Moment</h2>
+  <p>H.R. 2294 passed the House in March 2026 and companion S. 2126 is pending Senate action. Both bills authorize <b>$280 million over FY2026-2030</b>, or $56 million per year, consistent with current appropriations.</p>
+  <p>This is not a new program. It is routine reauthorization of proven national infrastructure with documented economic and public safety value.</p>
+
+  <h2 class="section">Staff Takeaway</h2>
+  <p><b>Do not make this complicated:</b> IOOS is a modest federal investment that coastal states, ports, emergency managers, scientists, and ocean businesses already rely on. The policy choice is whether to keep that infrastructure stable.</p>
+
   <div class="ask-box">
-    <div class="label">THE ASK</div>
-    <div>Sustain and strengthen NOAA IOOS observing, regional data integration, and decision-support services. Direct NOAA to update economic valuations for PORTS&reg;, HF radar/SAROPS, HAB forecasts, ocean acidification monitoring, hurricane gliders, and coastal inundation products before the next appropriations cycle.</div>
+    <div class="label">The Ask</div>
+    Support Senate floor action on S. 2126 &nbsp; | &nbsp; Defend IOOS funding in CJS appropriations at or above current levels &nbsp; | &nbsp; Request a district-specific briefing on how IOOS serves coastal, port, fisheries, or emergency management stakeholders.
   </div>
 
-  <div class="footnote">Source note: Auto-filled from the current evidence matrix and source registry. Strong figures are reported with caveats; modeled, contextual, and needs-verification values are not presented as direct IOOS-attributable benefits.</div>
+  <div class="footnote">Source note: Built from the supplied Word brief template plus the current evidence matrix and source registry. Template legislative and non-matrix figures should be source-checked before external distribution.</div>
 
   <div class="footer">
-    <span>IOOS Economic Impact Evidence Matrix | aide memo draft</span>
+    <span>IOOS Economic Impact Evidence Matrix | template-based congressional brief</span>
     <span>Sources: {source_count} | Evidence rows: {evidence_count}</span>
   </div>
 </div>
@@ -1461,16 +1580,16 @@ def page_source_registry(source_df: pd.DataFrame) -> None:
 
 
 def page_congressional_briefing(evidence_df: pd.DataFrame, source_df: pd.DataFrame) -> None:
-    st.title("Aide Memo")
-    st.caption("A brief legislative memo generated from the current evidence matrix and source registry.")
+    st.title("Congressional Brief")
+    st.caption("A punchy two-page IOOS reauthorization brief generated from the current evidence matrix and source registry.")
 
     if evidence_df.empty:
         st.warning("No evidence matrix rows are available.")
         return
 
-    st.sidebar.subheader("Aide Memo Draft")
-    prepared_for = st.sidebar.text_input("To", value="Congressional Staff")
-    prepared_date = st.sidebar.date_input("Memo date", value=date.today())
+    st.sidebar.subheader("Congressional Brief Draft")
+    prepared_for = st.sidebar.text_input("Prepared for", value="Congressional Staff")
+    prepared_date = st.sidebar.date_input("Brief date", value=date.today())
 
     briefing_html = build_congressional_briefing_html(
         evidence_df,
@@ -1482,31 +1601,31 @@ def page_congressional_briefing(evidence_df: pd.DataFrame, source_df: pd.DataFra
     preview_tab, evidence_tab = st.tabs(["Preview", "Evidence Used"])
 
     with preview_tab:
-        components.html(briefing_html, height=1100, scrolling=True)
+        components.html(briefing_html, height=1700, scrolling=True)
         st.download_button(
-            "Download live aide memo HTML",
+            "Download live congressional brief HTML",
             briefing_html.encode("utf-8"),
-            file_name="ioos_aide_memo_live.html",
+            file_name="ioos_congressional_brief_live.html",
             mime="text/html",
         )
 
         if FILLED_BRIEFING_PATH.exists():
             st.download_button(
-                "Download generated aide memo draft",
+                "Download generated congressional brief draft",
                 FILLED_BRIEFING_PATH.read_bytes(),
                 file_name=FILLED_BRIEFING_PATH.name,
                 mime="text/html",
             )
 
     with evidence_tab:
-        briefing_row_ids = ["1", "5", "6", "9", "11", "14", "15", "16"]
+        briefing_row_ids = ["1", "5", "9", "14"]
         if "row_id" not in evidence_df.columns:
             st.info("The evidence matrix has no row_id column.")
             return
 
         rows_used = evidence_df[evidence_df["row_id"].map(normalize_text).isin(briefing_row_ids)].copy()
         if rows_used.empty:
-            st.info("The memo row IDs are not present in the current matrix.")
+            st.info("The brief row IDs are not present in the current matrix.")
             return
 
         display_columns = [
@@ -1786,7 +1905,7 @@ def main() -> None:
         [
             "Dashboard Summary",
             "Evidence Matrix",
-            "Aide Memo",
+            "Congressional Brief",
             "Evidence Intake",
             "Staged Evidence",
             "Review Needed",
@@ -1800,7 +1919,7 @@ def main() -> None:
         page_dashboard_summary(evidence_df, source_df, review_df)
     elif page == "Evidence Matrix":
         page_evidence_matrix(evidence_df)
-    elif page == "Aide Memo":
+    elif page == "Congressional Brief":
         page_congressional_briefing(evidence_df, source_df)
     elif page == "Evidence Intake":
         page_evidence_intake()
