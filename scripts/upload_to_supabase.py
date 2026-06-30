@@ -69,10 +69,16 @@ CSV_TABLES = {
             "AI extraction notes": "ai_extraction_notes",
         },
     },
+    "best_sources": {
+        "path": DATA_DIR / "best_sources.csv",
+        "delete_filter": ("source_id", "not.is.null"),
+        "conflict": "source_id",
+        "columns": None,
+    },
 }
 
-DELETE_ORDER = ["review_needed", "staged_evidence", "evidence_matrix", "source_registry"]
-INSERT_ORDER = ["source_registry", "evidence_matrix", "review_needed", "staged_evidence"]
+DELETE_ORDER = ["review_needed", "staged_evidence", "best_sources", "evidence_matrix", "source_registry"]
+INSERT_ORDER = ["source_registry", "evidence_matrix", "review_needed", "staged_evidence", "best_sources"]
 
 
 def load_dotenv(path: Path) -> None:

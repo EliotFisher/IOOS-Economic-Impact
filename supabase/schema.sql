@@ -100,3 +100,30 @@ drop trigger if exists set_staged_evidence_updated_at on public.staged_evidence;
 create trigger set_staged_evidence_updated_at
 before update on public.staged_evidence
 for each row execute function public.set_updated_at();
+
+create table if not exists public.best_sources (
+  source_id text primary key,
+  source_name text not null,
+  source_url text not null,
+  source_type text not null,
+  priority_tier text not null check (priority_tier in ('primary', 'supporting', 'context', 'hold')),
+  briefing_role text not null,
+  impact_domains text not null,
+  staged_row_ids text not null,
+  key_metrics text not null,
+  evidence_profile text not null,
+  attribution_profile text not null,
+  recommended_claim_language text not null,
+  caveats text not null,
+  source_verification_needed text not null check (source_verification_needed in ('Yes', 'No')),
+  status text not null default 'planned',
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists best_sources_priority_tier_idx on public.best_sources(priority_tier);
+create index if not exists best_sources_status_idx on public.best_sources(status);
+
+drop trigger if exists set_best_sources_updated_at on public.best_sources;
+create trigger set_best_sources_updated_at
+before update on public.best_sources
+for each row execute function public.set_updated_at();

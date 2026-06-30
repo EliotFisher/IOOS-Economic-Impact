@@ -158,13 +158,14 @@ INTAKE_REQUIRED_VALUES = [
     "IOOS attribution strength",
 ]
 
-ALLOWED_RATINGS = {
+ALLOWED_RATING_VALUES = [
     "Strong",
     "Medium",
     "Contextual",
     "Modeled",
     "Needs verification",
-}
+]
+ALLOWED_RATINGS = set(ALLOWED_RATING_VALUES)
 
 REQUIRED_ADD_FIELDS = [
     "impact_domain",
@@ -517,6 +518,10 @@ def intake_schema_csv_header() -> str:
     return ",".join(INTAKE_SCHEMA)
 
 
+def allowed_ratings_text() -> str:
+    return ", ".join(ALLOWED_RATING_VALUES)
+
+
 def research_prompt(topic: str) -> str:
     topic_text = topic.strip() or "[INSERT TOPIC]"
     return f"""You are generating candidate evidence rows for the IOOS Economic Evidence App.
@@ -533,10 +538,13 @@ Rules:
 - Use only real sources.
 - Do not invent numbers, metrics, source titles, or URLs.
 - If the evidence is qualitative, say so in the Metric field.
+- Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
+- Put rating explanations in Limitations or AI extraction notes, not in the rating fields.
 - If the source supports economic context but not IOOS-attributable benefit, set IOOS attribution strength to Contextual.
 - If the claim is modeled, set Evidence strength to Modeled.
 - If the source has not been manually checked, set Source verification needed to Yes.
 - Use conservative claim language in Claim allowed.
+- Quote every CSV field that contains a comma, quote, or line break.
 - Include limitations for every row.
 - Return CSV only."""
 
@@ -556,10 +564,13 @@ Rules:
 - Extract only evidence actually supported by the source.
 - Do not create a row if the source is too vague.
 - Do not overstate IOOS attribution.
+- Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
+- Put rating explanations in Limitations or AI extraction notes, not in the rating fields.
 - If the source is not IOOS-specific, mark IOOS attribution strength as Contextual.
 - If the source provides economic exposure but not avoided cost or benefit, say that in Limitations.
 - Set Source verification needed to Yes unless the row has been manually checked.
 - Write Claim allowed as a cautious sentence that COL could safely use.
+- Quote every CSV field that contains a comma, quote, or line break.
 - Return CSV only."""
 
 
@@ -623,6 +634,35 @@ def normalize_intake_df(df: pd.DataFrame) -> pd.DataFrame:
     return normalized
 
 
+def validate_intake_csv_shape(file_bytes: bytes) -> list[str]:
+    """Catch malformed CSV records before pandas can reinterpret them as an index."""
+    errors: list[str] = []
+    try:
+        csv_text = file_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return ["CSV must be UTF-8 encoded."]
+
+    try:
+        reader = csv.reader(io.StringIO(csv_text))
+        header = next(reader, None)
+        if header is None:
+            return ["CSV is empty."]
+
+        expected_columns = len(header)
+        for row_number, row in enumerate(reader, start=2):
+            if not row or not any(normalize_text(value) for value in row):
+                continue
+            if len(row) != expected_columns:
+                errors.append(
+                    f"CSV row {row_number} has {len(row)} values, but the header has "
+                    f"{expected_columns}. Quote fields that contain commas."
+                )
+    except csv.Error as exc:
+        return [f"CSV could not be parsed: {exc}"]
+
+    return errors
+
+
 def validate_intake_df(df: pd.DataFrame) -> list[str]:
     """Validate AI candidate rows before they can enter staging or the matrix."""
     errors: list[str] = []
@@ -638,8 +678,8 @@ def validate_intake_df(df: pd.DataFrame) -> list[str]:
         return errors
 
     normalized = normalize_intake_df(df)
-    for index, row in normalized.iterrows():
-        label = f"row {index + 1}"
+    for row_number, (_, row) in enumerate(normalized.iterrows(), start=1):
+        label = f"row {row_number}"
         for column in INTAKE_REQUIRED_VALUES:
             if not normalize_text(row.get(column)):
                 errors.append(f"{label} missing required value: {column}")
@@ -844,6 +884,48 @@ def row_field(row: pd.Series | None, column: str, fallback: str = "") -> str:
     return value or fallback
 
 
+def congressional_briefing_context(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    prepared_for: str,
+    prepared_date: date,
+) -> dict[str, object]:
+    """Collect the short text values used by both HTML and PDF brief exports."""
+    rows = {
+        row_id: evidence_row_by_id(evidence_df, row_id)
+        for row_id in ["1", "5", "9", "14"]
+    }
+    prepared_for = normalize_text(prepared_for) or "Congressional Staff"
+    date_label = prepared_date.strftime("%B %#d, %Y") if os.name == "nt" else prepared_date.strftime("%B %-d, %Y")
+
+    return {
+        "prepared_for": prepared_for,
+        "date_label": date_label,
+        "evidence_count": len(evidence_df),
+        "source_count": len(source_df),
+        "ocean_enterprise_metric": row_field(
+            rows["14"],
+            "metric",
+            "Ocean Enterprise business, employment, revenue, and export metrics are tracked in the evidence matrix.",
+        ),
+        "tampa_metric": row_field(
+            rows["1"],
+            "metric",
+            "Tampa Bay PORTS case-study benefits are tracked in the matrix.",
+        ),
+        "hab_forecast_claim": row_field(
+            rows["5"],
+            "claim_allowed",
+            "HAB forecasts help managers focus testing and guide closure/advisory decisions.",
+        ),
+        "hf_radar_claim": row_field(
+            rows["9"],
+            "claim_allowed",
+            "HF radar surface-current data support USCG search planning through SAROPS.",
+        ),
+    }
+
+
 def build_congressional_briefing_html(
     evidence_df: pd.DataFrame,
     source_df: pd.DataFrame,
@@ -851,33 +933,17 @@ def build_congressional_briefing_html(
     prepared_date: date,
 ) -> str:
     """Build a concise print-friendly congressional brief from the current matrix rows."""
-    rows = {
-        row_id: evidence_row_by_id(evidence_df, row_id)
-        for row_id in ["1", "5", "9", "14"]
-    }
-    evidence_count = len(evidence_df)
-    source_count = len(source_df)
-    prepared_for = normalize_text(prepared_for) or "Congressional Staff"
-    date_label = prepared_date.strftime("%B %#d, %Y") if os.name == "nt" else prepared_date.strftime("%B %-d, %Y")
+    context = congressional_briefing_context(evidence_df, source_df, prepared_for, prepared_date)
+    prepared_for = str(context["prepared_for"])
+    date_label = str(context["date_label"])
+    evidence_count = int(context["evidence_count"])
+    source_count = int(context["source_count"])
+    ocean_enterprise_metric = str(context["ocean_enterprise_metric"])
+    tampa_metric = str(context["tampa_metric"])
+    hab_forecast_claim = str(context["hab_forecast_claim"])
+    hf_radar_claim = str(context["hf_radar_claim"])
     ucar_logo_uri = asset_data_uri(UCAR_LOGO_PATH, "image/avif")
     col_logo_uri = asset_data_uri(COL_LOGO_PATH, "image/avif")
-
-    ocean_enterprise_metric = row_field(
-        rows["14"],
-        "metric",
-        "Ocean Enterprise business, employment, revenue, and export metrics are tracked in the evidence matrix.",
-    )
-    tampa_metric = row_field(rows["1"], "metric", "Tampa Bay PORTS case-study benefits are tracked in the matrix.")
-    hab_forecast_claim = row_field(
-        rows["5"],
-        "claim_allowed",
-        "HAB forecasts help managers focus testing and guide closure/advisory decisions.",
-    )
-    hf_radar_claim = row_field(
-        rows["9"],
-        "claim_allowed",
-        "HF radar surface-current data support USCG search planning through SAROPS.",
-    )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -1146,6 +1212,481 @@ def build_congressional_briefing_html(
 </div>
 </body>
 </html>"""
+
+
+def pdf_markup(value: object) -> str:
+    """Escape text for ReportLab paragraphs and normalize glyphs for built-in fonts."""
+    text = normalize_text(value)
+    replacements = {
+        "\u00ae": "(R)",
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u2013": "-",
+        "\u2014": "-",
+        "\u00a0": " ",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return html_lib.escape(text, quote=False)
+
+
+def pdf_logo_image(path: Path, height: float):
+    """Convert AVIF logos to PNG-backed ReportLab images."""
+    from PIL import Image as PILImage
+    from reportlab.platypus import Image as ReportLabImage
+
+    try:
+        with PILImage.open(path) as image:
+            if image.mode in {"RGBA", "LA"} or (image.mode == "P" and "transparency" in image.info):
+                rgba = image.convert("RGBA")
+                white = PILImage.new("RGBA", rgba.size, "WHITE")
+                white.alpha_composite(rgba)
+                converted = white.convert("RGB")
+            else:
+                converted = image.convert("RGB")
+
+            png_bytes = io.BytesIO()
+            converted.save(png_bytes, format="PNG")
+            png_bytes.seek(0)
+            width = height * (converted.width / converted.height)
+            return ReportLabImage(png_bytes, width=width, height=height)
+    except Exception:
+        return None
+
+
+def build_congressional_briefing_pdf(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    prepared_for: str,
+    prepared_date: date,
+) -> bytes:
+    """Build a two-page PDF version of the congressional brief."""
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import (
+        HRFlowable,
+        PageBreak,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+
+    context = congressional_briefing_context(evidence_df, source_df, prepared_for, prepared_date)
+    content_width = 7.26 * inch
+    teal = colors.HexColor("#00A3B4")
+    teal_dark = colors.HexColor("#007785")
+    blue = colors.HexColor("#4A94B1")
+    gold = colors.HexColor("#F2A93B")
+    gray = colors.HexColor("#5E6A71")
+    line = colors.HexColor("#D7E1E5")
+    panel = colors.HexColor("#EFF7F8")
+
+    styles = {
+        "doc_label": ParagraphStyle(
+            "DocLabel",
+            fontName="Helvetica-Bold",
+            fontSize=8.5,
+            leading=10,
+            textColor=gray,
+            alignment=TA_RIGHT,
+            uppercase=True,
+        ),
+        "hero_kicker": ParagraphStyle(
+            "HeroKicker",
+            fontName="Helvetica-Bold",
+            fontSize=8.5,
+            leading=10,
+            textColor=colors.HexColor("#DFF6F9"),
+            spaceAfter=3,
+        ),
+        "hero_h1": ParagraphStyle(
+            "HeroH1",
+            fontName="Helvetica-Bold",
+            fontSize=23,
+            leading=24,
+            textColor=colors.white,
+            spaceAfter=3,
+        ),
+        "hero_subtitle": ParagraphStyle(
+            "HeroSubtitle",
+            fontName="Helvetica",
+            fontSize=11,
+            leading=13,
+            textColor=colors.HexColor("#F2FCFD"),
+        ),
+        "meta": ParagraphStyle(
+            "Meta",
+            fontName="Helvetica",
+            fontSize=8.8,
+            leading=10.5,
+            textColor=gray,
+        ),
+        "metric_value": ParagraphStyle(
+            "MetricValue",
+            fontName="Helvetica-Bold",
+            fontSize=18,
+            leading=18,
+            textColor=teal_dark,
+            alignment=TA_CENTER,
+        ),
+        "metric_label": ParagraphStyle(
+            "MetricLabel",
+            fontName="Helvetica",
+            fontSize=8.4,
+            leading=10,
+            textColor=gray,
+            alignment=TA_CENTER,
+        ),
+        "body": ParagraphStyle(
+            "Body",
+            fontName="Helvetica",
+            fontSize=9.8,
+            leading=12.4,
+            textColor=colors.HexColor("#222222"),
+            spaceAfter=6,
+        ),
+        "body_small": ParagraphStyle(
+            "BodySmall",
+            fontName="Helvetica",
+            fontSize=8.7,
+            leading=10.8,
+            textColor=colors.HexColor("#222222"),
+            spaceAfter=5,
+        ),
+        "section": ParagraphStyle(
+            "Section",
+            fontName="Helvetica-Bold",
+            fontSize=10.5,
+            leading=12,
+            textColor=teal_dark,
+            spaceBefore=8,
+            spaceAfter=2,
+        ),
+        "bottom_line": ParagraphStyle(
+            "BottomLine",
+            fontName="Helvetica-Bold",
+            fontSize=11,
+            leading=13.5,
+            textColor=colors.HexColor("#222222"),
+        ),
+        "pillar_heading": ParagraphStyle(
+            "PillarHeading",
+            fontName="Helvetica-Bold",
+            fontSize=10,
+            leading=12,
+            textColor=teal_dark,
+            spaceAfter=4,
+        ),
+        "ask_label": ParagraphStyle(
+            "AskLabel",
+            fontName="Helvetica-Bold",
+            fontSize=8.5,
+            leading=10,
+            textColor=colors.HexColor("#DFF6F9"),
+            spaceAfter=4,
+        ),
+        "ask": ParagraphStyle(
+            "Ask",
+            fontName="Helvetica-Bold",
+            fontSize=10,
+            leading=12.5,
+            textColor=colors.white,
+        ),
+        "footnote": ParagraphStyle(
+            "Footnote",
+            fontName="Helvetica-Oblique",
+            fontSize=8,
+            leading=9.6,
+            textColor=gray,
+        ),
+        "footer": ParagraphStyle(
+            "Footer",
+            fontName="Helvetica",
+            fontSize=8,
+            leading=9.5,
+            textColor=gray,
+        ),
+    }
+
+    def paragraph(text: object, style_name: str) -> Paragraph:
+        return Paragraph(pdf_markup(text), styles[style_name])
+
+    def rich_paragraph(markup: str, style_name: str) -> Paragraph:
+        return Paragraph(markup, styles[style_name])
+
+    def masthead() -> list[object]:
+        ucar_logo = pdf_logo_image(UCAR_LOGO_PATH, 24)
+        col_logo = pdf_logo_image(COL_LOGO_PATH, 44)
+        logo_cells = []
+        if ucar_logo is not None:
+            logo_cells.append(ucar_logo)
+        else:
+            logo_cells.append(paragraph("UCAR", "body_small"))
+        logo_cells.append("")
+        if col_logo is not None:
+            logo_cells.append(col_logo)
+        else:
+            logo_cells.append(paragraph("Center for Ocean Leadership", "body_small"))
+
+        logo_table = Table([logo_cells], colWidths=[96, 14, 64])
+        logo_table.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LINEBEFORE", (2, 0), (2, 0), 1, line),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        head = Table(
+            [[logo_table, paragraph("CONGRESSIONAL BRIEF", "doc_label")]],
+            colWidths=[content_width - 150, 150],
+        )
+        head.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+        return [
+            head,
+            HRFlowable(width="100%", thickness=3, color=teal, spaceBefore=0, spaceAfter=9),
+        ]
+
+    def section(title: str) -> list[object]:
+        return [
+            paragraph(title.upper(), "section"),
+            HRFlowable(width="100%", thickness=1.2, color=teal, spaceBefore=0, spaceAfter=5),
+        ]
+
+    story: list[object] = []
+    story.extend(masthead())
+
+    hero = Table(
+        [
+            [
+                [
+                    rich_paragraph("IOOS REAUTHORIZATION BRIEF", "hero_kicker"),
+                    rich_paragraph("America's Ocean Intelligence System", "hero_h1"),
+                    rich_paragraph(
+                        "The case for reauthorizing the Integrated Ocean Observing System (IOOS)",
+                        "hero_subtitle",
+                    ),
+                ]
+            ]
+        ],
+        colWidths=[content_width],
+    )
+    hero.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), teal),
+                ("LEFTPADDING", (0, 0), (-1, -1), 14),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 14),
+                ("TOPPADDING", (0, 0), (-1, -1), 10),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            ]
+        )
+    )
+    story.extend([hero, Spacer(1, 7)])
+
+    meta = Table(
+        [
+            [
+                paragraph(f"Prepared for: {context['prepared_for']}", "meta"),
+                Paragraph(pdf_markup(context["date_label"]), styles["meta"].clone("MetaRight", alignment=TA_RIGHT)),
+            ]
+        ],
+        colWidths=[content_width / 2, content_width / 2],
+    )
+    meta.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
+    story.extend([meta, Spacer(1, 7)])
+
+    metric_cells = []
+    for value, label in [
+        ("5x", "Return on investment"),
+        ("$400B", "U.S. ocean economy enabled"),
+        ("325K", "Ocean Enterprise jobs supported"),
+        ("$280M", "Requested over 5 years"),
+    ]:
+        metric_cells.append([rich_paragraph(value, "metric_value"), paragraph(label, "metric_label")])
+
+    metric_table = Table([metric_cells], colWidths=[content_width / 4] * 4)
+    metric_table.setStyle(
+        TableStyle(
+            [
+                ("BOX", (0, 0), (-1, -1), 0.7, line),
+                ("INNERGRID", (0, 0), (-1, -1), 0.7, line),
+                ("LINEABOVE", (0, 0), (-1, -1), 3, gold),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ]
+        )
+    )
+    story.extend([metric_table, Spacer(1, 8)])
+
+    bottom_line = Table(
+        [[paragraph("Bottom line: IOOS is proven national infrastructure. It turns ocean observations into safer ports, better storm decisions, stronger coastal economies, and private-sector growth.", "bottom_line")]],
+        colWidths=[content_width],
+    )
+    bottom_line.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), panel),
+                ("LINEBEFORE", (0, 0), (0, 0), 5, teal),
+                ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
+    story.extend([bottom_line, Spacer(1, 3)])
+
+    story.extend(section("What IOOS Is"))
+    story.append(paragraph("IOOS is the United States' national network of ocean sensors, buoys, radar systems, satellites, and data platforms that continuously monitors U.S. coastal waters, the Great Lakes, and ocean conditions.", "body"))
+    story.append(rich_paragraph("Think of it as the <b>interstate highway system for ocean data</b>: a federal investment that enables private-sector activity, operational decisions, and public safety outcomes that would not be possible without shared data infrastructure.", "body"))
+
+    story.extend(section("Why It Matters: Three Things Only IOOS Can Do"))
+    pillar_cells = [
+        [
+            rich_paragraph("1. Disaster Response", "pillar_heading"),
+            paragraph("Storm surge kills more Americans than any other hurricane hazard. IOOS real-time coastal data powers forecasts that determine evacuation timing.", "body_small"),
+            rich_paragraph("<b>Template example:</b> During Hurricane Sandy, IOOS data enabled 80 ships to safely evacuate Hampton Roads three days early, avoiding an estimated $28M in potential losses.", "body_small"),
+        ],
+        [
+            rich_paragraph("2. Port Efficiency", "pillar_heading"),
+            paragraph("IOOS water-level and current data helps port pilots optimize vessel drafts, reduce delays, and minimize costly lightering operations.", "body_small"),
+            rich_paragraph(f"<b>Matrix evidence:</b> Tampa Bay PORTS(R) benefits are {pdf_markup(context['tampa_metric'])}.", "body_small"),
+        ],
+        [
+            rich_paragraph("3. Coastal Communities", "pillar_heading"),
+            paragraph("IOOS powers HAB early-warning systems, supports fisheries decisions, and feeds search-and-rescue operations on every U.S. coastline.", "body_small"),
+            rich_paragraph(f"<b>Matrix evidence:</b> {pdf_markup(context['hab_forecast_claim'])} {pdf_markup(context['hf_radar_claim'])}", "body_small"),
+        ],
+    ]
+    pillars = Table([pillar_cells], colWidths=[content_width / 3] * 3)
+    pillars.setStyle(
+        TableStyle(
+            [
+                ("BOX", (0, 0), (-1, -1), 0.7, line),
+                ("INNERGRID", (0, 0), (-1, -1), 0.7, line),
+                ("LINEBEFORE", (0, 0), (-1, -1), 3, blue),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 7),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    story.extend([pillars, PageBreak()])
+
+    story.extend(masthead())
+    story.extend(section("The Economy IOOS Enables"))
+    story.append(paragraph("IOOS is public data infrastructure for the ocean economy, including commercial shipping, offshore energy, recreational boating, coastal tourism, and seafood.", "body"))
+    story.append(rich_paragraph(f"The Ocean Enterprise survey reported <b><font color='#007785'>{pdf_markup(context['ocean_enterprise_metric'])}</font></b>. Use this as sector context, not a claim that IOOS directly caused all revenue or jobs.", "body"))
+
+    sector_rows = [
+        ["Commercial shipping and port operations", "Offshore energy development"],
+        ["Recreational boating and coastal tourism", "Commercial and recreational fisheries"],
+        ["Coastal hazard and emergency management", "U.S. Navy and Coast Guard operations"],
+        ["Marine technology industry", "Shellfish and aquaculture businesses"],
+    ]
+    sector_table = Table(
+        [[paragraph(left, "body_small"), paragraph(right, "body_small")] for left, right in sector_rows],
+        colWidths=[content_width / 2, content_width / 2],
+    )
+    sector_table.setStyle(
+        TableStyle(
+            [
+                ("LINEBELOW", (0, 0), (-1, -1), 0.6, line),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 14),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ]
+        )
+    )
+    story.extend([sector_table, Spacer(1, 6)])
+
+    story.extend(section("The Legislative Moment"))
+    story.append(rich_paragraph("H.R. 2294 passed the House in March 2026 and companion S. 2126 is pending Senate action. Both bills authorize <b>$280 million over FY2026-2030</b>, or $56 million per year, consistent with current appropriations.", "body"))
+    story.append(paragraph("This is not a new program. It is routine reauthorization of proven national infrastructure with documented economic and public safety value.", "body"))
+
+    story.extend(section("Staff Takeaway"))
+    story.append(rich_paragraph("<b>Do not make this complicated:</b> IOOS is a modest federal investment that coastal states, ports, emergency managers, scientists, and ocean businesses already rely on. The policy choice is whether to keep that infrastructure stable.", "body"))
+
+    ask_box = Table(
+        [
+            [
+                [
+                    rich_paragraph("THE ASK", "ask_label"),
+                    paragraph(
+                        "Support Senate floor action on S. 2126 | Defend IOOS funding in CJS appropriations at or above current levels | Request a district-specific briefing on how IOOS serves coastal, port, fisheries, or emergency management stakeholders.",
+                        "ask",
+                    ),
+                ]
+            ]
+        ],
+        colWidths=[content_width],
+    )
+    ask_box.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), teal_dark),
+                ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+                ("TOPPADDING", (0, 0), (-1, -1), 10),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            ]
+        )
+    )
+    story.extend([ask_box, Spacer(1, 10)])
+    story.append(paragraph("Source note: Built from the supplied Word brief template plus the current evidence matrix and source registry. Template legislative and non-matrix figures should be source-checked before external distribution.", "footnote"))
+    story.extend([Spacer(1, 10), HRFlowable(width="100%", thickness=0.7, color=line, spaceBefore=0, spaceAfter=5)])
+    footer = Table(
+        [
+            [
+                paragraph("IOOS Economic Impact Evidence Matrix | template-based congressional brief", "footer"),
+                Paragraph(
+                    pdf_markup(f"Sources: {context['source_count']} | Evidence rows: {context['evidence_count']}"),
+                    styles["footer"].clone("FooterRight", alignment=TA_RIGHT),
+                ),
+            ]
+        ],
+        colWidths=[content_width * 0.65, content_width * 0.35],
+    )
+    footer.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
+    story.append(footer)
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        leftMargin=0.62 * inch,
+        rightMargin=0.62 * inch,
+        topMargin=0.5 * inch,
+        bottomMargin=0.5 * inch,
+    )
+    doc.build(story)
+    return buffer.getvalue()
 
 
 def row_warning_map(review_df: pd.DataFrame) -> dict[str, dict[str, object]]:
@@ -1597,6 +2138,17 @@ def page_congressional_briefing(evidence_df: pd.DataFrame, source_df: pd.DataFra
         prepared_for,
         prepared_date,
     )
+    try:
+        briefing_pdf = build_congressional_briefing_pdf(
+            evidence_df,
+            source_df,
+            prepared_for,
+            prepared_date,
+        )
+        pdf_error = ""
+    except Exception as exc:
+        briefing_pdf = b""
+        pdf_error = str(exc)
 
     preview_tab, evidence_tab = st.tabs(["Preview", "Evidence Used"])
 
@@ -1608,6 +2160,15 @@ def page_congressional_briefing(evidence_df: pd.DataFrame, source_df: pd.DataFra
             file_name="ioos_congressional_brief_live.html",
             mime="text/html",
         )
+        if briefing_pdf:
+            st.download_button(
+                "Download live congressional brief PDF",
+                briefing_pdf,
+                file_name="ioos_congressional_brief_live.pdf",
+                mime="application/pdf",
+            )
+        else:
+            st.warning(f"PDF export is unavailable: {pdf_error}")
 
         if FILLED_BRIEFING_PATH.exists():
             st.download_button(
@@ -1679,6 +2240,13 @@ def render_intake_upload() -> None:
         return
 
     file_bytes = uploaded_file.getvalue()
+    csv_shape_errors = validate_intake_csv_shape(file_bytes)
+    if csv_shape_errors:
+        st.error("Candidate CSV was not staged.")
+        st.write("Fix these issues and upload again:")
+        for error in csv_shape_errors:
+            st.write(f"- {error}")
+        return
 
     try:
         candidate_df = pd.read_csv(io.BytesIO(file_bytes), dtype=str, keep_default_na=False)
