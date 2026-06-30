@@ -132,22 +132,50 @@ def build_brief(template: str, evidence: list[dict[str, object]], sources: dict[
 
     filled = template.replace(
         '<h1 contenteditable="true">[Tagline &mdash; e.g., "The Forecast Behind the Forecast: Why Ocean Observations Power America&rsquo;s Coastal Economy"]</h1>',
-        '<h1 contenteditable="true">The Forecast Behind the Forecast: Ocean Observations Power America&rsquo;s Coastal Economy</h1>',
+        '<h1 contenteditable="true">Aide Memo: NOAA IOOS Economic Impact</h1>',
+    )
+    filled = filled.replace(
+        '<title>IOOS Congressional Briefing Template</title>',
+        '<title>IOOS Aide Memo</title>',
+    )
+    filled = filled.replace(
+        '<div class="doc-label">Policy&nbsp;Briefing</div>',
+        '<div class="doc-label">Aide&nbsp;Memo</div>',
+    )
+    filled = filled.replace(
+        '<div class="toolbar">Click directly on any text to edit it. <b>This is a single page (page 2 continues below)</b> &mdash; print or save as PDF when ready (Cmd/Ctrl+P).</div>',
+        '<div class="toolbar">Click directly on any text to edit it. <b>One-page aide memo.</b> &mdash; print or save as PDF when ready (Cmd/Ctrl+P).</div>',
+    )
+    filled = filled.replace(
+        '<div class="kicker">IOOS Economic Impact</div>',
+        '<div class="kicker">Legislative Memo</div>',
     )
     filled = filled.replace(
         '<span contenteditable="true">Prepared for: Office of ____</span>',
-        '<span contenteditable="true">Prepared for: Congressional Staff</span>',
+        '<span contenteditable="true">To: Congressional Staff | From: IOOS Economic Impact Team</span>',
     )
     filled = filled.replace(
         '<span contenteditable="true">[Date]</span>',
         f'<span contenteditable="true">{escape(generated_date)}</span>',
     )
+    memo_header = f"""<div class="meta-line" style="display:block; line-height:1.45;">
+    <div contenteditable="true"><b>To:</b> Congressional Staff</div>
+    <div contenteditable="true"><b>From:</b> IOOS Economic Impact Team</div>
+    <div contenteditable="true"><b>Date:</b> {escape(generated_date)}</div>
+    <div contenteditable="true"><b>Re:</b> Sustain NOAA IOOS capacity and update economic valuations</div>
+  </div>"""
+    filled = filled.replace(
+        f"""<div class="meta-line">
+    <span contenteditable="true">To: Congressional Staff | From: IOOS Economic Impact Team</span>
+    <span contenteditable="true">{escape(generated_date)}</span>
+  </div>""",
+        memo_header,
+    )
 
     lead = (
-        f'<p class="lead" contenteditable="true">America&rsquo;s coastal economy depends on forecasts that start in the water. '
-        f'IOOS and NOAA observing systems turn water-level, current, biological, chemical, and storm data into operational decisions for ports, shellfish managers, emergency responders, hatcheries, and coastal planners. '
-        f'The live evidence matrix behind this brief currently contains {evidence_count} evidence rows and {source_count} registered sources; its strongest national business context is the Ocean Enterprise survey row, which reports: {escape(row14["metric"])}. '
-        f'Case-study and modeled rows show measurable value in port navigation and coastal data infrastructure, while other rows document decision pathways that need updated valuation.</p>'
+        '<h2 class="section">Executive Summary</h2>\n'
+        f'  <p class="lead" contenteditable="true"><b>Recommendation:</b> Sustain NOAA IOOS observing and data-integration capacity, and request updated economic valuations for the services most relevant to appropriations. '
+        f'The current matrix shows clear economic relevance for ports, ocean-data businesses, shellfish/HAB management, and public safety, but several pathways need current IOOS-attributable estimates.</p>'
     )
     filled = replace_between(
         filled,
@@ -156,15 +184,8 @@ def build_brief(template: str, evidence: list[dict[str, object]], sources: dict[
         lead,
     )
 
-    callout = f"""<div class="callout">
-    <div class="label">WHY THIS MATTERS TO YOUR OFFICE</div>
-    <ul>
-      <li contenteditable="true"><b>Ports and maritime commerce:</b> {escape(row1["claim_allowed"])} The Tampa Bay case study metric is {escape(row1["metric"])}.</li>
-      <li contenteditable="true"><b>Ocean data businesses:</b> {escape(row14["claim_allowed"])} The survey metric reports: {escape(row14["metric"])}.</li>
-      <li contenteditable="true"><b>Public safety and hazards:</b> HF radar data support USCG search planning, glider observations support hurricane intensity forecasting, and NOAA water-level observations support coastal inundation decisions.</li>
-      <li contenteditable="true"><b>Working waterfronts:</b> HAB forecasts and ocean acidification observations support shellfish closure, sampling, and hatchery timing decisions, but the matrix does not yet quantify IOOS-attributable savings for these rows.</li>
-    </ul>
-  </div>"""
+    callout = f"""<h2 class="section">Background</h2>
+  <p contenteditable="true" style="margin:0 0 10px;">IOOS turns ocean observations into operational information used by ports, pilots, emergency responders, shellfish managers, hatcheries, and coastal planners. This memo draws from the current evidence matrix: {evidence_count} evidence rows and {source_count} registered sources.</p>"""
     filled = replace_between(
         filled,
         '<div class="callout">',
@@ -172,14 +193,12 @@ def build_brief(template: str, evidence: list[dict[str, object]], sources: dict[
         callout,
     )
 
-    value_chain = f"""<h2 class="section">How IOOS Creates Economic Value</h2>
-  <p contenteditable="true" style="margin:0 0 6px;">IOOS converts sustained ocean observations into trusted data products, forecasts, and decisions that keep coastal commerce and public safety systems moving.</p>
+    value_chain = f"""<h2 class="section">Analysis / Evidence</h2>
   <ul>
-    <li contenteditable="true"><b>Observations:</b> PORTS&reg; water levels and currents, HF radar surface currents, gliders, ocean acidification stations, HAB observations, and long-term coastal water-level stations.</li>
-    <li contenteditable="true"><b>Data Integration:</b> IOOS regional associations and NOAA systems standardize, quality-control, and distribute observations for operational users.</li>
-    <li contenteditable="true"><b>Models &amp; Forecasts:</b> HAB forecasts, SAROPS drift prediction, hurricane intensity models, inundation dashboards, and port decision-support tools depend on these inputs.</li>
-    <li contenteditable="true"><b>Decisions:</b> Pilots, port operators, shellfish managers, hatcheries, the Coast Guard, emergency managers, and planners act on the resulting information.</li>
-    <li contenteditable="true"><b>Economic Outcomes:</b> The matrix documents avoided costs, loading efficiency, targeted closures, search efficiency, preparedness, business revenue, and time savings where sources support those claims.</li>
+    <li contenteditable="true"><b>Maritime commerce:</b> Tampa Bay PORTS&reg; case-study benefits are {escape(row1["metric"])} ({escape(row1["metric_year_or_dollar_year"])}).</li>
+    <li contenteditable="true"><b>Ocean-data economy:</b> The Ocean Enterprise survey reported {escape(row14["metric"])}. Use this as sector context, not direct IOOS attribution.</li>
+    <li contenteditable="true"><b>Public safety:</b> HF radar supports Coast Guard search planning; gliders support hurricane intensity forecasting; NOAA water-level stations support flood decisions. Current rows document operational use, not avoided-loss dollars.</li>
+    <li contenteditable="true"><b>Working waterfronts:</b> HAB forecasts and ocean acidification observations support targeted closures, monitoring, and hatchery timing. Quantified IOOS-attributable savings still need follow-up.</li>
   </ul>"""
     filled = replace_between(
         filled,
@@ -188,10 +207,18 @@ def build_brief(template: str, evidence: list[dict[str, object]], sources: dict[
         value_chain,
     )
 
-    sectors = f"""<h2 class="section">Sector Snapshots</h2>
-  <div class="vignette" contenteditable="true"><span class="sector">Commercial Fishing &amp; Shellfish: </span>HAB forecasts help managers focus testing and guide closure or advisory decisions; related project rows say forecasts can reduce unnecessary response costs and support targeted closures where operational use is documented. Ocean acidification rows show real-time observations used by shellfish growers and hatcheries, while the West Coast shellfish industry value in the matrix is risk context rather than a quantified IOOS savings claim.</div>
-  <div class="vignette" contenteditable="true"><span class="sector">Maritime Shipping &amp; Navigation: </span>{escape(row1["claim_allowed"])} The matrix also includes a modeled national PORTS&reg; scenario: {escape(row3["metric"])}. That scenario is useful for investment framing but is labeled modeled and needs source verification.</div>
-  <div class="vignette" contenteditable="true"><span class="sector">Coastal Hazards &amp; Emergency Response: </span>{escape(row9["claim_allowed"])} IOOS-coordinated glider observations support hurricane intensity forecasting, and NOAA water-level observations support coastal inundation monitoring and local flood decision-making. These are strong operational pathways, but the current rows do not assign avoided-loss dollars.</div>"""
+    sectors = f"""<h2 class="section">Recommendation</h2>
+  <div class="ask-box">
+    <div class="label">THE ASK</div>
+    <div contenteditable="true">Sustain and strengthen NOAA IOOS observing, regional data integration, and decision-support services. Direct NOAA to update economic valuations for PORTS&reg;, HF radar/SAROPS, HAB forecasts, ocean acidification monitoring, hurricane gliders, and coastal inundation products before the next appropriations cycle.</div>
+  </div>
+
+  <div class="footnote" contenteditable="true">Source note: Auto-filled from live Supabase tables <b>evidence_matrix</b> and <b>source_registry</b> on {escape(generated_date)}. Strong figures are reported with caveats; modeled, contextual, and needs-verification values are not presented as direct IOOS-attributable benefits.</div>
+
+  <div class="footer">
+    <span contenteditable="true">IOOS Economic Impact Evidence Matrix | aide memo draft</span>
+    <span contenteditable="true">Sources: {source_count} | Evidence rows: {evidence_count}</span>
+  </div>"""
     filled = replace_between(
         filled,
         '<h2 class="section">Sector Snapshots</h2>',
@@ -266,6 +293,11 @@ def build_brief(template: str, evidence: list[dict[str, object]], sources: dict[
         '\n\n</div>\n\n</body>',
         footer,
     )
+
+    page2_start = '\n\n<div class="page" id="page2">'
+    page2_end = '\n\n</body>'
+    if page2_start in filled:
+        filled = replace_between(filled, page2_start, page2_end, "\n")
 
     return filled
 
