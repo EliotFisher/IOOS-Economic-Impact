@@ -76,9 +76,10 @@ The dashboard includes:
 
 - Dashboard summary charts
 - Proposal-aligned Project Roadmap with timeline, objectives, governance rules, and table status
+- Regional Builds workspace for one-region-at-a-time research, starting with MARACOOS
 - Searchable and filterable evidence matrix
 - Curated Best Sources workspace for briefing and final-report source selection
-- Evidence Intake prompt templates for research-to-row and source-to-row workflows
+- Evidence Intake prompt templates for research-to-row, regional-build, and source-to-row workflows
 - Strict candidate CSV validation and staged evidence review
 - Review-needed table
 - Searchable source registry with clickable URLs
@@ -153,9 +154,10 @@ python scripts/upload_to_supabase.py --tables review_needed staged_evidence
 
 ## Evidence Intake Workflow
 
-Use the Streamlit dashboard page named `Evidence Intake` for two AI-assisted workflows:
+Use the Streamlit dashboard page named `Evidence Intake` for AI-assisted workflows:
 
 - `Research Topic`: enter a research question or topic and copy the generated prompt.
+- `Regional Build Prompt`: select a regional research target, starting with MARACOOS, and copy a stricter regional case-study prompt.
 - `Add Source`: paste a source URL, title, report text, abstract, or excerpt and copy the generated extraction prompt.
 
 Both prompts require AI to return CSV only, using this exact candidate schema:
@@ -176,6 +178,14 @@ Upload the AI-generated CSV on the `Evidence Intake` page. The app rejects candi
 `Evidence strength` and `IOOS attribution strength` must be exactly one of `Strong`, `Medium`, `Contextual`, `Modeled`, or `Needs verification`. Put any explanation for the rating in `Limitations` or `AI extraction notes`, not in the rating field. CSV fields that contain commas, quotes, or line breaks must be quoted.
 
 Blank `Source verification needed` values are defaulted to `Yes`. Candidate rows appear on the `Staged Evidence` page, where reviewers can edit staged rows. Rows can only be accepted into the official matrix after `Source verification needed` is set to `No`; accepted rows are mapped into the existing `evidence_matrix.csv` and `source_registry.csv` structure.
+
+## Regional Build Workflow
+
+Use `data/regional_research_targets.csv` as the planning layer for one-region-at-a-time builds. The first active target is MARACOOS.
+
+Do not add placeholder rows directly to `data/evidence_matrix.csv`. A regional build should generate source-backed candidate rows, upload them into `staged_evidence`, verify source support and attribution, and then promote accepted rows into the master matrix.
+
+The master matrix remains the certified national evidence set. Regional targets describe what to research; staged evidence holds unverified findings; accepted evidence rows become the durable master data.
 
 ## Add New Evidence Rows
 

@@ -30,6 +30,7 @@ SOURCE_PATH = DATA_DIR / "source_registry.csv"
 REVIEW_PATH = DATA_DIR / "review_needed.csv"
 STAGED_EVIDENCE_PATH = DATA_DIR / "staged_evidence.csv"
 BEST_SOURCES_PATH = DATA_DIR / "best_sources.csv"
+REGIONAL_TARGETS_PATH = DATA_DIR / "regional_research_targets.csv"
 VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_matrix.py"
 FILLED_BRIEFING_PATH = REPO_ROOT / "outputs" / "IOOS_Congressional_Briefing_Filled.html"
 UCAR_LOGO_PATH = APP_DIR / "logo-ucar.avif"
@@ -685,6 +686,111 @@ Rules:
 - Set Source verification needed to Yes unless the row has been manually checked.
 - Write Claim allowed as a cautious sentence that COL could safely use.
 - Quote every CSV field that contains a comma, quote, or line break.
+- Return CSV only."""
+
+
+def regional_target_label(row: pd.Series) -> str:
+    association = normalize_text(row.get("ioos_association"))
+    region = normalize_text(row.get("region_name"))
+    if association and region:
+        return f"{association} - {region}"
+    return association or region or "Regional target"
+
+
+def selected_regional_target(regional_targets_df: pd.DataFrame, key: str) -> pd.Series | None:
+    if regional_targets_df.empty:
+        return None
+
+    labels = {
+        regional_target_label(row): index
+        for index, row in regional_targets_df.iterrows()
+    }
+    selected = st.selectbox("Regional focus", list(labels), key=key)
+    return regional_targets_df.loc[labels[selected]]
+
+
+def evidence_rows_for_regional_target(evidence_df: pd.DataFrame, target: pd.Series | None) -> pd.DataFrame:
+    if target is None or evidence_df.empty or "region" not in evidence_df.columns:
+        return pd.DataFrame()
+
+    keywords = [
+        value.strip().lower()
+        for value in normalize_text(target.get("region_keywords")).split(";")
+        if value.strip()
+    ]
+    for fallback in [target.get("ioos_association"), target.get("region_name")]:
+        value = normalize_text(fallback).lower()
+        if value and value not in keywords:
+            keywords.append(value)
+
+    if not keywords:
+        return pd.DataFrame()
+
+    region_text = evidence_df["region"].map(lambda value: normalize_text(value).lower())
+    mask = region_text.apply(lambda value: any(keyword in value for keyword in keywords))
+    return evidence_df[mask].copy()
+
+
+def regional_research_prompt(
+    target: pd.Series,
+    research_focus: str,
+    source_leads: str,
+    rows_requested: int,
+) -> str:
+    association = normalize_text(target.get("ioos_association")) or "[IOOS REGIONAL ASSOCIATION]"
+    region = normalize_text(target.get("region_name")) or "[REGION]"
+    phase = normalize_text(target.get("phase")) or "regional evidence build"
+    priority_domains = normalize_text(target.get("priority_domains")) or "[PRIORITY DOMAINS]"
+    source_targets = normalize_text(target.get("source_targets")) or "[SOURCE TYPES TO SEARCH]"
+    evidence_gap = normalize_text(target.get("evidence_gap")) or "[EVIDENCE GAP]"
+    prompt_notes = normalize_text(target.get("prompt_notes")) or "[PROMPT NOTES]"
+    focus = research_focus.strip() or normalize_text(target.get("starter_research_question")) or (
+        f"Find source-backed economic impact evidence for {association} in the {region} region."
+    )
+    source_text = source_leads.strip() or "[OPTIONAL SOURCE URLS, TITLES, OR SEARCH LEADS]"
+
+    return f"""You are generating candidate regional evidence rows for the IOOS Economic Evidence App.
+
+Regional build:
+- Association: {association}
+- Region: {region}
+- Phase: {phase}
+- Priority domains: {priority_domains}
+- Known evidence gap: {evidence_gap}
+- Operator notes: {prompt_notes}
+
+Research focus:
+{focus}
+
+Priority source targets:
+{source_targets}
+
+Optional source leads from the operator:
+{source_text}
+
+Return CSV only. Include this exact header row as the first line:
+
+{intake_schema_csv_header()}
+
+Task:
+Find up to {rows_requested} candidate rows that can support a cautious, source-backed regional case study for {association}. Start with decision-use evidence tied to {association}, then add regional economic-context rows only when they help frame exposure or affected sectors.
+
+Rules:
+- Do not create or imply official master-matrix rows. These are candidate rows for staged_evidence review.
+- Use only real sources and include the exact source URL used for each row.
+- Do not invent numbers, metrics, dollar years, source titles, agencies, or attribution.
+- Prefer one source per row. If a claim requires multiple sources, create separate rows or explain the dependency in AI extraction notes.
+- Set Region to a specific regional label such as "{region}", a state/local area, or the source-specific geography.
+- Set IOOS component to the specific {association} product, observing asset, partner system, or data service when the source supports it.
+- If the source is about regional economic exposure but not {association} or IOOS decision support, set IOOS attribution strength to Contextual.
+- If the source is about a broader NOAA, USCG, state, port, or academic system, do not call attribution Strong unless {association} or IOOS is explicitly part of the pathway.
+- If the value is modeled, prospective, scenario-based, or benefit-transfer, set Evidence strength to Modeled.
+- Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
+- Set Source verification needed to Yes for every row.
+- Include limitations for every row, including source age, geographic limits, method uncertainty, and attribution caveats.
+- Write Claim allowed as a conservative sentence COL could safely use.
+- Quote every CSV field that contains a comma, quote, or line break.
+- Before returning, check that every row has exactly the same number of columns as the header.
 - Return CSV only."""
 
 
@@ -2616,11 +2722,93 @@ def render_intake_upload() -> None:
     st.caption("Open Staged Evidence in the sidebar to review, edit, and accept verified rows.")
 
 
-def page_evidence_intake() -> None:
+def page_regional_builds(regional_targets_df: pd.DataFrame, evidence_df: pd.DataFrame) -> None:
+    st.title("Regional Builds")
+    st.caption("Work one IOOS region at a time, starting with MARACOOS, before promoting verified rows into the master matrix.")
+
+    if regional_targets_df.empty:
+        st.warning(f"No regional research targets found at {REGIONAL_TARGETS_PATH}")
+        return
+
+    target = selected_regional_target(regional_targets_df, "regional_build_target")
+    if target is None:
+        return
+
+    st.info(
+        "Use the regional target table to plan research. Add new master evidence rows only after "
+        "candidate rows have sources, limitations, attribution ratings, and human verification."
+    )
+
+    target_df = pd.DataFrame([target.to_dict()])
+    st.subheader("Regional Target")
+    st.dataframe(target_df, use_container_width=True, hide_index=True)
+
+    matched_evidence = evidence_rows_for_regional_target(evidence_df, target)
+    st.subheader("Current Master Rows Matching This Region")
+    if matched_evidence.empty:
+        st.write("No current master evidence rows match this regional target yet.")
+    else:
+        display = matched_evidence[
+            [
+                column
+                for column in [
+                    "row_id",
+                    "impact_domain",
+                    "ioos_component",
+                    "region",
+                    "metric",
+                    "evidence_strength",
+                    "ioos_attribution_strength",
+                    "source_verification_needed",
+                    "claim_allowed",
+                ]
+                if column in matched_evidence.columns
+            ]
+        ]
+        st.dataframe(display, use_container_width=True, hide_index=True)
+
+    st.subheader("Copy-Ready Regional Research Prompt")
+    rows_requested = st.number_input(
+        "Candidate rows to request",
+        min_value=3,
+        max_value=20,
+        value=8,
+        step=1,
+    )
+    research_focus = st.text_area(
+        "Research focus",
+        value=normalize_text(target.get("starter_research_question")),
+        height=110,
+    )
+    source_leads = st.text_area(
+        "Optional source leads",
+        placeholder="Paste MARACOOS, NOAA, USCG, state agency, port, academic, or economic baseline links here.",
+        height=150,
+    )
+    prompt = regional_research_prompt(target, research_focus, source_leads, int(rows_requested))
+    st.text_area("Copy-ready regional prompt", value=prompt, height=760)
+    st.download_button(
+        "Download regional prompt",
+        prompt.encode("utf-8"),
+        file_name=f"ioos_{normalize_text(target.get('region_id')) or 'regional'}_research_prompt.txt",
+        mime="text/plain",
+    )
+
+    st.download_button(
+        "Download regional target table",
+        regional_targets_df.to_csv(index=False).encode("utf-8"),
+        file_name="regional_research_targets.csv",
+        mime="text/csv",
+    )
+
+
+def page_evidence_intake(regional_targets_df: pd.DataFrame) -> None:
     st.title("Evidence Intake")
     st.caption("Generate copy-ready prompts, then stage AI candidate rows before they become official evidence.")
 
-    research_tab, source_tab, import_tab = st.tabs(["Research Topic", "Add Source", "Import CSV"])
+    research_tab, regional_tab, source_tab, import_tab = st.tabs(
+        ["Research Topic", "Regional Build Prompt", "Add Source", "Import CSV"]
+    )
 
     with research_tab:
         topic = st.text_area("Research question or topic", placeholder="Find 5 new evidence rows on HF radar and search and rescue.")
@@ -2632,6 +2820,41 @@ def page_evidence_intake() -> None:
             file_name="ioos_research_to_row_prompt.txt",
             mime="text/plain",
         )
+
+    with regional_tab:
+        if regional_targets_df.empty:
+            st.warning(f"No regional research targets found at {REGIONAL_TARGETS_PATH}")
+        else:
+            target = selected_regional_target(regional_targets_df, "intake_regional_target")
+            if target is not None:
+                rows_requested = st.number_input(
+                    "Candidate rows to request",
+                    min_value=3,
+                    max_value=20,
+                    value=8,
+                    step=1,
+                    key="intake_regional_rows",
+                )
+                research_focus = st.text_area(
+                    "Research focus",
+                    value=normalize_text(target.get("starter_research_question")),
+                    height=110,
+                    key="intake_regional_focus",
+                )
+                source_leads = st.text_area(
+                    "Optional source leads",
+                    placeholder="Paste MARACOOS, NOAA, USCG, state agency, port, academic, or economic baseline links here.",
+                    height=140,
+                    key="intake_regional_sources",
+                )
+                prompt = regional_research_prompt(target, research_focus, source_leads, int(rows_requested))
+                st.text_area("Copy-ready regional prompt", value=prompt, height=620)
+                st.download_button(
+                    "Download regional prompt",
+                    prompt.encode("utf-8"),
+                    file_name=f"ioos_{normalize_text(target.get('region_id')) or 'regional'}_research_prompt.txt",
+                    mime="text/plain",
+                )
 
     with source_tab:
         source_text = st.text_area(
@@ -2792,6 +3015,7 @@ def main() -> None:
     review_df = load_csv(REVIEW_PATH)
     staged_df = load_csv(STAGED_EVIDENCE_PATH)
     best_sources_df = load_csv(BEST_SOURCES_PATH)
+    regional_targets_df = load_csv(REGIONAL_TARGETS_PATH)
 
     st.sidebar.title("IOOS Matrix")
     page = st.sidebar.radio(
@@ -2799,6 +3023,7 @@ def main() -> None:
         [
             "Dashboard Summary",
             "Project Roadmap",
+            "Regional Builds",
             "Evidence Matrix",
             "Congressional Brief",
             "Best Sources",
@@ -2815,6 +3040,8 @@ def main() -> None:
         page_dashboard_summary(evidence_df, source_df, review_df)
     elif page == "Project Roadmap":
         page_project_roadmap(evidence_df, source_df, review_df, staged_df, best_sources_df)
+    elif page == "Regional Builds":
+        page_regional_builds(regional_targets_df, evidence_df)
     elif page == "Evidence Matrix":
         page_evidence_matrix(evidence_df)
     elif page == "Congressional Brief":
@@ -2822,7 +3049,7 @@ def main() -> None:
     elif page == "Best Sources":
         page_best_sources(best_sources_df)
     elif page == "Evidence Intake":
-        page_evidence_intake()
+        page_evidence_intake(regional_targets_df)
     elif page == "Staged Evidence":
         page_staged_evidence(staged_df, evidence_df, source_df)
     elif page == "Review Needed":
