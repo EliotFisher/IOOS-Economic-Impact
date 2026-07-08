@@ -29,6 +29,7 @@ EVIDENCE_PATH = DATA_DIR / "evidence_matrix.csv"
 SOURCE_PATH = DATA_DIR / "source_registry.csv"
 REVIEW_PATH = DATA_DIR / "review_needed.csv"
 STAGED_EVIDENCE_PATH = DATA_DIR / "staged_evidence.csv"
+BEST_SOURCES_PATH = DATA_DIR / "best_sources.csv"
 VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_matrix.py"
 FILLED_BRIEFING_PATH = REPO_ROOT / "outputs" / "IOOS_Congressional_Briefing_Filled.html"
 UCAR_LOGO_PATH = APP_DIR / "logo-ucar.avif"
@@ -106,6 +107,7 @@ PATH_TABLES = {
     SOURCE_PATH: "source_registry",
     REVIEW_PATH: "review_needed",
     STAGED_EVIDENCE_PATH: "staged_evidence",
+    BEST_SOURCES_PATH: "best_sources",
 }
 
 TABLE_DELETE_FILTERS = {
@@ -113,11 +115,13 @@ TABLE_DELETE_FILTERS = {
     "evidence_matrix": ("row_id", "not.is.null"),
     "review_needed": ("id", "not.is.null"),
     "staged_evidence": ("id", "not.is.null"),
+    "best_sources": ("source_id", "not.is.null"),
 }
 
 TABLE_CONFLICT_KEYS = {
     "source_registry": "source_id",
     "evidence_matrix": "row_id",
+    "best_sources": "source_id",
 }
 
 TABLE_ORDER_COLUMNS = {
@@ -125,6 +129,7 @@ TABLE_ORDER_COLUMNS = {
     "evidence_matrix": "row_id",
     "review_needed": "id",
     "staged_evidence": "id",
+    "best_sources": "source_id",
 }
 
 SUPABASE_KEY_NAMES = [
@@ -216,6 +221,115 @@ CONSERVATIVE_CLAIM_TERMS = [
     r"\bpotential\b",
     r"\bpending\b",
     r"\bwhere documented\b",
+]
+
+PROJECT_TIMELINE = [
+    {
+        "start": date(2026, 6, 1),
+        "end": date(2026, 6, 29),
+        "milestone": "Discovery and Prototype",
+        "focus": "Explore AI workflows, build the first evidence workflow, identify economic data sources, and compare research tools.",
+    },
+    {
+        "start": date(2026, 6, 30),
+        "end": date(2026, 7, 8),
+        "milestone": "Expansion and Scaling",
+        "focus": "Vet information, expand the dataset, scale the framework for MARACOOS, and add imagery to summary materials.",
+    },
+    {
+        "start": date(2026, 7, 8),
+        "end": date(2026, 7, 14),
+        "milestone": "Refinement",
+        "focus": "Start finalizing the national report, expand regional evidence where useful, and document the workflow metadata.",
+    },
+    {
+        "start": date(2026, 7, 14),
+        "end": date(2026, 7, 21),
+        "milestone": "Internal Review",
+        "focus": "Identify IOOS, MIIS, and COL reviewers and begin the AI tools summary for COL.",
+    },
+    {
+        "start": date(2026, 7, 21),
+        "end": date(2026, 7, 28),
+        "milestone": "Develop Materials",
+        "focus": "Develop retreat materials and incorporate early reviewer comments.",
+    },
+    {
+        "start": date(2026, 7, 28),
+        "end": date(2026, 8, 4),
+        "milestone": "Editing",
+        "focus": "Continue incorporating comments and finalize report, workflow, and presentation materials.",
+    },
+    {
+        "start": date(2026, 8, 4),
+        "end": date(2026, 8, 11),
+        "milestone": "Finalize",
+        "focus": "Complete final polishing of the evidence matrix, workflow documentation, report, and retreat materials.",
+    },
+    {
+        "start": date(2026, 8, 12),
+        "end": date(2026, 8, 13),
+        "milestone": "Boulder Retreat",
+        "focus": "Present recommendations, facilitate discussion, gather staff feedback, and identify implementation priorities.",
+    },
+]
+
+PROJECT_OBJECTIVES = [
+    "Build a defensible national IOOS economic impact evidence base.",
+    "Keep AI-generated rows staged until human verification clears them.",
+    "Distinguish measured, modeled, contextual, and weak-attribution claims.",
+    "Use MARACOOS as the first regional pilot for scaling the framework.",
+    "Generate communication-ready report and briefing materials from vetted evidence.",
+]
+
+PROJECT_GOVERNANCE_RULES = [
+    {
+        "Area": "Staged evidence",
+        "Rule": "Candidate rows stay outside the live matrix until Source verification needed is set to No.",
+    },
+    {
+        "Area": "Claim language",
+        "Rule": "Claims must stay conservative when evidence is modeled, contextual, or still under review.",
+    },
+    {
+        "Area": "Source registry",
+        "Rule": "Every official evidence row must point to an authoritative source_id with a working source URL.",
+    },
+    {
+        "Area": "Review queue",
+        "Rule": "Validation warnings and errors are treated as operator tasks before report-ready use.",
+    },
+    {
+        "Area": "Briefing sources",
+        "Rule": "The best_sources table is the curated shortlist for policy briefs and final report materials.",
+    },
+]
+
+PROJECT_EVIDENCE_PRIORITIES = [
+    {
+        "Priority": "PORTS and maritime transportation",
+        "Need": "Local case studies, port-safety benefits, draft optimization, and national scenario boundaries.",
+    },
+    {
+        "Priority": "HF radar and search and rescue",
+        "Need": "Operational SAROPS evidence, search-area reduction cases, and cautious public-safety value framing.",
+    },
+    {
+        "Priority": "HAB forecasts and seafood decisions",
+        "Need": "Forecast value, closure timing, avoided false alarms, and state or regional management evidence.",
+    },
+    {
+        "Priority": "Ocean acidification and shellfish hatcheries",
+        "Need": "Monitoring-to-decision pathways, hatchery adaptation evidence, and clear separation from sector exposure.",
+    },
+    {
+        "Priority": "Ocean Enterprise and marine economy context",
+        "Need": "Sector scale from Ocean Enterprise, BEA MESA, ENOW, NOEP, and other macroeconomic baselines.",
+    },
+    {
+        "Priority": "MARACOOS regional pilot",
+        "Need": "A repeatable regional case structure that can later extend to one or two additional regions.",
+    },
 ]
 
 
@@ -2040,6 +2154,156 @@ def render_source_type_breakdown(source_df: pd.DataFrame) -> None:
     st.dataframe(source_counts, use_container_width=True, hide_index=True)
 
 
+def short_date(value: date) -> str:
+    return f"{value.strftime('%b')} {value.day}"
+
+
+def active_project_phase_index(today: date) -> int | None:
+    active_indexes = [
+        index
+        for index, phase in enumerate(PROJECT_TIMELINE)
+        if phase["start"] <= today <= phase["end"]
+    ]
+    if active_indexes:
+        return active_indexes[-1]
+    return None
+
+
+def project_timeline_df(today: date) -> pd.DataFrame:
+    active_index = active_project_phase_index(today)
+    rows: list[dict[str, str]] = []
+    for index, phase in enumerate(PROJECT_TIMELINE):
+        if active_index is not None:
+            status = "Active" if index == active_index else "Complete" if index < active_index else "Upcoming"
+        elif today < PROJECT_TIMELINE[0]["start"]:
+            status = "Upcoming"
+        else:
+            status = "Complete"
+
+        rows.append(
+            {
+                "Dates": f"{short_date(phase['start'])} - {short_date(phase['end'])}",
+                "Milestone": phase["milestone"],
+                "Status": status,
+                "Focus": phase["focus"],
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def project_table_status(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "Table": "source_registry",
+                "Rows": len(source_df),
+                "Purpose": "Authoritative source metadata and URLs.",
+            },
+            {
+                "Table": "evidence_matrix",
+                "Rows": len(evidence_df),
+                "Purpose": "Certified master matrix for report-ready claims.",
+            },
+            {
+                "Table": "staged_evidence",
+                "Rows": len(staged_df),
+                "Purpose": "Temporary holding area for AI-generated candidate rows.",
+            },
+            {
+                "Table": "review_needed",
+                "Rows": len(review_df),
+                "Purpose": "Validation issues and operator follow-up tasks.",
+            },
+            {
+                "Table": "best_sources",
+                "Rows": len(best_sources_df),
+                "Purpose": "Curated shortlist for policy briefs and final materials.",
+            },
+        ]
+    )
+
+
+def page_project_roadmap(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> None:
+    st.title("Project Roadmap")
+    st.caption("Proposal-aligned control center for the IOOS Matrix field project.")
+
+    today = date.today()
+    active_index = active_project_phase_index(today)
+    if active_index is None:
+        current_phase = "Complete" if today > PROJECT_TIMELINE[-1]["end"] else "Not started"
+    else:
+        current_phase = PROJECT_TIMELINE[active_index]["milestone"]
+
+    metric_columns = st.columns(4)
+    metric_columns[0].metric("Current phase", current_phase)
+    metric_columns[1].metric("Core tables", "5")
+    metric_columns[2].metric("Evidence rows", f"{len(evidence_df):,}")
+    metric_columns[3].metric("Briefing sources", f"{len(best_sources_df):,}")
+
+    objective_col, governance_col = st.columns([1, 1])
+    with objective_col:
+        st.subheader("Project Objectives")
+        for objective in PROJECT_OBJECTIVES:
+            st.write(f"- {objective}")
+
+    with governance_col:
+        st.subheader("Governance Rules")
+        st.dataframe(
+            pd.DataFrame(PROJECT_GOVERNANCE_RULES),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.subheader("Timeline")
+    st.dataframe(
+        project_timeline_df(today),
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Dates": st.column_config.TextColumn(width="small"),
+            "Status": st.column_config.TextColumn(width="small"),
+            "Focus": st.column_config.TextColumn(width="large"),
+        },
+    )
+
+    table_col, priority_col = st.columns([0.9, 1.1])
+    with table_col:
+        st.subheader("Operational Tables")
+        st.dataframe(
+            project_table_status(evidence_df, source_df, review_df, staged_df, best_sources_df),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Rows": st.column_config.NumberColumn(format="%d", width="small"),
+                "Purpose": st.column_config.TextColumn(width="large"),
+            },
+        )
+
+    with priority_col:
+        st.subheader("Evidence Build Priorities")
+        st.dataframe(
+            pd.DataFrame(PROJECT_EVIDENCE_PRIORITIES),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Priority": st.column_config.TextColumn(width="medium"),
+                "Need": st.column_config.TextColumn(width="large"),
+            },
+        )
+
+
 def page_dashboard_summary(evidence_df: pd.DataFrame, source_df: pd.DataFrame, review_df: pd.DataFrame) -> None:
     st.title("Dashboard Summary")
     st.caption("At-a-glance status for evidence coverage, claim strength, and review workload.")
@@ -2117,6 +2381,67 @@ def page_source_registry(source_df: pd.DataFrame) -> None:
         use_container_width=True,
         hide_index=True,
         column_config=column_config,
+    )
+
+
+def page_best_sources(best_sources_df: pd.DataFrame) -> None:
+    st.title("Best Sources")
+    st.caption("Curated source shortlist for congressional briefs, final report sections, and retreat materials.")
+
+    if best_sources_df.empty:
+        st.warning(f"No best sources table found at {BEST_SOURCES_PATH}")
+        return
+
+    primary_count = (
+        int((best_sources_df["priority_tier"].map(normalize_text) == "primary").sum())
+        if "priority_tier" in best_sources_df.columns
+        else 0
+    )
+    verified_count = (
+        int((best_sources_df["source_verification_needed"].map(normalize_text) == "No").sum())
+        if "source_verification_needed" in best_sources_df.columns
+        else 0
+    )
+    planned_count = (
+        int((best_sources_df["status"].map(normalize_text) == "planned").sum())
+        if "status" in best_sources_df.columns
+        else 0
+    )
+
+    metric_columns = st.columns(4)
+    metric_columns[0].metric("Shortlist sources", f"{len(best_sources_df):,}")
+    metric_columns[1].metric("Primary tier", f"{primary_count:,}")
+    metric_columns[2].metric("Verified", f"{verified_count:,}")
+    metric_columns[3].metric("Planned", f"{planned_count:,}")
+
+    search_text = st.sidebar.text_input("Search best sources", key="best_sources_search")
+    filtered = search_dataframe(best_sources_df, search_text)
+    filtered = add_multiselect_filter(filtered, "priority_tier", "Priority Tier")
+    filtered = add_multiselect_filter(filtered, "source_type", "Source Type")
+    filtered = add_multiselect_filter(filtered, "source_verification_needed", "Verification Needed")
+    filtered = add_multiselect_filter(filtered, "status", "Status")
+
+    st.caption(f"Showing {len(filtered):,} of {len(best_sources_df):,} sources")
+    column_config = {
+        "source_url": st.column_config.LinkColumn("Source URL"),
+        "briefing_role": st.column_config.TextColumn(width="large"),
+        "key_metrics": st.column_config.TextColumn(width="large"),
+        "recommended_claim_language": st.column_config.TextColumn(width="large"),
+        "caveats": st.column_config.TextColumn(width="large"),
+    }
+    st.dataframe(
+        filtered,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            column: config for column, config in column_config.items() if column in filtered.columns
+        },
+    )
+    st.download_button(
+        "Download best_sources.csv",
+        filtered.to_csv(index=False).encode("utf-8"),
+        file_name="best_sources.csv",
+        mime="text/csv",
     )
 
 
@@ -2466,14 +2791,17 @@ def main() -> None:
     source_df = load_csv(SOURCE_PATH)
     review_df = load_csv(REVIEW_PATH)
     staged_df = load_csv(STAGED_EVIDENCE_PATH)
+    best_sources_df = load_csv(BEST_SOURCES_PATH)
 
     st.sidebar.title("IOOS Matrix")
     page = st.sidebar.radio(
         "Page",
         [
             "Dashboard Summary",
+            "Project Roadmap",
             "Evidence Matrix",
             "Congressional Brief",
+            "Best Sources",
             "Evidence Intake",
             "Staged Evidence",
             "Review Needed",
@@ -2485,10 +2813,14 @@ def main() -> None:
 
     if page == "Dashboard Summary":
         page_dashboard_summary(evidence_df, source_df, review_df)
+    elif page == "Project Roadmap":
+        page_project_roadmap(evidence_df, source_df, review_df, staged_df, best_sources_df)
     elif page == "Evidence Matrix":
         page_evidence_matrix(evidence_df)
     elif page == "Congressional Brief":
         page_congressional_briefing(evidence_df, source_df)
+    elif page == "Best Sources":
+        page_best_sources(best_sources_df)
     elif page == "Evidence Intake":
         page_evidence_intake()
     elif page == "Staged Evidence":

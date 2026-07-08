@@ -75,7 +75,9 @@ When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are available in `.env` or S
 The dashboard includes:
 
 - Dashboard summary charts
+- Proposal-aligned Project Roadmap with timeline, objectives, governance rules, and table status
 - Searchable and filterable evidence matrix
+- Curated Best Sources workspace for briefing and final-report source selection
 - Evidence Intake prompt templates for research-to-row and source-to-row workflows
 - Strict candidate CSV validation and staged evidence review
 - Review-needed table
