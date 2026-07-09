@@ -26,11 +26,31 @@ ALLOWED_RATINGS = {
     "Needs verification",
 }
 
+EVIDENCE_ROW_ID_RE = re.compile(r"^EVID-\d{4}$")
+
+ALLOWED_IOOS_REGION_CODES = {
+    "AOOS",
+    "CARICOOS",
+    "CeNCOOS",
+    "GCOOS",
+    "GLOS",
+    "MARACOOS",
+    "NANOOS",
+    "NERACOOS",
+    "PacIOOS",
+    "SCCOOS",
+    "SECOORA",
+    "National",
+    "Multiple",
+    "Unknown",
+}
+
 REQUIRED_EVIDENCE_FIELDS = [
     "row_id",
     "impact_domain",
     "ioos_component",
     "region",
+    "ioos_region_code",
     "user_group",
     "decision_supported",
     "economic_pathway",
@@ -81,6 +101,10 @@ def is_blank(value: object) -> bool:
 
 def has_quantified_metric(row: dict[str, str]) -> bool:
     return bool(re.search(r"(?:\$|M\b|B\b|million|billion|%|\d)", row.get("metric", ""), re.I))
+
+
+def split_ioos_region_codes(value: str) -> list[str]:
+    return [part.strip() for part in value.split(";") if part.strip()]
 
 
 def has_unsupported_causal_language(row: dict[str, str]) -> bool:
@@ -136,6 +160,15 @@ def validate(evidence_path: Path, source_path: Path) -> list[dict[str, str]]:
             if field not in row or is_blank(row.get(field)):
                 add_issue(issues, "error", "missing_field", f"{label} missing {field}", row_id=row_id)
 
+        if row_id and not EVIDENCE_ROW_ID_RE.match(row_id):
+            add_issue(
+                issues,
+                "error",
+                "invalid_row_id",
+                f"{label} row_id must use EVID-#### format",
+                row_id=row_id,
+            )
+
         for field in ["evidence_strength", "ioos_attribution_strength"]:
             if row.get(field) not in ALLOWED_RATINGS:
                 add_issue(
@@ -152,6 +185,19 @@ def validate(evidence_path: Path, source_path: Path) -> list[dict[str, str]]:
                 "error",
                 "invalid_verification_flag",
                 f"{label} source_verification_needed must be Yes or No",
+                row_id=row_id,
+            )
+
+        invalid_region_codes = [
+            code for code in split_ioos_region_codes(row.get("ioos_region_code", ""))
+            if code not in ALLOWED_IOOS_REGION_CODES
+        ]
+        if invalid_region_codes:
+            add_issue(
+                issues,
+                "error",
+                "invalid_ioos_region_code",
+                f"{label} has invalid ioos_region_code value(s): {', '.join(invalid_region_codes)}",
                 row_id=row_id,
             )
 

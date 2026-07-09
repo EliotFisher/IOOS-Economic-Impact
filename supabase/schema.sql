@@ -17,6 +17,7 @@ create table if not exists public.evidence_matrix (
   impact_domain text not null,
   ioos_component text not null,
   region text not null,
+  ioos_region_code text not null,
   user_group text not null,
   decision_supported text not null,
   economic_pathway text not null,
@@ -49,6 +50,7 @@ create table if not exists public.staged_evidence (
   impact_domain text not null,
   ioos_component text not null,
   region text not null,
+  ioos_region_code text not null,
   user_group text not null,
   decision_supported text not null,
   economic_pathway text not null,
@@ -66,8 +68,15 @@ create table if not exists public.staged_evidence (
   updated_at timestamptz not null default now()
 );
 
+alter table public.evidence_matrix
+  add column if not exists ioos_region_code text not null default 'Unknown';
+
+alter table public.staged_evidence
+  add column if not exists ioos_region_code text not null default 'Unknown';
+
 create index if not exists evidence_matrix_source_id_idx on public.evidence_matrix(source_id);
 create index if not exists evidence_matrix_impact_domain_idx on public.evidence_matrix(impact_domain);
+create index if not exists evidence_matrix_ioos_region_code_idx on public.evidence_matrix(ioos_region_code);
 create index if not exists evidence_matrix_evidence_strength_idx on public.evidence_matrix(evidence_strength);
 create index if not exists review_needed_row_id_idx on public.review_needed(row_id);
 
@@ -106,6 +115,7 @@ create table if not exists public.best_sources (
   source_name text not null,
   source_url text not null,
   source_type text not null,
+  ioos_region_code text not null default 'Unknown',
   priority_tier text not null check (priority_tier in ('primary', 'supporting', 'context', 'hold')),
   briefing_role text not null,
   impact_domains text not null,
@@ -120,6 +130,10 @@ create table if not exists public.best_sources (
   updated_at timestamptz not null default now()
 );
 
+alter table public.best_sources
+  add column if not exists ioos_region_code text not null default 'Unknown';
+
+create index if not exists best_sources_ioos_region_code_idx on public.best_sources(ioos_region_code);
 create index if not exists best_sources_priority_tier_idx on public.best_sources(priority_tier);
 create index if not exists best_sources_status_idx on public.best_sources(status);
 

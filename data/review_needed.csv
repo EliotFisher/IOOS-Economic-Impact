@@ -1,17 +1,17 @@
 severity,row_id,source_id,check,message
-warning,2,,source_verification_needed,row 2 should be checked against the original/full source before use
-warning,2,,quantified_metric_needs_verification,row 2 has quantified metric values that need source verification
-warning,3,,source_verification_needed,row 3 should be checked against the original/full source before use
-warning,3,,quantified_metric_needs_verification,row 3 has quantified metric values that need source verification
-warning,7,,weak_attribution,row 7 has weak IOOS attribution: Contextual
-warning,7,,source_verification_needed,row 7 should be checked against the original/full source before use
-warning,7,,quantified_metric_needs_verification,row 7 has quantified metric values that need source verification
-warning,8,,source_verification_needed,row 8 should be checked against the original/full source before use
-warning,8,,quantified_metric_needs_verification,row 8 has quantified metric values that need source verification
-warning,12,,source_verification_needed,row 12 should be checked against the original/full source before use
-warning,12,,quantified_metric_needs_verification,row 12 has quantified metric values that need source verification
-warning,12,,unsupported_causal_language,row 12 uses causal language that is stronger than the evidence/attribution flags support
-warning,13,,source_verification_needed,row 13 should be checked against the original/full source before use
-warning,13,,quantified_metric_needs_verification,row 13 has quantified metric values that need source verification
-warning,14,,weak_attribution,row 14 has weak IOOS attribution: Contextual
-warning,17,,weak_attribution,row 17 has weak IOOS attribution: Contextual
+warning,EVID-0002,,source_verification_needed,row EVID-0002 should be checked against the original/full source before use
+warning,EVID-0002,,quantified_metric_needs_verification,row EVID-0002 has quantified metric values that need source verification
+warning,EVID-0003,,source_verification_needed,row EVID-0003 should be checked against the original/full source before use
+warning,EVID-0003,,quantified_metric_needs_verification,row EVID-0003 has quantified metric values that need source verification
+warning,EVID-0007,,weak_attribution,row EVID-0007 has weak IOOS attribution: Contextual
+warning,EVID-0007,,source_verification_needed,row EVID-0007 should be checked against the original/full source before use
+warning,EVID-0007,,quantified_metric_needs_verification,row EVID-0007 has quantified metric values that need source verification
+warning,EVID-0008,,source_verification_needed,row EVID-0008 should be checked against the original/full source before use
+warning,EVID-0008,,quantified_metric_needs_verification,row EVID-0008 has quantified metric values that need source verification
+warning,EVID-0012,,source_verification_needed,row EVID-0012 should be checked against the original/full source before use
+warning,EVID-0012,,quantified_metric_needs_verification,row EVID-0012 has quantified metric values that need source verification
+warning,EVID-0012,,unsupported_causal_language,row EVID-0012 uses causal language that is stronger than the evidence/attribution flags support
+warning,EVID-0013,,source_verification_needed,row EVID-0013 should be checked against the original/full source before use
+warning,EVID-0013,,quantified_metric_needs_verification,row EVID-0013 has quantified metric values that need source verification
+warning,EVID-0014,,weak_attribution,row EVID-0014 has weak IOOS attribution: Contextual
+warning,EVID-0017,,weak_attribution,row EVID-0017 has weak IOOS attribution: Contextual

@@ -24,6 +24,27 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO_ROOT / "data"
 DEFAULT_SUPABASE_URL = "https://spfyejzxqornsfmoansk.supabase.co"
 
+CANDIDATE_COLUMNS = {
+    "Impact domain": "impact_domain",
+    "IOOS component": "ioos_component",
+    "Region": "region",
+    "IOOS region code": "ioos_region_code",
+    "User group": "user_group",
+    "Decision supported": "decision_supported",
+    "Economic pathway": "economic_pathway",
+    "Metric": "metric",
+    "Metric year / dollar year": "metric_year_or_dollar_year",
+    "Source": "source",
+    "Source URL": "source_url",
+    "Evidence strength": "evidence_strength",
+    "IOOS attribution strength": "ioos_attribution_strength",
+    "Source verification needed": "source_verification_needed",
+    "Limitations": "limitations",
+    "Claim allowed": "claim_allowed",
+    "Update frequency": "update_frequency",
+    "AI extraction notes": "ai_extraction_notes",
+}
+
 CSV_TABLES = {
     "source_registry": {
         "path": DATA_DIR / "source_registry.csv",
@@ -49,25 +70,7 @@ CSV_TABLES = {
         "path": DATA_DIR / "staged_evidence.csv",
         "delete_filter": ("id", "not.is.null"),
         "conflict": None,
-        "columns": {
-            "Impact domain": "impact_domain",
-            "IOOS component": "ioos_component",
-            "Region": "region",
-            "User group": "user_group",
-            "Decision supported": "decision_supported",
-            "Economic pathway": "economic_pathway",
-            "Metric": "metric",
-            "Metric year / dollar year": "metric_year_or_dollar_year",
-            "Source": "source",
-            "Source URL": "source_url",
-            "Evidence strength": "evidence_strength",
-            "IOOS attribution strength": "ioos_attribution_strength",
-            "Source verification needed": "source_verification_needed",
-            "Limitations": "limitations",
-            "Claim allowed": "claim_allowed",
-            "Update frequency": "update_frequency",
-            "AI extraction notes": "ai_extraction_notes",
-        },
+        "columns": CANDIDATE_COLUMNS,
     },
     "best_sources": {
         "path": DATA_DIR / "best_sources.csv",

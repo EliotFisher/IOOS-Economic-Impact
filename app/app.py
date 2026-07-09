@@ -41,6 +41,7 @@ INTAKE_SCHEMA = [
     "Impact domain",
     "IOOS component",
     "Region",
+    "IOOS region code",
     "User group",
     "Decision supported",
     "Economic pathway",
@@ -62,6 +63,7 @@ INTAKE_TO_EVIDENCE_COLUMNS = {
     "Impact domain": "impact_domain",
     "IOOS component": "ioos_component",
     "Region": "region",
+    "IOOS region code": "ioos_region_code",
     "User group": "user_group",
     "Decision supported": "decision_supported",
     "Economic pathway": "economic_pathway",
@@ -82,6 +84,7 @@ STAGED_DB_TO_INTAKE_COLUMNS = {
     "impact_domain": "Impact domain",
     "ioos_component": "IOOS component",
     "region": "Region",
+    "ioos_region_code": "IOOS region code",
     "user_group": "User group",
     "decision_supported": "Decision supported",
     "economic_pathway": "Economic pathway",
@@ -158,6 +161,7 @@ SUPABASE_SECRET_SECTIONS = [
 INTAKE_REQUIRED_VALUES = [
     "Source",
     "Source URL",
+    "IOOS region code",
     "Claim allowed",
     "Limitations",
     "Evidence strength",
@@ -173,9 +177,91 @@ ALLOWED_RATING_VALUES = [
 ]
 ALLOWED_RATINGS = set(ALLOWED_RATING_VALUES)
 
+IOOS_REGION_OPTIONS = {
+    "AOOS": "Alaska",
+    "CARICOOS": "Caribbean",
+    "CeNCOOS": "Central and Northern California",
+    "GCOOS": "Gulf of America",
+    "GLOS": "Great Lakes",
+    "MARACOOS": "Mid-Atlantic",
+    "NANOOS": "Pacific Northwest",
+    "NERACOOS": "Northeast",
+    "PacIOOS": "Pacific Islands",
+    "SCCOOS": "Southern California",
+    "SECOORA": "Southeast Atlantic",
+}
+NON_ASSOCIATION_REGION_CODES = {
+    "National": "National or national-scale IOOS evidence",
+    "Multiple": "Multiple IOOS regions",
+    "Unknown": "Region code needs follow-up",
+}
+ALLOWED_IOOS_REGION_CODES = set(IOOS_REGION_OPTIONS) | set(NON_ASSOCIATION_REGION_CODES)
+EVIDENCE_ROW_ID_PREFIX = "EVID"
+EVIDENCE_ROW_ID_WIDTH = 4
+EVIDENCE_ROW_ID_RE = re.compile(r"^EVID-(\d{4})$")
+BRIEFING_ROW_IDS = {
+    "ports": "EVID-0001",
+    "habs": "EVID-0005",
+    "hf_radar": "EVID-0009",
+    "ocean_enterprise": "EVID-0014",
+}
+MARACOOS_CODE = "MARACOOS"
+MARACOOS_SUPABASE_TABLES = ("MARACOOS", "maracoos")
+MARACOOS_COLUMN_ALIASES = {
+    "Impact domain": "impact_domain",
+    "IOOS component": "ioos_component",
+    "Region": "region",
+    "IOOS region code": "ioos_region_code",
+    "User group": "user_group",
+    "Decision supported": "decision_supported",
+    "Economic pathway": "economic_pathway",
+    "Metric": "metric",
+    "Metric year / dollar year": "metric_year_or_dollar_year",
+    "Source": "source",
+    "Source URL": "source_url",
+    "Evidence strength": "evidence_strength",
+    "IOOS attribution strength": "ioos_attribution_strength",
+    "Source verification needed": "source_verification_needed",
+    "Limitations": "limitations",
+    "Claim allowed": "claim_allowed",
+    "Update frequency": "update_frequency",
+    "AI extraction notes": "ai_extraction_notes",
+}
+MARACOOS_DISPLAY_COLUMNS = [
+    "row_id",
+    "impact_domain",
+    "ioos_component",
+    "region",
+    "ioos_region_code",
+    "user_group",
+    "decision_supported",
+    "economic_pathway",
+    "metric",
+    "metric_year_or_dollar_year",
+    "source",
+    "source_id",
+    "source_url",
+    "evidence_strength",
+    "ioos_attribution_strength",
+    "source_verification_needed",
+    "claim_allowed",
+    "limitations",
+    "update_frequency",
+    "ai_extraction_notes",
+    "data_origin",
+]
+MARACOOS_STRENGTH_RANK = {
+    "Strong": 0,
+    "Medium": 1,
+    "Modeled": 2,
+    "Contextual": 3,
+    "Needs verification": 4,
+}
+
 REQUIRED_ADD_FIELDS = [
     "impact_domain",
     "ioos_component",
+    "ioos_region_code",
     "source_id",
     "claim_allowed",
     "limitations",
@@ -561,9 +647,26 @@ def load_csv(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, dtype=str, keep_default_na=False)
 
 
+@st.cache_data(show_spinner=False)
+def load_optional_supabase_table(table_names: tuple[str, ...]) -> tuple[pd.DataFrame, str, tuple[str, ...]]:
+    """Try a short list of optional Supabase tables without breaking the page."""
+    if not supabase_enabled():
+        return pd.DataFrame(), "", ()
+
+    errors: list[str] = []
+    for table in table_names:
+        try:
+            return load_supabase_table(table), table, tuple(errors)
+        except RuntimeError as exc:
+            errors.append(f"{table}: {exc}")
+
+    return pd.DataFrame(), "", tuple(errors)
+
+
 def clear_data_cache() -> None:
     """Refresh cached CSV reads after validation or row additions."""
     load_csv.clear()
+    load_optional_supabase_table.clear()
 
 
 def search_dataframe(df: pd.DataFrame, search_text: str) -> pd.DataFrame:
@@ -609,6 +712,7 @@ def render_filtered_table(df: pd.DataFrame, key_prefix: str) -> pd.DataFrame:
     filtered = search_dataframe(df, search_text)
 
     filtered = add_multiselect_filter(filtered, "impact_domain", "Impact Domain")
+    filtered = add_multiselect_filter(filtered, "ioos_region_code", "IOOS Region Code")
     filtered = add_multiselect_filter(filtered, "evidence_strength", "Evidence Strength")
     filtered = add_multiselect_filter(
         filtered,
@@ -637,6 +741,18 @@ def allowed_ratings_text() -> str:
     return ", ".join(ALLOWED_RATING_VALUES)
 
 
+def allowed_ioos_region_codes_text() -> str:
+    return ", ".join(sorted(ALLOWED_IOOS_REGION_CODES))
+
+
+def split_ioos_region_codes(value: object) -> list[str]:
+    return [part.strip() for part in normalize_text(value).split(";") if part.strip()]
+
+
+def invalid_ioos_region_codes(value: object) -> list[str]:
+    return [code for code in split_ioos_region_codes(value) if code not in ALLOWED_IOOS_REGION_CODES]
+
+
 def research_prompt(topic: str) -> str:
     topic_text = topic.strip() or "[INSERT TOPIC]"
     return f"""You are generating candidate evidence rows for the IOOS Economic Evidence App.
@@ -652,6 +768,8 @@ Research the following IOOS economic impact topic:
 Rules:
 - Use only real sources.
 - Do not invent numbers, metrics, source titles, or URLs.
+- IOOS region code must be one or more exact codes separated by semicolons: {allowed_ioos_region_codes_text()}.
+- Use National for national-scale evidence and Multiple for evidence that spans several known regional associations.
 - If the evidence is qualitative, say so in the Metric field.
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
 - Put rating explanations in Limitations or AI extraction notes, not in the rating fields.
@@ -679,6 +797,8 @@ Rules:
 - Extract only evidence actually supported by the source.
 - Do not create a row if the source is too vague.
 - Do not overstate IOOS attribution.
+- IOOS region code must be one or more exact codes separated by semicolons: {allowed_ioos_region_codes_text()}.
+- Use National for national-scale evidence and Multiple for evidence that spans several known regional associations.
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
 - Put rating explanations in Limitations or AI extraction notes, not in the rating fields.
 - If the source is not IOOS-specific, mark IOOS attribution strength as Contextual.
@@ -686,6 +806,56 @@ Rules:
 - Set Source verification needed to Yes unless the row has been manually checked.
 - Write Claim allowed as a cautious sentence that COL could safely use.
 - Quote every CSV field that contains a comma, quote, or line break.
+- Return CSV only."""
+
+
+def claude_batch_prompt(source_links: str, research_focus: str) -> str:
+    links = [line.strip() for line in source_links.splitlines() if line.strip()]
+    if links:
+        link_text = "\n".join(f"{index}. {link}" for index, link in enumerate(links, start=1))
+    else:
+        link_text = "[PASTE PAPER OR REPORT LINKS HERE, ONE PER LINE]"
+
+    focus_text = research_focus.strip() or (
+        "Extract IOOS economic impact evidence, including observed or modeled benefits, "
+        "avoided costs, operational decisions supported, user groups, caveats, and update cadence."
+    )
+
+    return f"""You are Claude acting as a research coworker for the IOOS Economic Evidence App.
+
+Goal:
+Read the linked papers, reports, or source pages below and extract candidate evidence rows that could support cautious IOOS economic impact claims.
+
+Research focus:
+{focus_text}
+
+Links:
+{link_text}
+
+Return CSV only. Do not wrap the CSV in Markdown. Include this exact header row as the first line:
+
+{intake_schema_csv_header()}
+
+Rules:
+- Use only evidence that is actually supported by the linked source.
+- Do not invent numbers, metrics, dollar years, titles, source URLs, agencies, or IOOS attribution.
+- If a link is inaccessible or too vague, do not create a row from it.
+- Leave row_id blank unless the source itself provides a stable row identifier.
+- Source must be the paper/report/source title.
+- Source URL must be the exact link used for the row.
+- IOOS region code must be one or more exact codes separated by semicolons: {allowed_ioos_region_codes_text()}.
+- Use National for national-scale evidence and Multiple for evidence that spans several known regional associations.
+- Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
+- Set Source verification needed to Yes for every row.
+- Put rating explanations, uncertainty, page/table references, and access problems in Limitations or AI extraction notes, not in the rating fields.
+- If the source supports economic context but not IOOS-attributable benefit, set IOOS attribution strength to Contextual.
+- If the claim is based on a model, scenario, benefit-transfer method, or estimate rather than observed outcomes, set Evidence strength to Modeled unless the source clearly justifies a stronger rating.
+- If the source provides exposure, activity, or use statistics but not avoided cost or benefit, say that in Limitations.
+- Write Claim allowed as a cautious sentence that COL could safely use.
+- Include limitations for every row.
+- Quote every CSV field that contains a comma, quote, or line break.
+- Every row must include Source, Source URL, IOOS region code, Claim allowed, Limitations, Evidence strength, and IOOS attribution strength.
+- Before returning, check that every row has exactly the same number of columns as the header.
 - Return CSV only."""
 
 
@@ -710,8 +880,15 @@ def selected_regional_target(regional_targets_df: pd.DataFrame, key: str) -> pd.
 
 
 def evidence_rows_for_regional_target(evidence_df: pd.DataFrame, target: pd.Series | None) -> pd.DataFrame:
-    if target is None or evidence_df.empty or "region" not in evidence_df.columns:
+    if target is None or evidence_df.empty:
         return pd.DataFrame()
+
+    target_code = normalize_text(target.get("ioos_region_code")) or normalize_text(target.get("ioos_association"))
+    code_mask = pd.Series(False, index=evidence_df.index)
+    if target_code and "ioos_region_code" in evidence_df.columns:
+        code_mask = evidence_df["ioos_region_code"].apply(
+            lambda value: target_code in split_ioos_region_codes(value)
+        )
 
     keywords = [
         value.strip().lower()
@@ -724,11 +901,21 @@ def evidence_rows_for_regional_target(evidence_df: pd.DataFrame, target: pd.Seri
             keywords.append(value)
 
     if not keywords:
-        return pd.DataFrame()
+        return evidence_df[code_mask].copy()
 
-    region_text = evidence_df["region"].map(lambda value: normalize_text(value).lower())
-    mask = region_text.apply(lambda value: any(keyword in value for keyword in keywords))
-    return evidence_df[mask].copy()
+    text_columns = [column for column in ["region", "ioos_component", "impact_domain"] if column in evidence_df.columns]
+    text_mask = pd.Series(False, index=evidence_df.index)
+    for column in text_columns:
+        column_text = evidence_df[column].map(lambda value: normalize_text(value).lower())
+        text_mask = text_mask | column_text.apply(lambda value: any(keyword in value for keyword in keywords))
+    return evidence_df[code_mask | text_mask].copy()
+
+
+def semicolon_bullets(value: object, fallback: str) -> str:
+    items = [item.strip() for item in normalize_text(value).split(";") if item.strip()]
+    if not items:
+        return f"- {fallback}"
+    return "\n".join(f"- {item}" for item in items)
 
 
 def regional_research_prompt(
@@ -738,6 +925,7 @@ def regional_research_prompt(
     rows_requested: int,
 ) -> str:
     association = normalize_text(target.get("ioos_association")) or "[IOOS REGIONAL ASSOCIATION]"
+    association_code = normalize_text(target.get("ioos_region_code")) or association
     region = normalize_text(target.get("region_name")) or "[REGION]"
     phase = normalize_text(target.get("phase")) or "regional evidence build"
     priority_domains = normalize_text(target.get("priority_domains")) or "[PRIORITY DOMAINS]"
@@ -748,22 +936,27 @@ def regional_research_prompt(
         f"Find source-backed economic impact evidence for {association} in the {region} region."
     )
     source_text = source_leads.strip() or "[OPTIONAL SOURCE URLS, TITLES, OR SEARCH LEADS]"
+    priority_domain_bullets = semicolon_bullets(priority_domains, "[PRIORITY DOMAINS]")
+    source_target_bullets = semicolon_bullets(source_targets, "[SOURCE TYPES TO SEARCH]")
 
     return f"""You are generating candidate regional evidence rows for the IOOS Economic Evidence App.
 
 Regional build:
 - Association: {association}
+- IOOS region code: {association_code}
 - Region: {region}
 - Phase: {phase}
-- Priority domains: {priority_domains}
 - Known evidence gap: {evidence_gap}
 - Operator notes: {prompt_notes}
 
 Research focus:
 {focus}
 
-Priority source targets:
-{source_targets}
+Priority impact domains:
+{priority_domain_bullets}
+
+Priority source targets, in order:
+{source_target_bullets}
 
 Optional source leads from the operator:
 {source_text}
@@ -773,7 +966,16 @@ Return CSV only. Include this exact header row as the first line:
 {intake_schema_csv_header()}
 
 Task:
-Find up to {rows_requested} candidate rows that can support a cautious, source-backed regional case study for {association}. Start with decision-use evidence tied to {association}, then add regional economic-context rows only when they help frame exposure or affected sectors.
+Find up to {rows_requested} candidate rows that can support a cautious, source-backed regional case study for {association}. Work silently in three passes before returning CSV:
+1. Source scan: identify specific reports, product pages, agency pages, peer-reviewed studies, or datasets that mention {association}, IOOS, or a clearly relevant {region} decision context.
+2. Evidence classification: decide whether each row is Direct decision-use evidence, Regional economic context, Comparable valuation evidence, or Follow-up lead.
+3. CSV quality check: remove rows that lack a real source URL, a clear decision supported, limitations, or conservative claim language.
+
+Preferred row mix:
+- First priority: direct {association} or IOOS regional evidence tying an observing asset, product, forecast, portal, or data service to a user decision.
+- Second priority: {region} decision-support evidence from NOAA, USCG, state agencies, ports, or academic partners where {association} or IOOS may be part of the pathway.
+- Third priority: regional economic context rows that size affected sectors, but only if the claim clearly says they are context rather than {association}-attributable impact.
+- Fourth priority: comparable valuation or method rows that can guide future {association} valuation, clearly marked as not direct {association} impact.
 
 Rules:
 - Do not create or imply official master-matrix rows. These are candidate rows for staged_evidence review.
@@ -781,27 +983,60 @@ Rules:
 - Do not invent numbers, metrics, dollar years, source titles, agencies, or attribution.
 - Prefer one source per row. If a claim requires multiple sources, create separate rows or explain the dependency in AI extraction notes.
 - Set Region to a specific regional label such as "{region}", a state/local area, or the source-specific geography.
+- Set IOOS region code to "{association_code}" for direct {association} rows.
+- For context or comparison rows outside {association}, use one or more exact codes separated by semicolons: {allowed_ioos_region_codes_text()}.
+- Use National for national-scale evidence and Multiple for evidence that spans several known regional associations.
 - Set IOOS component to the specific {association} product, observing asset, partner system, or data service when the source supports it.
+- Put the row type at the start of AI extraction notes, for example "Row type: Direct decision-use evidence" or "Row type: Regional economic context".
+- Name the user group and decision as concretely as the source allows, such as emergency managers deciding flood response timing or search planners using surface-current data.
 - If the source is about regional economic exposure but not {association} or IOOS decision support, set IOOS attribution strength to Contextual.
 - If the source is about a broader NOAA, USCG, state, port, or academic system, do not call attribution Strong unless {association} or IOOS is explicitly part of the pathway.
 - If the value is modeled, prospective, scenario-based, or benefit-transfer, set Evidence strength to Modeled.
+- Do not use a homepage, press release, or broad program page when a more specific report, product page, dataset, article, or case study is available.
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
 - Set Source verification needed to Yes for every row.
 - Include limitations for every row, including source age, geographic limits, method uncertainty, and attribution caveats.
 - Write Claim allowed as a conservative sentence COL could safely use.
+- For context rows, Claim allowed must not imply {association} caused, created, saved, reduced, or avoided the economic value.
 - Quote every CSV field that contains a comma, quote, or line break.
+- Every row must include Source, Source URL, IOOS region code, Claim allowed, Limitations, Evidence strength, and IOOS attribution strength.
 - Before returning, check that every row has exactly the same number of columns as the header.
 - Return CSV only."""
 
 
-def next_row_id(df: pd.DataFrame) -> str:
-    """Suggest the next numeric row_id without changing existing rows."""
+def format_evidence_row_id(number: int) -> str:
+    """Format a durable master evidence row identifier."""
+    return f"{EVIDENCE_ROW_ID_PREFIX}-{number:0{EVIDENCE_ROW_ID_WIDTH}d}"
+
+
+def evidence_row_id_number(value: object) -> int | None:
+    """Extract the numeric part of current and legacy evidence IDs."""
+    text = normalize_text(value)
+    if not text:
+        return None
+    match = EVIDENCE_ROW_ID_RE.match(text)
+    if match:
+        return int(match.group(1))
+    if text.isdigit():
+        return int(text)
+    return None
+
+
+def next_row_id_number(df: pd.DataFrame) -> int:
+    """Find the next available master evidence ID number."""
     if "row_id" not in df.columns or df.empty:
-        return "1"
-    numeric_ids = pd.to_numeric(df["row_id"], errors="coerce").dropna()
-    if numeric_ids.empty:
-        return ""
-    return str(int(numeric_ids.max()) + 1)
+        return 1
+    existing_numbers = [
+        number
+        for number in df["row_id"].map(evidence_row_id_number).tolist()
+        if number is not None
+    ]
+    return (max(existing_numbers) + 1) if existing_numbers else 1
+
+
+def next_row_id(df: pd.DataFrame) -> str:
+    """Suggest the next durable master evidence row_id."""
+    return format_evidence_row_id(next_row_id_number(df))
 
 
 def append_evidence_row(row: dict[str, str], columns: list[str]) -> None:
@@ -907,6 +1142,12 @@ def validate_intake_df(df: pd.DataFrame) -> list[str]:
             value = normalize_text(row.get(column))
             if value and value not in ALLOWED_RATINGS:
                 errors.append(f"{label} has invalid {column}: {value}")
+        invalid_codes = invalid_ioos_region_codes(row.get("IOOS region code"))
+        if invalid_codes:
+            errors.append(
+                f"{label} has invalid IOOS region code(s): {', '.join(invalid_codes)}. "
+                f"Use: {allowed_ioos_region_codes_text()}"
+            )
         verification = normalize_text(row.get("Source verification needed"))
         if verification not in {"Yes", "No"}:
             errors.append(f"{label} Source verification needed must be Yes or No")
@@ -967,7 +1208,7 @@ def accepted_rows_to_official(
     source_records = source_df.to_dict("records") if not source_df.empty else []
     source_row_index = {normalize_text(row.get("source_id")): row for row in source_records}
     used_row_ids = {normalize_text(row_id) for row_id in evidence_df.get("row_id", pd.Series(dtype=str))}
-    next_id = int(next_row_id(evidence_df) or "1")
+    next_id_number = next_row_id_number(evidence_df)
     evidence_rows: list[dict[str, str]] = []
 
     for row in staged_rows:
@@ -992,8 +1233,8 @@ def accepted_rows_to_official(
 
         row_id = normalize_text(row.get("row_id"))
         if not row_id or row_id in used_row_ids:
-            row_id = str(next_id)
-            next_id += 1
+            row_id = format_evidence_row_id(next_id_number)
+            next_id_number += 1
         used_row_ids.add(row_id)
 
         evidence_rows.append(map_staged_row_to_evidence(row, source_id, row_id))
@@ -1104,6 +1345,288 @@ def row_field(row: pd.Series | None, column: str, fallback: str = "") -> str:
     return value or fallback
 
 
+def normalize_maracoos_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize dedicated MARACOOS rows into the app's evidence-style columns."""
+    if df.empty:
+        return pd.DataFrame()
+
+    normalized = df.copy()
+    for source_column, target_column in MARACOOS_COLUMN_ALIASES.items():
+        if source_column not in normalized.columns:
+            continue
+        if target_column not in normalized.columns:
+            normalized[target_column] = normalized[source_column]
+        elif source_column != target_column:
+            blank_target = normalized[target_column].map(normalize_text) == ""
+            normalized.loc[blank_target, target_column] = normalized.loc[blank_target, source_column]
+
+    return normalized.fillna("").astype(str)
+
+
+def maracoos_region_mask(df: pd.DataFrame) -> pd.Series:
+    """Find rows tagged as MARACOOS in either region-code or text columns."""
+    if df.empty:
+        return pd.Series(False, index=df.index)
+
+    mask = pd.Series(False, index=df.index)
+    if "ioos_region_code" in df.columns:
+        mask = mask | df["ioos_region_code"].apply(lambda value: MARACOOS_CODE in split_ioos_region_codes(value))
+
+    text_columns = [
+        column
+        for column in [
+            "region",
+            "ioos_component",
+            "impact_domain",
+            "source",
+            "source_id",
+            "ai_extraction_notes",
+        ]
+        if column in df.columns
+    ]
+    for column in text_columns:
+        mask = mask | df[column].map(lambda value: MARACOOS_CODE.lower() in normalize_text(value).lower())
+    return mask
+
+
+def maracoos_rows_from_loaded_tables(evidence_df: pd.DataFrame, staged_df: pd.DataFrame) -> pd.DataFrame:
+    """Build a MARACOOS fallback view from loaded evidence and staged rows."""
+    frames: list[pd.DataFrame] = []
+    for origin, source_df in [("staged_evidence", staged_df), ("evidence_matrix", evidence_df)]:
+        normalized = normalize_maracoos_dataframe(source_df)
+        if normalized.empty:
+            continue
+        filtered = normalized[maracoos_region_mask(normalized)].copy()
+        if filtered.empty:
+            continue
+        filtered["data_origin"] = origin
+        frames.append(filtered)
+
+    if not frames:
+        return pd.DataFrame()
+
+    combined = pd.concat(frames, ignore_index=True, sort=False).fillna("").astype(str)
+    dedupe_columns = [
+        column
+        for column in ["row_id", "source", "source_id", "source_url", "metric", "claim_allowed"]
+        if column in combined.columns
+    ]
+    if dedupe_columns:
+        combined = combined.drop_duplicates(subset=dedupe_columns, keep="first")
+    return combined
+
+
+def sort_maracoos_rows(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    sorted_df = df.copy()
+    if "source_verification_needed" in sorted_df.columns:
+        sorted_df["_verification_rank"] = sorted_df["source_verification_needed"].map(
+            lambda value: 0 if normalize_text(value) == "No" else 1
+        )
+    else:
+        sorted_df["_verification_rank"] = 1
+
+    for column, temp_column in [
+        ("evidence_strength", "_evidence_rank"),
+        ("ioos_attribution_strength", "_attribution_rank"),
+    ]:
+        if column in sorted_df.columns:
+            sorted_df[temp_column] = sorted_df[column].map(
+                lambda value: MARACOOS_STRENGTH_RANK.get(normalize_text(value), 99)
+            )
+        else:
+            sorted_df[temp_column] = 99
+
+    sort_columns = ["_verification_rank", "_evidence_rank", "_attribution_rank"]
+    for column in ["impact_domain", "row_id"]:
+        if column in sorted_df.columns:
+            sort_columns.append(column)
+
+    return sorted_df.sort_values(sort_columns).drop(
+        columns=["_verification_rank", "_evidence_rank", "_attribution_rank"],
+        errors="ignore",
+    )
+
+
+def maracoos_briefing_data(
+    evidence_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, str, str]:
+    """Load MARACOOS briefing rows, preferring a dedicated Supabase table."""
+    dedicated_df, table_name, errors = load_optional_supabase_table(MARACOOS_SUPABASE_TABLES)
+    if table_name and not dedicated_df.empty:
+        normalized = normalize_maracoos_dataframe(dedicated_df)
+        normalized["data_origin"] = f"supabase:{table_name}"
+        return sort_maracoos_rows(normalized), f"Supabase `{table_name}`", ""
+
+    fallback_df = maracoos_rows_from_loaded_tables(evidence_df, staged_df)
+    source_label = (
+        "Supabase evidence/staging rows tagged MARACOOS"
+        if supabase_enabled()
+        else "local evidence/staging rows tagged MARACOOS"
+    )
+
+    note = ""
+    if table_name and dedicated_df.empty:
+        note = f"Supabase `{table_name}` returned no rows, so this tab is showing rows tagged MARACOOS."
+    elif errors and supabase_enabled():
+        note = "A dedicated Supabase MARACOOS table was not readable, so this tab is showing rows tagged MARACOOS."
+
+    return sort_maracoos_rows(fallback_df), source_label, note
+
+
+def first_row_value(row: pd.Series, columns: list[str]) -> str:
+    for column in columns:
+        value = normalize_text(row.get(column))
+        if value:
+            return value
+    return ""
+
+
+def count_distinct_row_values(df: pd.DataFrame, columns: list[str]) -> int:
+    values: set[str] = set()
+    for _, row in df.iterrows():
+        value = first_row_value(row, columns)
+        if value:
+            values.add(value)
+    return len(values)
+
+
+def filter_maracoos_briefing_rows(df: pd.DataFrame) -> pd.DataFrame:
+    search_text = st.text_input("Search MARACOOS rows", key="maracoos_brief_search")
+    filtered = search_dataframe(df, search_text)
+
+    filter_columns = [
+        ("impact_domain", "Impact Domain"),
+        ("evidence_strength", "Evidence Strength"),
+        ("ioos_attribution_strength", "Attribution Strength"),
+        ("source_verification_needed", "Verification Needed"),
+    ]
+    filter_layout = st.columns(len(filter_columns))
+    for container, (column, label) in zip(filter_layout, filter_columns):
+        if column not in filtered.columns:
+            continue
+        options = sorted(value for value in filtered[column].dropna().unique() if normalize_text(value))
+        selected = container.multiselect(label, options, key=f"maracoos_brief_{column}")
+        if selected:
+            filtered = filtered[filtered[column].isin(selected)]
+
+    return filtered
+
+
+def render_maracoos_congressional_tab(evidence_df: pd.DataFrame, staged_df: pd.DataFrame) -> None:
+    maracoos_df, source_label, note = maracoos_briefing_data(evidence_df, staged_df)
+
+    st.subheader("MARACOOS Congressional Brief")
+    st.caption(f"Data source: {source_label}")
+    if note:
+        st.info(note)
+
+    if maracoos_df.empty:
+        st.warning("No MARACOOS rows are available for this briefing tab.")
+        return
+
+    source_count = count_distinct_row_values(maracoos_df, ["source", "source_id", "source_url"])
+    verified_count = (
+        int((maracoos_df["source_verification_needed"].map(normalize_text) == "No").sum())
+        if "source_verification_needed" in maracoos_df.columns
+        else 0
+    )
+    strong_or_medium_count = (
+        int(maracoos_df["evidence_strength"].map(normalize_text).isin({"Strong", "Medium"}).sum())
+        if "evidence_strength" in maracoos_df.columns
+        else 0
+    )
+    strong_attribution_count = (
+        int((maracoos_df["ioos_attribution_strength"].map(normalize_text) == "Strong").sum())
+        if "ioos_attribution_strength" in maracoos_df.columns
+        else 0
+    )
+
+    metric_columns = st.columns(4)
+    metric_columns[0].metric("MARACOOS rows", f"{len(maracoos_df):,}")
+    metric_columns[1].metric("Sources", f"{source_count:,}")
+    metric_columns[2].metric("Strong/medium evidence", f"{strong_or_medium_count:,}")
+    metric_columns[3].metric("Strong attribution", f"{strong_attribution_count:,}")
+
+    st.write(
+        "Use this tab as the Mid-Atlantic briefing workspace: it pulls MARACOOS-tagged evidence "
+        "into one place, highlights cautious claim language, and keeps caveats visible for staff review."
+    )
+
+    summary_col, claims_col = st.columns([0.9, 1.1])
+    with summary_col:
+        st.subheader("Briefing Focus")
+        if "impact_domain" in maracoos_df.columns:
+            domain_summary = count_summary(maracoos_df, "impact_domain")
+            st.dataframe(
+                domain_summary,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Rows": st.column_config.NumberColumn(format="%d", width="small"),
+                    "Share": st.column_config.ProgressColumn(
+                        "Share",
+                        format="%.0f%%",
+                        min_value=0,
+                        max_value=100,
+                    ),
+                },
+            )
+        else:
+            st.info("No impact-domain column is available.")
+
+        if verified_count == 0:
+            st.warning("All rows still need source verification before external use.")
+
+    with claims_col:
+        st.subheader("Cautious Claims")
+        if "claim_allowed" not in maracoos_df.columns:
+            st.info("No claim_allowed column is available.")
+        else:
+            claim_rows = maracoos_df[maracoos_df["claim_allowed"].map(normalize_text) != ""].head(5)
+            if claim_rows.empty:
+                st.info("No usable claim language is available yet.")
+            for _, row in claim_rows.iterrows():
+                label = first_row_value(row, ["impact_domain", "row_id"]) or "MARACOOS row"
+                st.markdown(f"**{label}**")
+                st.write(normalize_text(row.get("claim_allowed")))
+                details = []
+                source_value = first_row_value(row, ["source", "source_id"])
+                metric_value = normalize_text(row.get("metric"))
+                if source_value:
+                    details.append(source_value)
+                if metric_value:
+                    details.append(metric_value)
+                if details:
+                    st.caption(" | ".join(details))
+
+    st.subheader("MARACOOS Rows")
+    filtered = filter_maracoos_briefing_rows(maracoos_df)
+    st.caption(f"Showing {len(filtered):,} of {len(maracoos_df):,} rows")
+
+    display_columns = [column for column in MARACOOS_DISPLAY_COLUMNS if column in filtered.columns]
+    remaining_columns = [column for column in filtered.columns if column not in display_columns]
+    display_df = filtered[display_columns + remaining_columns]
+    column_config = {}
+    if "source_url" in display_df.columns:
+        column_config["source_url"] = st.column_config.LinkColumn("Source URL")
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config=column_config,
+    )
+    st.download_button(
+        "Download MARACOOS briefing rows",
+        filtered.to_csv(index=False).encode("utf-8"),
+        file_name="maracoos_congressional_briefing_rows.csv",
+        mime="text/csv",
+    )
+
+
 def congressional_briefing_context(
     evidence_df: pd.DataFrame,
     source_df: pd.DataFrame,
@@ -1113,7 +1636,7 @@ def congressional_briefing_context(
     """Collect the short text values used by both HTML and PDF brief exports."""
     rows = {
         row_id: evidence_row_by_id(evidence_df, row_id)
-        for row_id in ["1", "5", "9", "14"]
+        for row_id in BRIEFING_ROW_IDS.values()
     }
     prepared_for = normalize_text(prepared_for) or "Congressional Staff"
     date_label = prepared_date.strftime("%B %#d, %Y") if os.name == "nt" else prepared_date.strftime("%B %-d, %Y")
@@ -1124,22 +1647,22 @@ def congressional_briefing_context(
         "evidence_count": len(evidence_df),
         "source_count": len(source_df),
         "ocean_enterprise_metric": row_field(
-            rows["14"],
+            rows[BRIEFING_ROW_IDS["ocean_enterprise"]],
             "metric",
             "Ocean Enterprise business, employment, revenue, and export metrics are tracked in the evidence matrix.",
         ),
         "tampa_metric": row_field(
-            rows["1"],
+            rows[BRIEFING_ROW_IDS["ports"]],
             "metric",
             "Tampa Bay PORTS case-study benefits are tracked in the matrix.",
         ),
         "hab_forecast_claim": row_field(
-            rows["5"],
+            rows[BRIEFING_ROW_IDS["habs"]],
             "claim_allowed",
             "HAB forecasts help managers focus testing and guide closure/advisory decisions.",
         ),
         "hf_radar_claim": row_field(
-            rows["9"],
+            rows[BRIEFING_ROW_IDS["hf_radar"]],
             "claim_allowed",
             "HF radar surface-current data support USCG search planning through SAROPS.",
         ),
@@ -2160,6 +2683,7 @@ def display_columns(df: pd.DataFrame) -> list[str]:
         "impact_domain",
         "ioos_component",
         "region",
+        "ioos_region_code",
         "metric",
         "evidence_strength",
         "ioos_attribution_strength",
@@ -2522,6 +3046,7 @@ def page_best_sources(best_sources_df: pd.DataFrame) -> None:
 
     search_text = st.sidebar.text_input("Search best sources", key="best_sources_search")
     filtered = search_dataframe(best_sources_df, search_text)
+    filtered = add_multiselect_filter(filtered, "ioos_region_code", "IOOS Region Code")
     filtered = add_multiselect_filter(filtered, "priority_tier", "Priority Tier")
     filtered = add_multiselect_filter(filtered, "source_type", "Source Type")
     filtered = add_multiselect_filter(filtered, "source_verification_needed", "Verification Needed")
@@ -2551,13 +3076,16 @@ def page_best_sources(best_sources_df: pd.DataFrame) -> None:
     )
 
 
-def page_congressional_briefing(evidence_df: pd.DataFrame, source_df: pd.DataFrame) -> None:
+def page_congressional_briefing(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+) -> None:
     st.title("Congressional Brief")
     st.caption("A punchy two-page IOOS reauthorization brief generated from the current evidence matrix and source registry.")
 
     if evidence_df.empty:
-        st.warning("No evidence matrix rows are available.")
-        return
+        st.warning("No evidence matrix rows are available for the national brief preview.")
 
     st.sidebar.subheader("Congressional Brief Draft")
     prepared_for = st.sidebar.text_input("Prepared for", value="Congressional Staff")
@@ -2581,7 +3109,7 @@ def page_congressional_briefing(evidence_df: pd.DataFrame, source_df: pd.DataFra
         briefing_pdf = b""
         pdf_error = str(exc)
 
-    preview_tab, evidence_tab = st.tabs(["Preview", "Evidence Used"])
+    preview_tab, evidence_tab, maracoos_tab = st.tabs(["Preview", "Evidence Used", "MARACOOS"])
 
     with preview_tab:
         components.html(briefing_html, height=1700, scrolling=True)
@@ -2610,52 +3138,54 @@ def page_congressional_briefing(evidence_df: pd.DataFrame, source_df: pd.DataFra
             )
 
     with evidence_tab:
-        briefing_row_ids = ["1", "5", "9", "14"]
+        briefing_row_ids = list(BRIEFING_ROW_IDS.values())
         if "row_id" not in evidence_df.columns:
             st.info("The evidence matrix has no row_id column.")
-            return
+        else:
+            rows_used = evidence_df[evidence_df["row_id"].map(normalize_text).isin(briefing_row_ids)].copy()
+            if rows_used.empty:
+                st.info("The brief row IDs are not present in the current matrix.")
+            else:
+                display_columns = [
+                    column
+                    for column in [
+                        "row_id",
+                        "impact_domain",
+                        "region",
+                        "ioos_region_code",
+                        "metric",
+                        "source_id",
+                        "evidence_strength",
+                        "ioos_attribution_strength",
+                        "source_verification_needed",
+                        "claim_allowed",
+                        "limitations",
+                    ]
+                    if column in rows_used.columns
+                ]
+                st.dataframe(rows_used[display_columns], use_container_width=True, hide_index=True)
 
-        rows_used = evidence_df[evidence_df["row_id"].map(normalize_text).isin(briefing_row_ids)].copy()
-        if rows_used.empty:
-            st.info("The brief row IDs are not present in the current matrix.")
-            return
+                if not source_df.empty and "source_id" in source_df.columns:
+                    source_ids = {
+                        normalize_text(value)
+                        for value in rows_used.get("source_id", pd.Series(dtype=str)).tolist()
+                        if normalize_text(value)
+                    }
+                    sources_used = source_df[source_df["source_id"].map(normalize_text).isin(source_ids)]
+                    if not sources_used.empty:
+                        st.subheader("Sources")
+                        source_config = {}
+                        if "source_url" in sources_used.columns:
+                            source_config["source_url"] = st.column_config.LinkColumn("Source URL")
+                        st.dataframe(
+                            sources_used,
+                            use_container_width=True,
+                            hide_index=True,
+                            column_config=source_config,
+                        )
 
-        display_columns = [
-            column
-            for column in [
-                "row_id",
-                "impact_domain",
-                "region",
-                "metric",
-                "source_id",
-                "evidence_strength",
-                "ioos_attribution_strength",
-                "source_verification_needed",
-                "claim_allowed",
-                "limitations",
-            ]
-            if column in rows_used.columns
-        ]
-        st.dataframe(rows_used[display_columns], use_container_width=True, hide_index=True)
-
-        if not source_df.empty and "source_id" in source_df.columns:
-            source_ids = {
-                normalize_text(value)
-                for value in rows_used.get("source_id", pd.Series(dtype=str)).tolist()
-                if normalize_text(value)
-            }
-            sources_used = source_df[source_df["source_id"].map(normalize_text).isin(source_ids)]
-            if not sources_used.empty:
-                st.subheader("Sources")
-                source_config = {}
-                if "source_url" in sources_used.columns:
-                    source_config["source_url"] = st.column_config.LinkColumn("Source URL")
-                st.dataframe(
-                    sources_used,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config=source_config,
-                )
+    with maracoos_tab:
+        render_maracoos_congressional_tab(evidence_df, staged_df)
 
 
 def render_intake_upload() -> None:
@@ -2756,6 +3286,7 @@ def page_regional_builds(regional_targets_df: pd.DataFrame, evidence_df: pd.Data
                     "impact_domain",
                     "ioos_component",
                     "region",
+                    "ioos_region_code",
                     "metric",
                     "evidence_strength",
                     "ioos_attribution_strength",
@@ -2782,7 +3313,7 @@ def page_regional_builds(regional_targets_df: pd.DataFrame, evidence_df: pd.Data
     )
     source_leads = st.text_area(
         "Optional source leads",
-        placeholder="Paste MARACOOS, NOAA, USCG, state agency, port, academic, or economic baseline links here.",
+        placeholder="Paste regional association, NOAA, USCG, state agency, port, academic, or economic baseline links here.",
         height=150,
     )
     prompt = regional_research_prompt(target, research_focus, source_leads, int(rows_requested))
@@ -2806,8 +3337,8 @@ def page_evidence_intake(regional_targets_df: pd.DataFrame) -> None:
     st.title("Evidence Intake")
     st.caption("Generate copy-ready prompts, then stage AI candidate rows before they become official evidence.")
 
-    research_tab, regional_tab, source_tab, import_tab = st.tabs(
-        ["Research Topic", "Regional Build Prompt", "Add Source", "Import CSV"]
+    research_tab, regional_tab, source_tab, claude_tab, import_tab = st.tabs(
+        ["Research Topic", "Regional Build Prompt", "Add Source", "Claude Batch Prompt", "Import CSV"]
     )
 
     with research_tab:
@@ -2843,7 +3374,7 @@ def page_evidence_intake(regional_targets_df: pd.DataFrame) -> None:
                 )
                 source_leads = st.text_area(
                     "Optional source leads",
-                    placeholder="Paste MARACOOS, NOAA, USCG, state agency, port, academic, or economic baseline links here.",
+                    placeholder="Paste regional association, NOAA, USCG, state agency, port, academic, or economic baseline links here.",
                     height=140,
                     key="intake_regional_sources",
                 )
@@ -2868,6 +3399,29 @@ def page_evidence_intake(regional_targets_df: pd.DataFrame) -> None:
             "Download prompt",
             prompt.encode("utf-8"),
             file_name="ioos_source_to_row_prompt.txt",
+            mime="text/plain",
+        )
+
+    with claude_tab:
+        source_links = st.text_area(
+            "Paper or report links",
+            placeholder=(
+                "https://tidesandcurrents.noaa.gov/publications/...\n"
+                "https://example.org/paper.pdf"
+            ),
+            height=180,
+        )
+        research_focus = st.text_area(
+            "Optional research focus",
+            placeholder="Focus on PORTS benefits, avoided costs, maritime safety, and emergency response evidence.",
+            height=110,
+        )
+        prompt = claude_batch_prompt(source_links, research_focus)
+        st.text_area("Copy-ready Claude batch prompt", value=prompt, height=520)
+        st.download_button(
+            "Download Claude prompt",
+            prompt.encode("utf-8"),
+            file_name="ioos_claude_batch_prompt.txt",
             mime="text/plain",
         )
 
@@ -3045,7 +3599,7 @@ def main() -> None:
     elif page == "Evidence Matrix":
         page_evidence_matrix(evidence_df)
     elif page == "Congressional Brief":
-        page_congressional_briefing(evidence_df, source_df)
+        page_congressional_briefing(evidence_df, source_df, staged_df)
     elif page == "Best Sources":
         page_best_sources(best_sources_df)
     elif page == "Evidence Intake":

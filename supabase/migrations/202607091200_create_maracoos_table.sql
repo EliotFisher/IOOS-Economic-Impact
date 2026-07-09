@@ -1,0 +1,8 @@
+-- Deprecated migration.
+--
+-- Regional candidate rows now belong in public.staged_evidence and official
+-- rows belong in public.evidence_matrix. Both tables carry ioos_region_code,
+-- so MARACOOS should be represented as row data rather than a table name.
+--
+-- Keep this file as a no-op so older migration references do not recreate a
+-- region-specific table in fresh environments.

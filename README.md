@@ -152,6 +152,9 @@ To upload only selected tables, pass `--tables`, for example:
 python scripts/upload_to_supabase.py --tables review_needed staged_evidence
 ```
 
+Regional candidate rows should be uploaded to `staged_evidence` with an
+`ioos_region_code`, not to one table per region.
+
 ## Evidence Intake Workflow
 
 Use the Streamlit dashboard page named `Evidence Intake` for AI-assisted workflows:
@@ -163,21 +166,26 @@ Use the Streamlit dashboard page named `Evidence Intake` for AI-assisted workflo
 Both prompts require AI to return CSV only, using this exact candidate schema:
 
 ```text
-row_id,Impact domain,IOOS component,Region,User group,Decision supported,Economic pathway,Metric,Metric year / dollar year,Source,Source URL,Evidence strength,IOOS attribution strength,Source verification needed,Limitations,Claim allowed,Update frequency,AI extraction notes
+row_id,Impact domain,IOOS component,Region,IOOS region code,User group,Decision supported,Economic pathway,Metric,Metric year / dollar year,Source,Source URL,Evidence strength,IOOS attribution strength,Source verification needed,Limitations,Claim allowed,Update frequency,AI extraction notes
 ```
 
 Upload the AI-generated CSV on the `Evidence Intake` page. The app rejects candidate rows unless all required columns are present and these fields are populated:
 
 - `Source`
 - `Source URL`
+- `IOOS region code`
 - `Claim allowed`
 - `Limitations`
 - `Evidence strength`
 - `IOOS attribution strength`
 
-`Evidence strength` and `IOOS attribution strength` must be exactly one of `Strong`, `Medium`, `Contextual`, `Modeled`, or `Needs verification`. Put any explanation for the rating in `Limitations` or `AI extraction notes`, not in the rating field. CSV fields that contain commas, quotes, or line breaks must be quoted.
+`Evidence strength` and `IOOS attribution strength` must be exactly one of `Strong`, `Medium`, `Contextual`, `Modeled`, or `Needs verification`. Put any explanation for the rating in `Limitations` or `AI extraction notes`, not in the rating field. `IOOS region code` should use one or more semicolon-separated codes from `AOOS`, `CARICOOS`, `CeNCOOS`, `GCOOS`, `GLOS`, `MARACOOS`, `NANOOS`, `NERACOOS`, `PacIOOS`, `SCCOOS`, `SECOORA`, plus `National`, `Multiple`, or `Unknown` when needed. CSV fields that contain commas, quotes, or line breaks must be quoted.
 
 Blank `Source verification needed` values are defaulted to `Yes`. Candidate rows appear on the `Staged Evidence` page, where reviewers can edit staged rows. Rows can only be accepted into the official matrix after `Source verification needed` is set to `No`; accepted rows are mapped into the existing `evidence_matrix.csv` and `source_registry.csv` structure.
+
+Official evidence row IDs use the durable master-list format `EVID-####`.
+Regional scope belongs in `ioos_region_code`, so a region such as MARACOOS is
+never represented as a separate evidence table.
 
 ## Regional Build Workflow
 
