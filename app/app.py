@@ -1700,15 +1700,15 @@ def build_maracoos_congressional_briefing_html(
   .hero {{
     background: var(--teal);
     color: #fff;
-    padding: 16px 18px;
+    padding: 13px 16px;
     border-radius: 3px;
     margin-bottom: 10px;
   }}
   .image-hero {{
     background:
       linear-gradient(90deg, rgba(0, 58, 67, 0.74) 0%, rgba(0, 96, 110, 0.5) 34%, rgba(0, 119, 133, 0.14) 56%, rgba(0, 119, 133, 0) 72%),
-      url("{hero_image_uri}") right bottom/100% auto no-repeat;
-    min-height: 2.12in;
+      url("{hero_image_uri}") right bottom/90% auto no-repeat;
+    min-height: 1.82in;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
