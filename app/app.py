@@ -35,6 +35,9 @@ VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_matrix.py"
 FILLED_BRIEFING_PATH = REPO_ROOT / "outputs" / "IOOS_Congressional_Briefing_Filled.html"
 UCAR_LOGO_PATH = APP_DIR / "logo-ucar.avif"
 COL_LOGO_PATH = APP_DIR / "col-logo.avif"
+IOOS_OCEAN_IMAGE_PATH = APP_DIR / "IOOS in ocean.jpg"
+MARACOOS_COVERAGE_MAP_PATH = APP_DIR / "MARACOOS Coverage Map.png"
+DATA_TO_DECISION_FLOW_PATH = APP_DIR / "data to decision flow chart.png"
 
 INTAKE_SCHEMA = [
     "row_id",
@@ -1633,6 +1636,9 @@ def build_maracoos_congressional_briefing_html(
 
     ucar_logo_uri = asset_data_uri(UCAR_LOGO_PATH, "image/avif")
     col_logo_uri = asset_data_uri(COL_LOGO_PATH, "image/avif")
+    ocean_image_uri = asset_data_uri(IOOS_OCEAN_IMAGE_PATH, "image/jpeg")
+    maracoos_map_uri = asset_data_uri(MARACOOS_COVERAGE_MAP_PATH, "image/png")
+    flow_chart_uri = asset_data_uri(DATA_TO_DECISION_FLOW_PATH, "image/png")
     domain_items = html_list_items(domains, "MARACOOS impact domains in the evidence rows above")
     region_items = html_list_items(regions, "Mid-Atlantic geographies represented in the MARACOOS rows above")
 
@@ -1719,6 +1725,15 @@ def build_maracoos_congressional_briefing_html(
     border-radius: 3px;
     margin-bottom: 12px;
   }}
+  .image-hero {{
+    background:
+      linear-gradient(90deg, rgba(0, 82, 95, 0.92), rgba(0, 119, 133, 0.72)),
+      url("{ocean_image_uri}") center/cover no-repeat;
+    min-height: 1.33in;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }}
   .hero .kicker {{
     font-size: 8.5pt;
     letter-spacing: 0.14em;
@@ -1793,6 +1808,29 @@ def build_maracoos_congressional_briefing_html(
     gap: 16px;
     margin: 8px 0 12px;
   }}
+  .map-row {{
+    grid-template-columns: 1.06fr 0.94fr;
+    gap: 12px;
+    align-items: start;
+  }}
+  .visual-card {{
+    border: 1px solid var(--line);
+    padding: 7px;
+    background: #fff;
+  }}
+  .visual-card img {{
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 1.75in;
+    object-fit: contain;
+  }}
+  .visual-card .caption {{
+    color: var(--gray);
+    font-size: 7.8pt;
+    margin: 5px 0 0;
+    line-height: 1.2;
+  }}
   .two-col ul {{
     margin: 0;
     padding-left: 16px;
@@ -1817,6 +1855,21 @@ def build_maracoos_congressional_briefing_html(
   .caveat {{
     border: 1px solid var(--line);
     padding: 8px 9px;
+  }}
+  .flow-visual {{
+    display: grid;
+    grid-template-columns: 0.86fr 1.14fr;
+    gap: 12px;
+    align-items: center;
+    margin: 8px 0 10px;
+  }}
+  .flow-visual img {{
+    display: block;
+    width: 100%;
+    max-height: 1.5in;
+    object-fit: contain;
+    border: 1px solid var(--line);
+    background: #fff;
   }}
   .ask-box {{
     background: var(--teal-dark);
@@ -1856,7 +1909,7 @@ def build_maracoos_congressional_briefing_html(
     <div class="doc-label">MARACOOS Brief</div>
   </div>
 
-  <div class="hero">
+  <div class="hero image-hero">
     <div class="kicker">IOOS Reauthorization Brief</div>
     <h1>MARACOOS: Mid-Atlantic Ocean Intelligence</h1>
     <p class="subtitle">The regional case for reauthorizing the Integrated Ocean Observing System (IOOS)</p>
@@ -1876,8 +1929,16 @@ def build_maracoos_congressional_briefing_html(
   <div class="bottom-line">Bottom line: MARACOOS gives staff a concrete Mid-Atlantic example of IOOS regional infrastructure turning ocean observations into safety, navigation, coastal hazard, and water-quality decision support.</div>
 
   <h2 class="section">What IOOS Is</h2>
-  <p>IOOS is the United States&rsquo; national network of ocean sensors, buoys, radar systems, satellites, and data platforms. MARACOOS is the Mid-Atlantic regional association that helps translate that infrastructure into usable regional information.</p>
-  <p>For a congressional audience, MARACOOS is the regional proof point: a set of Mid-Atlantic observations, products, and partner systems that connect IOOS infrastructure to real decisions in coastal communities, ports, and offshore waters.</p>
+  <div class="two-col map-row">
+    <div>
+      <p>IOOS is the United States&rsquo; national network of ocean sensors, buoys, radar systems, satellites, and data platforms. MARACOOS is the Mid-Atlantic regional association that translates that infrastructure into usable regional information.</p>
+      <p>For a congressional audience, MARACOOS is the regional proof point: Mid-Atlantic observations, products, and partner systems connected to decisions in coastal communities, ports, and offshore waters.</p>
+    </div>
+    <div class="visual-card">
+      <img src="{maracoos_map_uri}" alt="MARACOOS coverage map">
+      <p class="caption">MARACOOS coverage map, used here to localize the IOOS value story for the Mid-Atlantic.</p>
+    </div>
+  </div>
 
   <h2 class="section">Why It Matters: Three MARACOOS Examples</h2>
   <div class="pillars">
@@ -1896,8 +1957,13 @@ def build_maracoos_congressional_briefing_html(
   </div>
 
   <h2 class="section" style="margin-top:0;">The Economy MARACOOS Serves</h2>
-  <p>MARACOOS is regional data infrastructure for the Mid-Atlantic ocean economy and coastal safety mission. The rows above point to the decision contexts where that infrastructure is most visible.</p>
-  <p><b>Impact domains and geographies represented in the current MARACOOS rows:</b></p>
+  <div class="flow-visual">
+    <div>
+      <p>MARACOOS is regional data infrastructure for the Mid-Atlantic ocean economy and coastal safety mission. The rows above point to the decision contexts where that infrastructure is most visible.</p>
+      <p><b>Impact domains and geographies represented in the current MARACOOS rows:</b></p>
+    </div>
+    <img src="{flow_chart_uri}" alt="Data to decision flow chart">
+  </div>
   <ul class="sector-grid">
 {domain_items}
 {region_items}
