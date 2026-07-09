@@ -35,7 +35,7 @@ VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_matrix.py"
 FILLED_BRIEFING_PATH = REPO_ROOT / "outputs" / "IOOS_Congressional_Briefing_Filled.html"
 UCAR_LOGO_PATH = APP_DIR / "logo-ucar.avif"
 COL_LOGO_PATH = APP_DIR / "col-logo.avif"
-IOOS_HERO_IMAGE_PATH = APP_DIR / "IOOS HERO image.png"
+IOOS_HERO_IMAGE_PATH = APP_DIR / "NEW IOOS HERO image.png"
 MARACOOS_COVERAGE_MAP_PATH = APP_DIR / "MARACOOS Coverage Map.png"
 DATA_TO_DECISION_FLOW_PATH = APP_DIR / "data to decision flow chart.png"
 
