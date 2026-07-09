@@ -433,20 +433,40 @@ APP_ROLES = {
 }
 
 APP_NAVIGATION = [
+    "About",
     "Dashboard",
-    "Data Explorer",
-    "About the Data",
-    "How to Use",
-    "Project Roadmap",
-    "Regional Builds",
-    "Congressional Brief",
+    "Evidence Database",
+    "Briefs & Outputs",
     "Best Sources",
+    "Review / Admin",
+]
+
+REVIEW_ADMIN_NAVIGATION = [
     "Evidence Intake",
-    "Staged Evidence",
-    "Review Needed",
-    "Source Registry",
+    "Review Evidence",
+    "Validation Queue",
     "Add Evidence Row",
     "Run Validation",
+    "Regional Builds",
+    "Project Roadmap",
+]
+
+EVIDENCE_DATABASE_COLUMNS = [
+    "row_id",
+    "impact_domain",
+    "ioos_component",
+    "region",
+    "ioos_region_code",
+    "metric",
+    "claim_allowed",
+    "source_name",
+    "source_url",
+    "source_type",
+    "source_verification_status",
+    "evidence_strength",
+    "ioos_attribution_strength",
+    "source_verification_needed",
+    "limitations",
 ]
 
 METHOD_STEPS = [
@@ -502,7 +522,7 @@ def apply_hub_styles() -> None:
             }}
 
             .block-container {{
-                padding-top: 1.2rem;
+                padding-top: 1rem;
                 padding-bottom: 3rem;
                 max-width: 1280px;
             }}
@@ -534,6 +554,12 @@ def apply_hub_styles() -> None:
                 flex-direction: column;
                 justify-content: flex-end;
                 margin-bottom: 1.1rem;
+            }}
+
+            .hub-hero.hub-about-hero {{
+                min-height: 470px;
+                margin-top: 0.7rem;
+                margin-bottom: 1.6rem;
             }}
 
             .hub-hero h1 {{
@@ -581,6 +607,18 @@ def apply_hub_styles() -> None:
                 margin: 0.6rem 0 1rem;
             }}
 
+            .hub-lede {{
+                color: var(--ioos-muted);
+                font-size: 1.08rem;
+                line-height: 1.72;
+                margin-bottom: 1rem;
+            }}
+
+            .hub-section {{
+                margin-top: 2.1rem;
+                margin-bottom: 1.2rem;
+            }}
+
             .hub-process-step {{
                 border: 1px solid var(--ioos-line);
                 border-radius: 8px;
@@ -591,6 +629,30 @@ def apply_hub_styles() -> None:
 
             .hub-process-step b {{
                 color: var(--ioos-blue);
+            }}
+
+            .hub-top-nav {{
+                border-bottom: 1px solid var(--ioos-line);
+                margin-bottom: 1.2rem;
+                padding-bottom: 0.45rem;
+            }}
+
+            .hub-top-nav [role="radiogroup"] {{
+                align-items: center;
+                gap: 0.2rem;
+            }}
+
+            .hub-top-nav label {{
+                border-radius: 0;
+                border-bottom: 3px solid transparent;
+                color: var(--ioos-muted);
+                font-weight: 700;
+                padding: 0.3rem 0.25rem 0.58rem;
+            }}
+
+            .hub-top-nav label:has(input:checked) {{
+                border-bottom-color: var(--ioos-blue);
+                color: var(--ioos-ink);
             }}
 
             div[data-testid="stMetric"] {{
@@ -696,6 +758,26 @@ def render_sidebar_identity() -> None:
         logo_cols[0].image(str(UCAR_LOGO_PATH), use_container_width=True)
     if COL_LOGO_PATH.exists():
         logo_cols[1].image(str(COL_LOGO_PATH), use_container_width=True)
+
+
+def render_top_navigation() -> str:
+    """Render the primary left-to-right app navigation."""
+    current_page = st.session_state.get("primary_navigation", APP_NAVIGATION[0])
+    if current_page not in APP_NAVIGATION:
+        current_page = APP_NAVIGATION[0]
+        st.session_state["primary_navigation"] = current_page
+
+    st.markdown('<div class="hub-top-nav">', unsafe_allow_html=True)
+    page = st.radio(
+        "Primary navigation",
+        APP_NAVIGATION,
+        index=APP_NAVIGATION.index(current_page),
+        horizontal=True,
+        label_visibility="collapsed",
+        key="primary_navigation",
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+    return page
 
 
 def render_workspace_header(page: str) -> None:
@@ -1021,7 +1103,20 @@ def add_status_filters(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def render_filtered_table(df: pd.DataFrame, key_prefix: str) -> pd.DataFrame:
+def link_column_config(df: pd.DataFrame) -> dict[str, object]:
+    """Make URL columns clickable in displayed tables."""
+    return {
+        column: st.column_config.LinkColumn(column.replace("_", " ").title())
+        for column in df.columns
+        if column.endswith("_url") or column == "source_url"
+    }
+
+
+def render_filtered_table(
+    df: pd.DataFrame,
+    key_prefix: str,
+    preferred_columns: list[str] | None = None,
+) -> pd.DataFrame:
     """Render search, filters, table, and CSV download for a dataframe."""
     search_text = st.sidebar.text_input("Search", key=f"{key_prefix}_search")
     filtered = search_dataframe(df, search_text)
@@ -1038,7 +1133,18 @@ def render_filtered_table(df: pd.DataFrame, key_prefix: str) -> pd.DataFrame:
     filtered = add_status_filters(filtered)
 
     st.caption(f"Showing {len(filtered):,} of {len(df):,} rows")
-    st.dataframe(filtered, use_container_width=True, hide_index=True)
+    display_df = filtered
+    if preferred_columns:
+        columns = [column for column in preferred_columns if column in filtered.columns]
+        if columns:
+            display_df = filtered[columns]
+
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config=link_column_config(display_df),
+    )
     st.download_button(
         "Download filtered CSV",
         filtered.to_csv(index=False).encode("utf-8"),
@@ -3907,13 +4013,32 @@ def render_record_detail(row: pd.Series, source_df: pd.DataFrame) -> None:
                 st.write(value)
 
 
+def enrich_evidence_with_source_fields(evidence_df: pd.DataFrame, source_df: pd.DataFrame) -> pd.DataFrame:
+    """Attach source names and URLs so users do not need a separate registry page."""
+    if evidence_df.empty or source_df.empty or "source_id" not in evidence_df.columns or "source_id" not in source_df.columns:
+        return evidence_df.copy()
+
+    source_columns = [
+        column
+        for column in ["source_id", "source_name", "source_url", "source_type", "verification_status"]
+        if column in source_df.columns
+    ]
+    source_lookup = source_df[source_columns].copy()
+    if "verification_status" in source_lookup.columns:
+        source_lookup = source_lookup.rename(columns={"verification_status": "source_verification_status"})
+
+    merged = evidence_df.merge(source_lookup, how="left", on="source_id")
+    return merged.fillna("")
+
+
 def page_evidence_matrix(evidence_df: pd.DataFrame, source_df: pd.DataFrame) -> None:
-    st.title("Data Explorer")
-    st.caption("Search the living evidence database, filter rows, and open record-level source context.")
+    st.title("Evidence Database")
+    st.caption("Search the living evidence database, open source links directly, and inspect record-level context.")
     if evidence_df.empty:
         st.warning(f"No evidence matrix found at {EVIDENCE_PATH}")
         return
-    filtered = render_filtered_table(evidence_df, "evidence_matrix")
+    explorer_df = enrich_evidence_with_source_fields(evidence_df, source_df)
+    filtered = render_filtered_table(explorer_df, "evidence_matrix", EVIDENCE_DATABASE_COLUMNS)
 
     if filtered.empty or "row_id" not in filtered.columns:
         return
@@ -3933,36 +4058,61 @@ def page_about_data(
     staged_df: pd.DataFrame,
     best_sources_df: pd.DataFrame,
 ) -> None:
-    st.title("About the Data")
-    st.caption("How the IOOS economic impact evidence base is built, reviewed, and kept useful.")
+    st.markdown(
+        """
+        <div class="hub-hero hub-about-hero">
+            <div class="hub-kicker">About the data</div>
+            <h1>Turning ocean information into trusted economic evidence</h1>
+            <p>The IOOS Economic Impact Hub is a shared workspace for finding, reviewing, and using source-backed evidence about how ocean observing information supports decisions.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    intro_col, image_col = st.columns([0.95, 1.05], gap="large")
+    metric_columns = st.columns(4)
+    metric_columns[0].metric("Evidence rows", f"{len(evidence_df):,}")
+    metric_columns[1].metric("Source records", f"{len(source_df):,}")
+    metric_columns[2].metric("Briefing sources", f"{len(best_sources_df):,}")
+    metric_columns[3].metric("Review queue", f"{len(review_df):,}")
+
+    intro_col, image_col = st.columns([0.92, 1.08], gap="large")
     with intro_col:
+        st.markdown('<div class="hub-section">', unsafe_allow_html=True)
+        st.subheader("What This App Is For")
         st.markdown(
             """
-            This app turns IOOS economic impact research into a shared evidence system. Each row is tied to a source, a claim, a limitation, and a judgment about how strongly the source supports the claim.
-
-            The point is not to make every number sound bigger. The point is to make each number easier to trust, reuse, and update.
-            """
+            <p class="hub-lede">
+                This is a living evidence database for IOOS economic impact work. It helps employees move from scattered reports and candidate findings to source-backed claims that can be searched, reviewed, exported, and reused.
+            </p>
+            <p class="hub-lede">
+                Every useful claim should travel with its metric, source link, evidence strength, IOOS attribution strength, and limitations. That is what keeps the database useful for both everyday readers and maintainers.
+            </p>
+            """,
+            unsafe_allow_html=True,
         )
         st.markdown(
             """
             <div class="hub-callout">
-                Draft and AI-assisted rows stay staged until human review confirms the source, attribution, limitation, and claim language.
+                Sources are shown directly in the Evidence Database. The registry stays behind the scenes as traceability infrastructure.
             </div>
             """,
             unsafe_allow_html=True,
         )
+        st.markdown("</div>", unsafe_allow_html=True)
     with image_col:
+        st.markdown('<div class="hub-section">', unsafe_allow_html=True)
         if DATA_TO_DECISION_FLOW_PATH.exists():
             st.image(str(DATA_TO_DECISION_FLOW_PATH), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    st.subheader("Process")
+    st.markdown('<div class="hub-section">', unsafe_allow_html=True)
+    st.subheader("How Evidence Moves Through the Hub")
     render_process_steps()
+    st.markdown("</div>", unsafe_allow_html=True)
 
     table_col, method_col = st.columns([1, 1], gap="large")
     with table_col:
-        st.subheader("Core Tables")
+        st.subheader("Data Layers")
         st.dataframe(
             project_table_status(evidence_df, source_df, review_df, staged_df, best_sources_df),
             use_container_width=True,
@@ -3988,6 +4138,7 @@ def page_about_data(
             hide_index=True,
         )
 
+    st.markdown('<div class="hub-section">', unsafe_allow_html=True)
     st.subheader("How We Got Here")
     st.dataframe(
         project_timeline_df(date.today()),
@@ -3999,6 +4150,7 @@ def page_about_data(
             "Focus": st.column_config.TextColumn(width="large"),
         },
     )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def page_how_to_use() -> None:
@@ -4630,6 +4782,47 @@ def page_run_validation() -> None:
             st.info(f"Refreshed `{REVIEW_PATH}`.")
 
 
+def page_review_admin(
+    regional_targets_df: pd.DataFrame,
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> None:
+    st.title("Review / Admin")
+    st.caption("Maintainer tools for adding, reviewing, validating, and promoting evidence.")
+
+    current_section = st.session_state.get("review_admin_navigation", REVIEW_ADMIN_NAVIGATION[0])
+    if current_section not in REVIEW_ADMIN_NAVIGATION:
+        current_section = REVIEW_ADMIN_NAVIGATION[0]
+        st.session_state["review_admin_navigation"] = current_section
+
+    section = st.radio(
+        "Review/Admin section",
+        REVIEW_ADMIN_NAVIGATION,
+        index=REVIEW_ADMIN_NAVIGATION.index(current_section),
+        horizontal=True,
+        label_visibility="collapsed",
+        key="review_admin_navigation",
+    )
+
+    if section == "Evidence Intake":
+        page_evidence_intake(regional_targets_df)
+    elif section == "Review Evidence":
+        page_staged_evidence(staged_df, evidence_df, source_df)
+    elif section == "Validation Queue":
+        page_review_needed(review_df)
+    elif section == "Add Evidence Row":
+        page_add_evidence_row(evidence_df)
+    elif section == "Run Validation":
+        page_run_validation()
+    elif section == "Regional Builds":
+        page_regional_builds(regional_targets_df, evidence_df)
+    elif section == "Project Roadmap":
+        page_project_roadmap(evidence_df, source_df, review_df, staged_df, best_sources_df)
+
+
 def main() -> None:
     apply_hub_styles()
     ensure_auth_state()
@@ -4646,41 +4839,20 @@ def main() -> None:
     regional_targets_df = load_csv(REGIONAL_TARGETS_PATH)
 
     render_sidebar_identity()
-    page = st.sidebar.radio(
-        "Workspace",
-        APP_NAVIGATION,
-    )
+    page = render_top_navigation()
 
-    render_workspace_header(page)
-
-    if page == "Dashboard":
-        page_dashboard_summary(evidence_df, source_df, review_df, staged_df, best_sources_df)
-    elif page == "Data Explorer":
-        page_evidence_matrix(evidence_df, source_df)
-    elif page == "About the Data":
+    if page == "About":
         page_about_data(evidence_df, source_df, review_df, staged_df, best_sources_df)
-    elif page == "How to Use":
-        page_how_to_use()
-    elif page == "Project Roadmap":
-        page_project_roadmap(evidence_df, source_df, review_df, staged_df, best_sources_df)
-    elif page == "Regional Builds":
-        page_regional_builds(regional_targets_df, evidence_df)
-    elif page == "Congressional Brief":
+    elif page == "Dashboard":
+        page_dashboard_summary(evidence_df, source_df, review_df, staged_df, best_sources_df)
+    elif page == "Evidence Database":
+        page_evidence_matrix(evidence_df, source_df)
+    elif page == "Briefs & Outputs":
         page_congressional_briefing(evidence_df, source_df, staged_df)
     elif page == "Best Sources":
         page_best_sources(best_sources_df)
-    elif page == "Evidence Intake":
-        page_evidence_intake(regional_targets_df)
-    elif page == "Staged Evidence":
-        page_staged_evidence(staged_df, evidence_df, source_df)
-    elif page == "Review Needed":
-        page_review_needed(review_df)
-    elif page == "Source Registry":
-        page_source_registry(source_df)
-    elif page == "Add Evidence Row":
-        page_add_evidence_row(evidence_df)
-    elif page == "Run Validation":
-        page_run_validation()
+    elif page == "Review / Admin":
+        page_review_admin(regional_targets_df, evidence_df, source_df, review_df, staged_df, best_sources_df)
 
 
 if __name__ == "__main__":
