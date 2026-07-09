@@ -758,10 +758,17 @@ def apply_hub_styles() -> None:
                 font-weight: 820;
             }}
 
+            header[data-testid="stHeader"],
+            div[data-testid="stToolbar"],
+            div[data-testid="stDecoration"],
+            div[data-testid="stStatusWidget"],
+            div[data-testid="stElementToolbar"],
             section[data-testid="stSidebar"],
             div[data-testid="stSidebarCollapsedControl"],
             button[kind="headerNoPadding"] {{
                 display: none !important;
+                height: 0 !important;
+                visibility: hidden !important;
             }}
 
             [data-testid="stDataFrame"] {{
