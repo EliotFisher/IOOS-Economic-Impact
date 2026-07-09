@@ -1885,9 +1885,9 @@ def build_maracoos_congressional_briefing_html(
   </div>
 
   <div class="hero image-hero">
-    <p class="subtitle">The regional case for reauthorizing the Integrated Ocean Observing System (IOOS)</p>
     <div class="kicker">IOOS Reauthorization Brief</div>
     <h1>MARACOOS: Mid-Atlantic Ocean Intelligence</h1>
+    <p class="subtitle">The regional case for reauthorizing the Integrated Ocean Observing System (IOOS)</p>
   </div>
   <div class="brief-meta">
     <span>Prepared for: {brief_escape(prepared_for)}</span>
