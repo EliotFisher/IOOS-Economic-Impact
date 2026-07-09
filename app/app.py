@@ -38,6 +38,9 @@ COL_LOGO_PATH = APP_DIR / "col-logo.avif"
 IOOS_HERO_IMAGE_PATH = APP_DIR / "Hero.png"
 MARACOOS_COVERAGE_MAP_PATH = APP_DIR / "MARACOOS Coverage Map.png"
 DATA_TO_DECISION_FLOW_PATH = APP_DIR / "data to decision flow chart.png"
+IOOS_COVERAGE_MAP_PATH = APP_DIR / "IOOS Coverage Mao.png"
+IOOS_OCEAN_SYSTEMS_PATH = APP_DIR / "IOOS in ocean.jpg"
+ANIMAL_TAGS_IMAGE_PATH = APP_DIR / "Animal atn-tags.jpg"
 
 INTAKE_SCHEMA = [
     "row_id",
@@ -422,12 +425,318 @@ PROJECT_EVIDENCE_PRIORITIES = [
     },
 ]
 
+APP_ROLES = {
+    "Viewer": "Explore dashboards, sources, evidence rows, and exports.",
+    "Contributor": "Stage candidate evidence and draft new source records.",
+    "Reviewer": "Verify evidence, resolve warnings, and promote trusted rows.",
+    "Admin": "Manage users, roles, source settings, and release readiness.",
+}
+
+APP_NAVIGATION = [
+    "Dashboard",
+    "Data Explorer",
+    "About the Data",
+    "How to Use",
+    "Project Roadmap",
+    "Regional Builds",
+    "Congressional Brief",
+    "Best Sources",
+    "Evidence Intake",
+    "Staged Evidence",
+    "Review Needed",
+    "Source Registry",
+    "Add Evidence Row",
+    "Run Validation",
+]
+
+METHOD_STEPS = [
+    {
+        "Step": "1. Collect",
+        "What happens": "Gather candidate claims, source URLs, metrics, and regional context.",
+        "Owner": "Contributor",
+    },
+    {
+        "Step": "2. Stage",
+        "What happens": "Hold AI-assisted or newly found rows outside the official matrix.",
+        "Owner": "Contributor",
+    },
+    {
+        "Step": "3. Review",
+        "What happens": "Check source support, attribution, limitations, and claim language.",
+        "Owner": "Reviewer",
+    },
+    {
+        "Step": "4. Promote",
+        "What happens": "Move verified rows into the official evidence matrix.",
+        "Owner": "Reviewer",
+    },
+    {
+        "Step": "5. Use",
+        "What happens": "Export trusted data for reports, briefs, presentations, and updates.",
+        "Owner": "Viewer",
+    },
+]
+
 
 st.set_page_config(
-    page_title="IOOS Economic Impact Evidence Matrix",
+    page_title="IOOS Economic Impact Hub",
     page_icon=":bar_chart:",
     layout="wide",
 )
+
+
+def apply_hub_styles() -> None:
+    """Apply the internal data-product visual language."""
+    hero_uri = asset_data_uri(IOOS_HERO_IMAGE_PATH, "image/png")
+    st.markdown(
+        f"""
+        <style>
+            :root {{
+                --ioos-ink: #10212b;
+                --ioos-muted: #5e6f79;
+                --ioos-line: #dbe7ea;
+                --ioos-panel: #f7fbfc;
+                --ioos-blue: #0a5d8f;
+                --ioos-green: #1f7a68;
+                --ioos-gold: #c4892c;
+            }}
+
+            .block-container {{
+                padding-top: 1.2rem;
+                padding-bottom: 3rem;
+                max-width: 1280px;
+            }}
+
+            h1, h2, h3, p, label, span, div {{
+                letter-spacing: 0;
+            }}
+
+            .hub-kicker {{
+                color: var(--ioos-green);
+                font-size: 0.78rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                margin-bottom: 0.3rem;
+            }}
+
+            .hub-hero {{
+                background:
+                    linear-gradient(90deg, rgba(9, 33, 45, 0.88), rgba(9, 33, 45, 0.52), rgba(9, 33, 45, 0.12)),
+                    url("{hero_uri}");
+                background-position: center;
+                background-size: cover;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                border-radius: 8px;
+                color: #ffffff;
+                min-height: 330px;
+                padding: clamp(1.4rem, 4vw, 3.4rem);
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-end;
+                margin-bottom: 1.1rem;
+            }}
+
+            .hub-hero h1 {{
+                color: #ffffff;
+                font-size: clamp(2.1rem, 4vw, 4.5rem);
+                line-height: 1.02;
+                margin: 0;
+                max-width: 780px;
+            }}
+
+            .hub-hero p {{
+                color: #e8f6fa;
+                font-size: clamp(1rem, 1.45vw, 1.22rem);
+                max-width: 760px;
+                margin: 0.8rem 0 0;
+            }}
+
+            .hub-strip {{
+                background: var(--ioos-panel);
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
+                padding: 0.9rem 1rem;
+                margin: 0.8rem 0 1.1rem;
+            }}
+
+            .hub-strip strong {{
+                color: var(--ioos-ink);
+            }}
+
+            .hub-chip {{
+                background: #e8f5f1;
+                border: 1px solid #b9ddd3;
+                border-radius: 999px;
+                color: #145d50;
+                display: inline-block;
+                font-size: 0.78rem;
+                font-weight: 700;
+                padding: 0.24rem 0.6rem;
+            }}
+
+            .hub-callout {{
+                border-left: 4px solid var(--ioos-green);
+                background: #f6fbf8;
+                padding: 0.85rem 1rem;
+                margin: 0.6rem 0 1rem;
+            }}
+
+            .hub-process-step {{
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
+                padding: 0.85rem 0.95rem;
+                min-height: 142px;
+                background: #ffffff;
+            }}
+
+            .hub-process-step b {{
+                color: var(--ioos-blue);
+            }}
+
+            div[data-testid="stMetric"] {{
+                background: #ffffff;
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
+                padding: 0.85rem 0.9rem;
+            }}
+
+            section[data-testid="stSidebar"] {{
+                background: #f5fafb;
+            }}
+
+            section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {{
+                color: var(--ioos-muted);
+            }}
+
+            [data-testid="stDataFrame"] {{
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
+            }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def ensure_auth_state() -> None:
+    st.session_state.setdefault("authenticated", False)
+    st.session_state.setdefault("employee_name", "")
+    st.session_state.setdefault("employee_role", "Reviewer")
+
+
+def render_login_page() -> None:
+    st.markdown(
+        """
+        <div class="hub-hero">
+            <div class="hub-kicker">Employee data workspace</div>
+            <h1>IOOS Economic Impact Hub</h1>
+            <p>A living evidence database for understanding, reviewing, and communicating how ocean information supports economic decisions.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    left, right = st.columns([0.92, 1.08], gap="large")
+    with left:
+        st.subheader("Sign In")
+        st.caption("Prototype access gate. Real authentication can be connected to Supabase Auth, SSO, or another staff identity provider.")
+        with st.form("employee_login"):
+            employee_name = st.text_input("Employee email or name", placeholder="name@organization.gov")
+            role = st.selectbox("Workspace role", list(APP_ROLES), index=2)
+            password = st.text_input("Password", type="password", placeholder="Prototype accepts any value")
+            submitted = st.form_submit_button("Enter Dashboard", type="primary")
+
+        if submitted:
+            if not employee_name.strip():
+                st.error("Enter an employee email or name to continue.")
+            else:
+                st.session_state["authenticated"] = True
+                st.session_state["employee_name"] = employee_name.strip()
+                st.session_state["employee_role"] = role
+                st.rerun()
+
+        st.markdown(
+            f"""
+            <div class="hub-strip">
+                <strong>Selected role:</strong> {role}<br>
+                {APP_ROLES[role]}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with right:
+        if DATA_TO_DECISION_FLOW_PATH.exists():
+            st.image(str(DATA_TO_DECISION_FLOW_PATH), use_container_width=True)
+        st.markdown(
+            """
+            <div class="hub-callout">
+                The hub keeps draft evidence separate from official evidence until a person verifies the source, attribution, limitation, and claim language.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def render_sidebar_identity() -> None:
+    st.sidebar.title("IOOS Hub")
+    name = st.session_state.get("employee_name", "Employee")
+    role = st.session_state.get("employee_role", "Viewer")
+    st.sidebar.markdown(f"**{name}**")
+    st.sidebar.caption(f"{role}: {APP_ROLES.get(role, '')}")
+    if st.sidebar.button("Sign out"):
+        st.session_state["authenticated"] = False
+        st.session_state["employee_name"] = ""
+        st.session_state["employee_role"] = "Reviewer"
+        st.rerun()
+
+    st.sidebar.divider()
+    logo_cols = st.sidebar.columns(2)
+    if UCAR_LOGO_PATH.exists():
+        logo_cols[0].image(str(UCAR_LOGO_PATH), use_container_width=True)
+    if COL_LOGO_PATH.exists():
+        logo_cols[1].image(str(COL_LOGO_PATH), use_container_width=True)
+
+
+def render_workspace_header(page: str) -> None:
+    role = st.session_state.get("employee_role", "Viewer")
+    st.markdown(
+        f"""
+        <div class="hub-strip">
+            <span class="hub-chip">{role}</span>
+            <strong style="margin-left:0.45rem;">{page}</strong>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def count_value(df: pd.DataFrame, column: str, value: str) -> int:
+    if df.empty or column not in df.columns:
+        return 0
+    return int((df[column].map(normalize_text).str.lower() == value.lower()).sum())
+
+
+def active_phase_label() -> str:
+    active_index = active_project_phase_index(date.today())
+    if active_index is None:
+        return "Complete" if date.today() > PROJECT_TIMELINE[-1]["end"] else "Not started"
+    return PROJECT_TIMELINE[active_index]["milestone"]
+
+
+def render_process_steps() -> None:
+    columns = st.columns(len(METHOD_STEPS))
+    for column, step in zip(columns, METHOD_STEPS):
+        column.markdown(
+            f"""
+            <div class="hub-process-step">
+                <b>{step["Step"]}</b>
+                <p>{step["What happens"]}</p>
+                <span class="hub-chip">{step["Owner"]}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def load_dotenv(path: Path) -> None:
@@ -644,7 +953,10 @@ def load_csv(path: Path) -> pd.DataFrame:
     """Load a CSV as strings so identifiers and matrix text are preserved."""
     table = PATH_TABLES.get(path)
     if table and supabase_enabled():
-        return load_supabase_table(table)
+        try:
+            return load_supabase_table(table)
+        except RuntimeError:
+            pass
     if not path.exists():
         return pd.DataFrame()
     return pd.read_csv(path, dtype=str, keep_default_na=False)
@@ -3429,44 +3741,304 @@ def page_project_roadmap(
         )
 
 
-def page_dashboard_summary(evidence_df: pd.DataFrame, source_df: pd.DataFrame, review_df: pd.DataFrame) -> None:
-    st.title("Dashboard Summary")
-    st.caption("At-a-glance status for evidence coverage, claim strength, and review workload.")
+def dashboard_queue_table(
+    evidence_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> pd.DataFrame:
+    status_counts = evidence_df["dashboard_status"].value_counts() if "dashboard_status" in evidence_df else {}
+    return pd.DataFrame(
+        [
+            {
+                "Queue": "Rows needing follow-up",
+                "Count": int(status_counts.get("needs-follow-up", 0)),
+                "Next move": "Resolve source verification, attribution, limitations, or risky claim language.",
+            },
+            {
+                "Queue": "Staged candidate rows",
+                "Count": len(staged_df),
+                "Next move": "Review source support before promotion into the official matrix.",
+            },
+            {
+                "Queue": "Validation items",
+                "Count": len(review_df),
+                "Next move": "Run validation after edits and clear errors before report use.",
+            },
+            {
+                "Queue": "Briefing source shortlist",
+                "Count": len(best_sources_df),
+                "Next move": "Verify page-level citation details for final materials.",
+            },
+        ]
+    )
+
+
+def page_dashboard_summary(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> None:
+    st.markdown(
+        """
+        <div class="hub-hero">
+            <div class="hub-kicker">Living evidence database</div>
+            <h1>Economic impact dashboard</h1>
+            <p>Track what is trusted, what needs review, and where IOOS evidence can support reports, briefings, and regional conversations.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     evidence_dashboard_df = add_dashboard_fields(evidence_df, review_df)
-    render_status_cards(evidence_dashboard_df, source_df, review_df)
+    status_counts = evidence_dashboard_df["dashboard_status"].value_counts() if "dashboard_status" in evidence_dashboard_df else {}
+    unique_sources = (
+        evidence_dashboard_df["source_id"].replace("", pd.NA).dropna().nunique()
+        if "source_id" in evidence_dashboard_df
+        else len(source_df)
+    )
+    review_errors = count_value(review_df, "severity", "error")
+    review_warnings = count_value(review_df, "severity", "warning")
 
-    if not review_df.empty:
-        review_errors = int((review_df["severity"].str.lower() == "error").sum()) if "severity" in review_df.columns else 0
-        review_warnings = int((review_df["severity"].str.lower() == "warning").sum()) if "severity" in review_df.columns else 0
-        st.warning(f"Validation review currently shows {review_errors} errors and {review_warnings} warnings.")
+    metric_columns = st.columns(4)
+    metric_columns[0].metric("Evidence rows", f"{len(evidence_dashboard_df):,}")
+    metric_columns[1].metric("Unique sources", f"{unique_sources:,}")
+    metric_columns[2].metric("Report-ready rows", f"{int(status_counts.get('report-ready', 0)):,}")
+    metric_columns[3].metric("Needs follow-up", f"{int(status_counts.get('needs-follow-up', 0)):,}")
+
+    metric_columns = st.columns(4)
+    metric_columns[0].metric("Staged rows", f"{len(staged_df):,}")
+    metric_columns[1].metric("Review items", f"{len(review_df):,}")
+    metric_columns[2].metric("Briefing sources", f"{len(best_sources_df):,}")
+    metric_columns[3].metric("Current phase", active_phase_label())
+
+    if review_df.empty:
+        st.success("No validation review items are currently listed.")
     else:
-        st.success("No review items are currently listed.")
+        st.warning(f"Validation review shows {review_errors} errors and {review_warnings} warnings.")
 
-    top_left, top_right = st.columns([1.15, 1])
-    with top_left:
-        render_report_readiness_breakdown(evidence_dashboard_df)
-    with top_right:
-        render_strength_crosstab(evidence_dashboard_df)
+    focus_col, map_col = st.columns([1.1, 0.9], gap="large")
+    with focus_col:
+        st.subheader("Work Queue")
+        st.dataframe(
+            dashboard_queue_table(evidence_dashboard_df, review_df, staged_df, best_sources_df),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Count": st.column_config.NumberColumn(format="%d", width="small"),
+                "Next move": st.column_config.TextColumn(width="large"),
+            },
+        )
+        st.markdown(
+            """
+            <div class="hub-callout">
+                Treat the dashboard as the morning standup for the evidence base: what changed, what is trusted, and what needs a reviewer.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    render_domain_coverage(evidence_dashboard_df)
-    render_review_workload(review_df)
-    render_best_candidates(evidence_dashboard_df)
-    render_follow_up_rows(evidence_dashboard_df)
+    with map_col:
+        if MARACOOS_COVERAGE_MAP_PATH.exists():
+            st.image(str(MARACOOS_COVERAGE_MAP_PATH), caption="MARACOOS regional pilot coverage", use_container_width=True)
 
-    bottom_left, bottom_right = st.columns(2)
-    with bottom_left:
-        render_update_frequency_breakdown(evidence_dashboard_df)
-    with bottom_right:
-        render_source_type_breakdown(source_df)
+    overview_tab, coverage_tab, review_tab = st.tabs(["Readiness", "Coverage", "Review"])
+    with overview_tab:
+        top_left, top_right = st.columns([1.15, 1])
+        with top_left:
+            render_report_readiness_breakdown(evidence_dashboard_df)
+        with top_right:
+            render_strength_crosstab(evidence_dashboard_df)
+    with coverage_tab:
+        render_domain_coverage(evidence_dashboard_df)
+        bottom_left, bottom_right = st.columns(2)
+        with bottom_left:
+            render_update_frequency_breakdown(evidence_dashboard_df)
+        with bottom_right:
+            render_source_type_breakdown(source_df)
+    with review_tab:
+        render_review_workload(review_df)
+        render_best_candidates(evidence_dashboard_df)
+        render_follow_up_rows(evidence_dashboard_df)
 
 
-def page_evidence_matrix(evidence_df: pd.DataFrame) -> None:
-    st.title("Evidence Matrix")
+def render_record_detail(row: pd.Series, source_df: pd.DataFrame) -> None:
+    source_id = normalize_text(row.get("source_id"))
+    source_row: pd.Series | None = None
+    if source_id and not source_df.empty and "source_id" in source_df.columns:
+        matches = source_df[source_df["source_id"].map(normalize_text) == source_id]
+        if not matches.empty:
+            source_row = matches.iloc[0]
+
+    detail_cols = st.columns([1, 1], gap="large")
+    with detail_cols[0]:
+        st.subheader(row_field(row, "row_id", "Selected Record"))
+        for column in ["impact_domain", "ioos_component", "region", "ioos_region_code", "user_group"]:
+            if column in row.index:
+                st.write(f"**{column.replace('_', ' ').title()}**")
+                st.write(row_field(row, column, "Not specified"))
+
+    with detail_cols[1]:
+        st.subheader("Claim and Support")
+        for column in ["metric", "claim_allowed", "limitations"]:
+            if column in row.index:
+                st.write(f"**{column.replace('_', ' ').title()}**")
+                st.write(row_field(row, column, "Not specified"))
+
+    source_cols = st.columns([1, 1, 1])
+    source_cols[0].metric("Evidence strength", row_field(row, "evidence_strength", "Blank"))
+    source_cols[1].metric("IOOS attribution", row_field(row, "ioos_attribution_strength", "Blank"))
+    source_cols[2].metric("Verification needed", row_field(row, "source_verification_needed", "Blank"))
+
+    if source_row is not None:
+        st.subheader("Source")
+        source_name = row_field(source_row, "source_name", source_id)
+        source_url = row_field(source_row, "source_url")
+        st.write(f"**{source_name}**")
+        if source_url:
+            st.markdown(f"[Open source]({source_url})")
+        source_columns = [column for column in ["source_type", "verification_status", "notes"] if column in source_row.index]
+        for column in source_columns:
+            value = row_field(source_row, column)
+            if value:
+                st.write(f"**{column.replace('_', ' ').title()}**")
+                st.write(value)
+
+
+def page_evidence_matrix(evidence_df: pd.DataFrame, source_df: pd.DataFrame) -> None:
+    st.title("Data Explorer")
+    st.caption("Search the living evidence database, filter rows, and open record-level source context.")
     if evidence_df.empty:
         st.warning(f"No evidence matrix found at {EVIDENCE_PATH}")
         return
-    render_filtered_table(evidence_df, "evidence_matrix")
+    filtered = render_filtered_table(evidence_df, "evidence_matrix")
+
+    if filtered.empty or "row_id" not in filtered.columns:
+        return
+
+    st.divider()
+    st.subheader("Record Detail")
+    selected_row_id = st.selectbox("Open evidence record", filtered["row_id"].map(normalize_text).tolist())
+    selected_rows = filtered[filtered["row_id"].map(normalize_text) == selected_row_id]
+    if not selected_rows.empty:
+        render_record_detail(selected_rows.iloc[0], source_df)
+
+
+def page_about_data(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> None:
+    st.title("About the Data")
+    st.caption("How the IOOS economic impact evidence base is built, reviewed, and kept useful.")
+
+    intro_col, image_col = st.columns([0.95, 1.05], gap="large")
+    with intro_col:
+        st.markdown(
+            """
+            This app turns IOOS economic impact research into a shared evidence system. Each row is tied to a source, a claim, a limitation, and a judgment about how strongly the source supports the claim.
+
+            The point is not to make every number sound bigger. The point is to make each number easier to trust, reuse, and update.
+            """
+        )
+        st.markdown(
+            """
+            <div class="hub-callout">
+                Draft and AI-assisted rows stay staged until human review confirms the source, attribution, limitation, and claim language.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with image_col:
+        if DATA_TO_DECISION_FLOW_PATH.exists():
+            st.image(str(DATA_TO_DECISION_FLOW_PATH), use_container_width=True)
+
+    st.subheader("Process")
+    render_process_steps()
+
+    table_col, method_col = st.columns([1, 1], gap="large")
+    with table_col:
+        st.subheader("Core Tables")
+        st.dataframe(
+            project_table_status(evidence_df, source_df, review_df, staged_df, best_sources_df),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Rows": st.column_config.NumberColumn(format="%d", width="small"),
+                "Purpose": st.column_config.TextColumn(width="large"),
+            },
+        )
+    with method_col:
+        st.subheader("Claim Strength")
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {"Rating": "Strong", "Use": "Direct evidence from a credible source with clear metric support."},
+                    {"Rating": "Medium", "Use": "Useful evidence with limits in scope, method, age, or transferability."},
+                    {"Rating": "Contextual", "Use": "Background evidence that supports the setting but not a quantified claim by itself."},
+                    {"Rating": "Modeled", "Use": "Scenario, model, estimate, or projection rather than observed impact."},
+                    {"Rating": "Needs verification", "Use": "Claim, metric, or IOOS connection needs checking before use."},
+                ]
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.subheader("How We Got Here")
+    st.dataframe(
+        project_timeline_df(date.today()),
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Dates": st.column_config.TextColumn(width="small"),
+            "Status": st.column_config.TextColumn(width="small"),
+            "Focus": st.column_config.TextColumn(width="large"),
+        },
+    )
+
+
+def page_how_to_use() -> None:
+    st.title("How to Use")
+    st.caption("The main workflows for employees using the IOOS Economic Impact Hub.")
+
+    role_rows = [
+        {"Role": role, "Primary use": description}
+        for role, description in APP_ROLES.items()
+    ]
+    st.dataframe(pd.DataFrame(role_rows), use_container_width=True, hide_index=True)
+
+    viewer_tab, contributor_tab, reviewer_tab, export_tab = st.tabs(
+        ["Explore", "Add Data", "Review", "Export"]
+    )
+
+    with viewer_tab:
+        st.subheader("Explore Trusted Evidence")
+        st.write("Start on the Dashboard to see readiness and workload. Use Data Explorer to search by domain, region, source, strength rating, or claim language.")
+        st.write("Open a record before copying a number. The detail view keeps the metric, allowed claim, limitation, and source together.")
+        if IOOS_COVERAGE_MAP_PATH.exists():
+            st.image(str(IOOS_COVERAGE_MAP_PATH), use_container_width=True)
+
+    with contributor_tab:
+        st.subheader("Add Candidate Evidence")
+        st.write("Use Evidence Intake for research prompts and candidate CSV uploads. New AI-assisted rows belong in Staged Evidence until their sources are checked.")
+        st.write("If adding a single verified row directly, use Add Evidence Row and then run validation.")
+        st.dataframe(pd.DataFrame(METHOD_STEPS), use_container_width=True, hide_index=True)
+
+    with reviewer_tab:
+        st.subheader("Review and Promote")
+        st.write("Use Review Needed to clear validation warnings and Staged Evidence to approve rows whose source verification is complete.")
+        st.write("Keep limitations attached to claims, especially when evidence is modeled, contextual, or older.")
+        if IOOS_OCEAN_SYSTEMS_PATH.exists():
+            st.image(str(IOOS_OCEAN_SYSTEMS_PATH), use_container_width=True)
+
+    with export_tab:
+        st.subheader("Create Reusable Outputs")
+        st.write("Use each table's download button for CSV exports. Use Best Sources and Congressional Brief for communication-ready source shortlists and brief drafts.")
+        st.write("Before using data externally, confirm the row is report-ready or preserve its caveats in the exported material.")
 
 
 def page_review_needed(review_df: pd.DataFrame) -> None:
@@ -4059,6 +4631,13 @@ def page_run_validation() -> None:
 
 
 def main() -> None:
+    apply_hub_styles()
+    ensure_auth_state()
+
+    if not st.session_state["authenticated"]:
+        render_login_page()
+        return
+
     evidence_df = load_csv(EVIDENCE_PATH)
     source_df = load_csv(SOURCE_PATH)
     review_df = load_csv(REVIEW_PATH)
@@ -4066,33 +4645,26 @@ def main() -> None:
     best_sources_df = load_csv(BEST_SOURCES_PATH)
     regional_targets_df = load_csv(REGIONAL_TARGETS_PATH)
 
-    st.sidebar.title("IOOS Matrix")
+    render_sidebar_identity()
     page = st.sidebar.radio(
-        "Page",
-        [
-            "Dashboard Summary",
-            "Project Roadmap",
-            "Regional Builds",
-            "Evidence Matrix",
-            "Congressional Brief",
-            "Best Sources",
-            "Evidence Intake",
-            "Staged Evidence",
-            "Review Needed",
-            "Source Registry",
-            "Add Evidence Row",
-            "Run Validation",
-        ],
+        "Workspace",
+        APP_NAVIGATION,
     )
 
-    if page == "Dashboard Summary":
-        page_dashboard_summary(evidence_df, source_df, review_df)
+    render_workspace_header(page)
+
+    if page == "Dashboard":
+        page_dashboard_summary(evidence_df, source_df, review_df, staged_df, best_sources_df)
+    elif page == "Data Explorer":
+        page_evidence_matrix(evidence_df, source_df)
+    elif page == "About the Data":
+        page_about_data(evidence_df, source_df, review_df, staged_df, best_sources_df)
+    elif page == "How to Use":
+        page_how_to_use()
     elif page == "Project Roadmap":
         page_project_roadmap(evidence_df, source_df, review_df, staged_df, best_sources_df)
     elif page == "Regional Builds":
         page_regional_builds(regional_targets_df, evidence_df)
-    elif page == "Evidence Matrix":
-        page_evidence_matrix(evidence_df)
     elif page == "Congressional Brief":
         page_congressional_briefing(evidence_df, source_df, staged_df)
     elif page == "Best Sources":
