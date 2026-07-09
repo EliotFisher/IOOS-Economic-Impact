@@ -35,7 +35,7 @@ VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_matrix.py"
 FILLED_BRIEFING_PATH = REPO_ROOT / "outputs" / "IOOS_Congressional_Briefing_Filled.html"
 UCAR_LOGO_PATH = APP_DIR / "logo-ucar.avif"
 COL_LOGO_PATH = APP_DIR / "col-logo.avif"
-IOOS_OCEAN_IMAGE_PATH = APP_DIR / "IOOS in ocean.jpg"
+IOOS_HERO_IMAGE_PATH = APP_DIR / "IOOS HERO image.png"
 MARACOOS_COVERAGE_MAP_PATH = APP_DIR / "MARACOOS Coverage Map.png"
 DATA_TO_DECISION_FLOW_PATH = APP_DIR / "data to decision flow chart.png"
 
@@ -1617,7 +1617,7 @@ def build_maracoos_congressional_briefing_html(
 
     ucar_logo_uri = asset_data_uri(UCAR_LOGO_PATH, "image/avif")
     col_logo_uri = asset_data_uri(COL_LOGO_PATH, "image/avif")
-    ocean_image_uri = asset_data_uri(IOOS_OCEAN_IMAGE_PATH, "image/jpeg")
+    hero_image_uri = asset_data_uri(IOOS_HERO_IMAGE_PATH, "image/png")
     maracoos_map_uri = asset_data_uri(MARACOOS_COVERAGE_MAP_PATH, "image/png")
     flow_chart_uri = asset_data_uri(DATA_TO_DECISION_FLOW_PATH, "image/png")
 
@@ -1707,7 +1707,7 @@ def build_maracoos_congressional_briefing_html(
   .image-hero {{
     background:
       linear-gradient(90deg, rgba(0, 82, 95, 0.92), rgba(0, 119, 133, 0.72)),
-      url("{ocean_image_uri}") center/cover no-repeat;
+      url("{hero_image_uri}") center/cover no-repeat;
     min-height: 1.33in;
     display: flex;
     flex-direction: column;
