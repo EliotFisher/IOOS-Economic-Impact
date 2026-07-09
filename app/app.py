@@ -1700,18 +1700,24 @@ def build_maracoos_congressional_briefing_html(
   .hero {{
     background: var(--teal);
     color: #fff;
-    padding: 14px 16px;
+    padding: 16px 18px;
     border-radius: 3px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }}
   .image-hero {{
     background:
-      linear-gradient(90deg, rgba(0, 82, 95, 0.92), rgba(0, 119, 133, 0.72)),
+      linear-gradient(90deg, rgba(0, 58, 67, 0.62) 0%, rgba(0, 96, 110, 0.34) 54%, rgba(0, 119, 133, 0.08) 100%),
       url("{hero_image_uri}") center/cover no-repeat;
-    min-height: 1.33in;
+    min-height: 1.78in;
     display: flex;
     flex-direction: column;
     justify-content: center;
+  }}
+  .image-hero .kicker,
+  .image-hero h1,
+  .image-hero .subtitle {{
+    max-width: 5.7in;
+    text-shadow: 0 1.5px 4px rgba(0, 0, 0, 0.62);
   }}
   .hero .kicker {{
     font-size: 8.5pt;
@@ -1721,7 +1727,7 @@ def build_maracoos_congressional_briefing_html(
     margin-bottom: 5px;
     font-weight: 700;
   }}
-  .hero h1 {{ font-size: 23pt; line-height: 1.05; margin: 0 0 5px; }}
+  .hero h1 {{ font-size: 25pt; line-height: 1.05; margin: 0 0 5px; }}
   .hero .subtitle {{ font-size: 11.2pt; margin: 0; color: #F2FCFD; }}
   .brief-meta {{
     display: flex;
