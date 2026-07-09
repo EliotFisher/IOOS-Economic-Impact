@@ -35,7 +35,7 @@ VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_matrix.py"
 FILLED_BRIEFING_PATH = REPO_ROOT / "outputs" / "IOOS_Congressional_Briefing_Filled.html"
 UCAR_LOGO_PATH = APP_DIR / "logo-ucar.avif"
 COL_LOGO_PATH = APP_DIR / "col-logo.avif"
-IOOS_HERO_IMAGE_PATH = APP_DIR / "NEW IOOS HERO image.png"
+IOOS_HERO_IMAGE_PATH = APP_DIR / "Hero.png"
 MARACOOS_COVERAGE_MAP_PATH = APP_DIR / "MARACOOS Coverage Map.png"
 DATA_TO_DECISION_FLOW_PATH = APP_DIR / "data to decision flow chart.png"
 
@@ -1698,30 +1698,24 @@ def build_maracoos_congressional_briefing_html(
     letter-spacing: 0.08em;
   }}
   .hero {{
-    background: linear-gradient(90deg, var(--teal-dark), var(--teal));
+    background:
+      linear-gradient(90deg, rgba(0, 48, 63, 0.86) 0%, rgba(0, 88, 104, 0.64) 34%, rgba(0, 119, 133, 0.22) 60%, rgba(0, 119, 133, 0.04) 82%),
+      url("{hero_image_uri}") center 45%/100% auto no-repeat;
     color: #fff;
-    padding: 12px 16px 11px;
-    border-radius: 3px 3px 0 0;
-    margin-bottom: 0;
-  }}
-  .hero-art {{
-    height: 2.15in;
-    border: 1px solid var(--line);
-    border-top: 0;
-    border-radius: 0 0 3px 3px;
-    background: #fff;
+    min-height: 2.08in;
+    padding: 14px 16px;
+    border-radius: 3px;
+    margin-bottom: 10px;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 0 10px;
+    flex-direction: column;
+    justify-content: flex-start;
     overflow: hidden;
   }}
-  .hero-art img {{
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    object-position: center center;
+  .hero .kicker,
+  .hero h1,
+  .hero .subtitle {{
+    max-width: 4.35in;
+    text-shadow: 0 1.5px 4px rgba(0, 0, 0, 0.64);
   }}
   .hero .kicker {{
     font-size: 8.5pt;
@@ -1892,9 +1886,6 @@ def build_maracoos_congressional_briefing_html(
     <div class="kicker">IOOS Reauthorization Brief</div>
     <h1>MARACOOS: Mid-Atlantic Ocean Intelligence</h1>
     <p class="subtitle">The regional case for reauthorizing the Integrated Ocean Observing System (IOOS)</p>
-  </div>
-  <div class="hero-art">
-    <img src="{hero_image_uri}" alt="Integrated Ocean Observing System at work in coastal waters">
   </div>
   <div class="brief-meta">
     <span>Prepared for: {brief_escape(prepared_for)}</span>
