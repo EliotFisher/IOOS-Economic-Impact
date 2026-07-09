@@ -5401,10 +5401,10 @@ def page_about_data(
         st.markdown("</div>", unsafe_allow_html=True)
     with method_col:
         st.markdown('<div class="hub-section">', unsafe_allow_html=True)
-        if DATA_TO_DECISION_FLOW_PATH.exists():
-            st.image(str(DATA_TO_DECISION_FLOW_PATH), use_container_width=True)
+        if IOOS_COVERAGE_MAP_PATH.exists():
+            st.image(str(IOOS_COVERAGE_MAP_PATH), caption="IOOS regional coverage", use_container_width=True)
         else:
-            st.info("Data-to-decision flow image is not available.")
+            st.info("IOOS coverage map image is not available.")
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="hub-section">', unsafe_allow_html=True)
