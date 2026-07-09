@@ -1705,10 +1705,14 @@ def build_maracoos_congressional_briefing_html(
     margin-bottom: 10px;
   }}
   .image-hero {{
-    background:
-      linear-gradient(90deg, rgba(0, 58, 67, 0.74) 0%, rgba(0, 96, 110, 0.5) 34%, rgba(0, 119, 133, 0.14) 56%, rgba(0, 119, 133, 0) 72%),
-      url("{hero_image_uri}") center center/100% auto no-repeat;
-    aspect-ratio: 1983 / 793;
+    background-color: #006875;
+    background-image:
+      linear-gradient(90deg, rgba(0, 58, 67, 0.82) 0%, rgba(0, 96, 110, 0.58) 34%, rgba(0, 119, 133, 0.16) 56%, rgba(0, 119, 133, 0) 72%),
+      url("{hero_image_uri}");
+    background-position: center center, right center;
+    background-repeat: no-repeat;
+    background-size: 100% 100%, auto 100%;
+    aspect-ratio: 33 / 10;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
