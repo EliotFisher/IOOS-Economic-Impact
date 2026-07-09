@@ -1601,46 +1601,55 @@ def build_maracoos_congressional_briefing_html(
     regions = maracoos_unique_values(maracoos_df, "region", limit=8)
 
     used_indexes: set[object] = set()
-    safety = maracoos_brief_item(
-        select_maracoos_brief_row(maracoos_df, ["search", "rescue", "sarops", "hf radar", "hfr"], used_indexes),
-        "Maritime Safety",
-        "MARACOOS rows describe Mid-Atlantic ocean information that supports maritime safety decisions.",
+    disaster = maracoos_brief_item(
+        select_maracoos_brief_row(
+            maracoos_df,
+            ["search", "rescue", "sarops", "hf radar", "hfr", "flood", "storm", "hazard", "resilience", "rip", "beach"],
+            used_indexes,
+        ),
+        "Disaster Response",
+        "MARACOOS rows describe Mid-Atlantic ocean information that supports emergency response, coastal hazard, or maritime safety decisions.",
     )
     ports = maracoos_brief_item(
         select_maracoos_brief_row(maracoos_df, ["port", "ports", "navigation", "shipping", "commerce"], used_indexes),
         "Port and Navigation Decisions",
         "MARACOOS rows describe ocean and coastal information used for navigation or port decision support.",
     )
-    hazards = maracoos_brief_item(
-        select_maracoos_brief_row(maracoos_df, ["flood", "storm", "hazard", "resilience", "rip", "beach"], used_indexes),
-        "Coastal Hazards",
-        "MARACOOS rows describe coastal information that supports hazard, flood, beach, or resilience decisions.",
-    )
-    water_quality = maracoos_brief_item(
+    communities = maracoos_brief_item(
         select_maracoos_brief_row(
             maracoos_df,
-            ["hab", "shellfish", "fish", "water quality", "oxygen", "acidification", "sturgeon"],
+            ["hab", "shellfish", "fish", "water quality", "oxygen", "acidification", "sturgeon", "coastal", "community"],
             used_indexes,
         ),
-        "Fisheries and Water Quality",
-        "MARACOOS rows describe environmental information that supports fisheries, shellfish, or water-quality decisions.",
+        "Coastal Communities",
+        "MARACOOS rows describe environmental information that supports coastal community, fisheries, shellfish, or water-quality decisions.",
     )
-    items = [safety, ports, hazards, water_quality]
+    additional = maracoos_brief_item(
+        select_maracoos_brief_row(maracoos_df, ["maracoos"], used_indexes),
+        "Additional MARACOOS Evidence",
+        "Additional MARACOOS rows can support regional follow-up with staff.",
+    )
+    items = [disaster, ports, communities, additional]
 
     ucar_logo_uri = asset_data_uri(UCAR_LOGO_PATH, "image/avif")
     col_logo_uri = asset_data_uri(COL_LOGO_PATH, "image/avif")
     domain_items = html_list_items(domains, "MARACOOS impact domains in the evidence rows above")
     region_items = html_list_items(regions, "Mid-Atlantic geographies represented in the MARACOOS rows above")
 
+    pillar_items = [
+        ("1. Disaster Response", disaster),
+        ("2. Port Efficiency", ports),
+        ("3. Coastal Communities", communities),
+    ]
     item_cards = "\n".join(
         f"""
     <div class="pillar">
-      <h3>{brief_escape(item['title'])}</h3>
+      <h3>{brief_escape(title)}</h3>
       <p>{brief_escape(item['claim'])}</p>
       <p><b>Evidence:</b> {brief_escape(item['metric'] or "Qualitative MARACOOS evidence row")}</p>
       <p><b>Source:</b> {brief_escape(item['source'] or "MARACOOS evidence row")}</p>
     </div>"""
-        for item in items[:3]
+        for title, item in pillar_items
     )
     caveat_cards = "\n".join(
         f"""
@@ -1788,6 +1797,18 @@ def build_maracoos_congressional_briefing_html(
     margin: 0;
     padding-left: 16px;
   }}
+  .sector-grid {{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px 18px;
+    margin: 8px 0 12px;
+    padding-left: 0;
+    list-style: none;
+  }}
+  .sector-grid li {{
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 4px;
+  }}
   .caveat-grid {{
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -1836,9 +1857,9 @@ def build_maracoos_congressional_briefing_html(
   </div>
 
   <div class="hero">
-    <div class="kicker">Mid-Atlantic Regional IOOS Brief</div>
-    <h1>MARACOOS Regional Evidence</h1>
-    <p class="subtitle">How MARACOOS-supported ocean information shows up in Mid-Atlantic decisions</p>
+    <div class="kicker">IOOS Reauthorization Brief</div>
+    <h1>MARACOOS: Mid-Atlantic Ocean Intelligence</h1>
+    <p class="subtitle">The regional case for reauthorizing the Integrated Ocean Observing System (IOOS)</p>
   </div>
   <div class="brief-meta">
     <span>Prepared for: {brief_escape(prepared_for)}</span>
@@ -1846,31 +1867,19 @@ def build_maracoos_congressional_briefing_html(
   </div>
 
   <div class="metric-strip">
-    <div class="metric"><div class="value">{len(maracoos_df):,}</div><div class="label">MARACOOS evidence rows</div></div>
-    <div class="metric"><div class="value">{source_count:,}</div><div class="label">Sources represented</div></div>
-    <div class="metric"><div class="value">{strong_attribution_count:,}</div><div class="label">Strong-attribution rows</div></div>
-    <div class="metric"><div class="value">{verified_count:,}</div><div class="label">Source-verified rows</div></div>
+    <div class="metric"><div class="value">5x</div><div class="label">Return on investment</div></div>
+    <div class="metric"><div class="value">$400B</div><div class="label">U.S. ocean economy enabled</div></div>
+    <div class="metric"><div class="value">325K</div><div class="label">Ocean Enterprise jobs supported</div></div>
+    <div class="metric"><div class="value">$280M</div><div class="label">Requested over 5 years</div></div>
   </div>
 
-  <div class="bottom-line">Bottom line: The MARACOOS rows above support a regional Mid-Atlantic story about ocean information used in safety, navigation, coastal hazard, and water-quality decisions, with caveats kept visible for staff review.</div>
+  <div class="bottom-line">Bottom line: MARACOOS gives staff a concrete Mid-Atlantic example of IOOS regional infrastructure turning ocean observations into safety, navigation, coastal hazard, and water-quality decision support.</div>
 
-  <h2 class="section">MARACOOS Evidence Base</h2>
-  <div class="two-col">
-    <div>
-      <p><b>Impact domains in the current rows:</b></p>
-      <ul>
-{domain_items}
-      </ul>
-    </div>
-    <div>
-      <p><b>Geographies represented in the current rows:</b></p>
-      <ul>
-{region_items}
-      </ul>
-    </div>
-  </div>
+  <h2 class="section">What IOOS Is</h2>
+  <p>IOOS is the United States&rsquo; national network of ocean sensors, buoys, radar systems, satellites, and data platforms. MARACOOS is the Mid-Atlantic regional association that helps translate that infrastructure into usable regional information.</p>
+  <p>For a congressional audience, MARACOOS is the regional proof point: a set of Mid-Atlantic observations, products, and partner systems that connect IOOS infrastructure to real decisions in coastal communities, ports, and offshore waters.</p>
 
-  <h2 class="section">Why It Matters: MARACOOS Examples</h2>
+  <h2 class="section">Why It Matters: Three MARACOOS Examples</h2>
   <div class="pillars">
 {item_cards}
   </div>
@@ -1886,21 +1895,33 @@ def build_maracoos_congressional_briefing_html(
     <div class="doc-label">MARACOOS Brief</div>
   </div>
 
-  <h2 class="section" style="margin-top:0;">Caveats Staff Should Keep With The Claims</h2>
+  <h2 class="section" style="margin-top:0;">The Economy MARACOOS Serves</h2>
+  <p>MARACOOS is regional data infrastructure for the Mid-Atlantic ocean economy and coastal safety mission. The rows above point to the decision contexts where that infrastructure is most visible.</p>
+  <p><b>Impact domains and geographies represented in the current MARACOOS rows:</b></p>
+  <ul class="sector-grid">
+{domain_items}
+{region_items}
+  </ul>
+
+  <h2 class="section">The Legislative Moment</h2>
+  <p>Use MARACOOS as the regional example inside the broader IOOS reauthorization conversation. The national brief makes the overall funding case; this brief shows what the same infrastructure looks like in the Mid-Atlantic evidence rows.</p>
+  <p>The MARACOOS rows currently shown above include {len(maracoos_df):,} evidence rows and {source_count:,} represented sources. Keep row-specific caveats attached when moving from staff briefing language to external distribution.</p>
+
+  <h2 class="section">Staff Takeaway</h2>
+  <p><b>Do not make this complicated:</b> MARACOOS is the Mid-Atlantic version of the IOOS story. Its value is clearest when staff can see specific regional decisions supported by ocean observations, forecasts, web tools, and partner systems.</p>
+  <p>This brief mirrors the main congressional brief structure, but its evidence examples are drawn only from the MARACOOS rows displayed above.</p>
+
+  <h2 class="section">Caveats Staff Should Keep With The Claims</h2>
   <div class="caveat-grid">
 {caveat_cards}
   </div>
 
-  <h2 class="section">Staff Takeaway</h2>
-  <p>Use MARACOOS as a concrete Mid-Atlantic example of IOOS regional association value, but keep the language tied to the rows above: decision support, operational relevance, evidence strength, attribution strength, and row-specific limitations.</p>
-  <p>This brief intentionally avoids importing national metrics or non-MARACOOS examples. Update the evidence rows first when new source verification, stronger metrics, or more current MARACOOS documentation becomes available.</p>
-
   <div class="ask-box">
-    <div class="label">Regional Briefing Use</div>
-    Use these MARACOOS rows to brief staff on Mid-Atlantic examples, request district-specific follow-up, and identify which claims need source verification before external distribution.
+    <div class="label">The Ask</div>
+    Support Senate floor action on S. 2126 &nbsp; | &nbsp; Defend IOOS funding in CJS appropriations at or above current levels &nbsp; | &nbsp; Request a MARACOOS-specific briefing on how IOOS serves Mid-Atlantic coastal, port, fisheries, or emergency management stakeholders.
   </div>
 
-  <div class="footnote">Source note: Built only from the MARACOOS rows currently displayed above this briefing preview.</div>
+  <div class="footnote">Source note: The four-card authorization metric strip matches the main congressional brief. MARACOOS-specific evidence examples, caveats, source counts, and regional claims are built only from the MARACOOS rows currently displayed above this briefing preview.</div>
 
   <div class="footer">
     <span>IOOS Economic Impact Evidence Matrix | MARACOOS regional brief</span>
