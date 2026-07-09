@@ -1494,6 +1494,423 @@ def count_distinct_row_values(df: pd.DataFrame, columns: list[str]) -> int:
     return len(values)
 
 
+def combined_row_text(row: pd.Series, columns: list[str]) -> str:
+    return " ".join(normalize_text(row.get(column)).lower() for column in columns if column in row.index)
+
+
+def maracoos_row_matches(row: pd.Series, keywords: list[str]) -> bool:
+    haystack = combined_row_text(
+        row,
+        [
+            "impact_domain",
+            "ioos_component",
+            "region",
+            "user_group",
+            "decision_supported",
+            "economic_pathway",
+            "metric",
+            "claim_allowed",
+            "ai_extraction_notes",
+        ],
+    )
+    return any(keyword.lower() in haystack for keyword in keywords)
+
+
+def select_maracoos_brief_row(
+    df: pd.DataFrame,
+    keywords: list[str],
+    used_indexes: set[object],
+) -> pd.Series | None:
+    if df.empty:
+        return None
+
+    candidates = df[df.apply(lambda row: maracoos_row_matches(row, keywords), axis=1)].copy()
+    if candidates.empty:
+        candidates = df.copy()
+    candidates = candidates[~candidates.index.isin(used_indexes)]
+    if candidates.empty:
+        return None
+
+    with_claim = candidates[candidates.get("claim_allowed", pd.Series("", index=candidates.index)).map(normalize_text) != ""]
+    if not with_claim.empty:
+        candidates = with_claim
+
+    sorted_candidates = sort_maracoos_rows(candidates)
+    row = sorted_candidates.iloc[0]
+    used_indexes.add(row.name)
+    return row
+
+
+def maracoos_brief_item(row: pd.Series | None, fallback_title: str, fallback_body: str) -> dict[str, str]:
+    if row is None:
+        return {
+            "title": fallback_title,
+            "claim": fallback_body,
+            "metric": "",
+            "source": "",
+            "caveat": "",
+        }
+
+    title = first_row_value(row, ["impact_domain", "ioos_component"]) or fallback_title
+    return {
+        "title": title,
+        "claim": first_row_value(row, ["claim_allowed", "decision_supported"]) or fallback_body,
+        "metric": normalize_text(row.get("metric")),
+        "source": first_row_value(row, ["source", "source_id"]),
+        "caveat": normalize_text(row.get("limitations")),
+    }
+
+
+def maracoos_unique_values(df: pd.DataFrame, column: str, limit: int = 8) -> list[str]:
+    if df.empty or column not in df.columns:
+        return []
+    values: list[str] = []
+    for value in df[column].map(normalize_text).tolist():
+        if value and value not in values:
+            values.append(value)
+        if len(values) >= limit:
+            break
+    return values
+
+
+def html_list_items(items: list[str], fallback: str) -> str:
+    values = items or [fallback]
+    return "\n".join(f"    <li>{brief_escape(value)}</li>" for value in values)
+
+
+def build_maracoos_congressional_briefing_html(
+    maracoos_df: pd.DataFrame,
+    prepared_for: str,
+    prepared_date: date,
+) -> str:
+    """Build a congressional-style regional brief using only MARACOOS rows."""
+    prepared_for = normalize_text(prepared_for) or "Congressional Staff"
+    date_label = prepared_date.strftime("%B %#d, %Y") if os.name == "nt" else prepared_date.strftime("%B %-d, %Y")
+    source_count = count_distinct_row_values(maracoos_df, ["source", "source_id", "source_url"])
+    verified_count = (
+        int((maracoos_df["source_verification_needed"].map(normalize_text) == "No").sum())
+        if "source_verification_needed" in maracoos_df.columns
+        else 0
+    )
+    strong_attribution_count = (
+        int((maracoos_df["ioos_attribution_strength"].map(normalize_text) == "Strong").sum())
+        if "ioos_attribution_strength" in maracoos_df.columns
+        else 0
+    )
+    domains = maracoos_unique_values(maracoos_df, "impact_domain", limit=8)
+    regions = maracoos_unique_values(maracoos_df, "region", limit=8)
+
+    used_indexes: set[object] = set()
+    safety = maracoos_brief_item(
+        select_maracoos_brief_row(maracoos_df, ["search", "rescue", "sarops", "hf radar", "hfr"], used_indexes),
+        "Maritime Safety",
+        "MARACOOS rows describe Mid-Atlantic ocean information that supports maritime safety decisions.",
+    )
+    ports = maracoos_brief_item(
+        select_maracoos_brief_row(maracoos_df, ["port", "ports", "navigation", "shipping", "commerce"], used_indexes),
+        "Port and Navigation Decisions",
+        "MARACOOS rows describe ocean and coastal information used for navigation or port decision support.",
+    )
+    hazards = maracoos_brief_item(
+        select_maracoos_brief_row(maracoos_df, ["flood", "storm", "hazard", "resilience", "rip", "beach"], used_indexes),
+        "Coastal Hazards",
+        "MARACOOS rows describe coastal information that supports hazard, flood, beach, or resilience decisions.",
+    )
+    water_quality = maracoos_brief_item(
+        select_maracoos_brief_row(
+            maracoos_df,
+            ["hab", "shellfish", "fish", "water quality", "oxygen", "acidification", "sturgeon"],
+            used_indexes,
+        ),
+        "Fisheries and Water Quality",
+        "MARACOOS rows describe environmental information that supports fisheries, shellfish, or water-quality decisions.",
+    )
+    items = [safety, ports, hazards, water_quality]
+
+    ucar_logo_uri = asset_data_uri(UCAR_LOGO_PATH, "image/avif")
+    col_logo_uri = asset_data_uri(COL_LOGO_PATH, "image/avif")
+    domain_items = html_list_items(domains, "MARACOOS impact domains in the evidence rows above")
+    region_items = html_list_items(regions, "Mid-Atlantic geographies represented in the MARACOOS rows above")
+
+    item_cards = "\n".join(
+        f"""
+    <div class="pillar">
+      <h3>{brief_escape(item['title'])}</h3>
+      <p>{brief_escape(item['claim'])}</p>
+      <p><b>Evidence:</b> {brief_escape(item['metric'] or "Qualitative MARACOOS evidence row")}</p>
+      <p><b>Source:</b> {brief_escape(item['source'] or "MARACOOS evidence row")}</p>
+    </div>"""
+        for item in items[:3]
+    )
+    caveat_cards = "\n".join(
+        f"""
+    <div class="caveat">
+      <h3>{brief_escape(item['title'])}</h3>
+      <p>{brief_escape(item['caveat'] or "Use the row caveats above before external distribution.")}</p>
+    </div>"""
+        for item in items
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {{
+    --teal: #00A3B4;
+    --teal-dark: #007785;
+    --blue: #4A94B1;
+    --gold: #F2A93B;
+    --ink: #222;
+    --gray: #5E6A71;
+    --line: #D7E1E5;
+    --panel: #EFF7F8;
+  }}
+  * {{ box-sizing: border-box; }}
+  body {{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: #888;
+    margin: 0;
+    padding: 20px 0 56px;
+  }}
+  .page {{
+    width: 8.5in;
+    min-height: 11in;
+    margin: 0 auto 28px;
+    background: #fff;
+    padding: 0.5in 0.62in;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+    font-size: 10.2pt;
+    line-height: 1.32;
+  }}
+  .masthead {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 3px solid var(--teal);
+    padding-bottom: 9px;
+    margin-bottom: 12px;
+  }}
+  .logos {{ display: flex; align-items: center; gap: 18px; }}
+  .logos img.logo-ucar {{ height: 26px; width: auto; }}
+  .logos img.logo-col {{ height: 46px; width: auto; }}
+  .logos .divider {{ width: 1px; height: 36px; background: var(--line); }}
+  .doc-label {{
+    text-align: right;
+    font-size: 8.5pt;
+    color: var(--gray);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }}
+  .hero {{
+    background: var(--teal);
+    color: #fff;
+    padding: 14px 16px;
+    border-radius: 3px;
+    margin-bottom: 12px;
+  }}
+  .hero .kicker {{
+    font-size: 8.5pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #DFF6F9;
+    margin-bottom: 5px;
+    font-weight: 700;
+  }}
+  .hero h1 {{ font-size: 23pt; line-height: 1.05; margin: 0 0 5px; }}
+  .hero .subtitle {{ font-size: 11.2pt; margin: 0; color: #F2FCFD; }}
+  .brief-meta {{
+    display: flex;
+    justify-content: space-between;
+    color: var(--gray);
+    font-size: 8.8pt;
+    margin: -3px 0 10px;
+  }}
+  .metric-strip {{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 10px 0 12px;
+  }}
+  .metric {{
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--gold);
+    padding: 8px 9px;
+    min-height: 58px;
+  }}
+  .metric .value {{ color: var(--teal-dark); font-weight: 800; font-size: 18pt; line-height: 1; }}
+  .metric .label {{ color: var(--gray); font-size: 8.5pt; margin-top: 4px; }}
+  h2.section {{
+    font-size: 10.8pt;
+    color: var(--teal-dark);
+    border-bottom: 1.5px solid var(--teal);
+    padding-bottom: 3px;
+    margin: 12px 0 7px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }}
+  p {{ margin: 0 0 8px; }}
+  .bottom-line {{
+    background: var(--panel);
+    border-left: 5px solid var(--teal);
+    padding: 10px 13px;
+    margin: 8px 0 12px;
+    font-weight: 700;
+    font-size: 11.2pt;
+  }}
+  .pillars {{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+  }}
+  .pillar {{
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--blue);
+    padding: 8px 9px;
+    min-height: 185px;
+  }}
+  .pillar h3, .caveat h3 {{
+    margin: 0 0 5px;
+    color: var(--teal-dark);
+    font-size: 10.2pt;
+  }}
+  .pillar p, .caveat p {{ font-size: 9.1pt; margin-bottom: 6px; }}
+  .two-col {{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 8px 0 12px;
+  }}
+  .two-col ul {{
+    margin: 0;
+    padding-left: 16px;
+  }}
+  .caveat-grid {{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }}
+  .caveat {{
+    border: 1px solid var(--line);
+    padding: 8px 9px;
+  }}
+  .ask-box {{
+    background: var(--teal-dark);
+    color: #fff;
+    padding: 13px 15px;
+    border-radius: 3px;
+    margin-top: 12px;
+    font-weight: 700;
+  }}
+  .ask-box .label {{
+    color: #DFF6F9;
+    font-size: 9pt;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }}
+  .footnote {{ font-size: 8.1pt; color: var(--gray); font-style: italic; margin-top: 10px; }}
+  .footer {{
+    border-top: 1px solid var(--line);
+    margin-top: 14px;
+    padding-top: 7px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 8.2pt;
+    color: var(--gray);
+  }}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="masthead">
+    <div class="logos">
+      <img class="logo-ucar" src="{ucar_logo_uri}" alt="UCAR">
+      <div class="divider"></div>
+      <img class="logo-col" src="{col_logo_uri}" alt="Center for Ocean Leadership">
+    </div>
+    <div class="doc-label">MARACOOS Brief</div>
+  </div>
+
+  <div class="hero">
+    <div class="kicker">Mid-Atlantic Regional IOOS Brief</div>
+    <h1>MARACOOS Regional Evidence</h1>
+    <p class="subtitle">How MARACOOS-supported ocean information shows up in Mid-Atlantic decisions</p>
+  </div>
+  <div class="brief-meta">
+    <span>Prepared for: {brief_escape(prepared_for)}</span>
+    <span>{brief_escape(date_label)}</span>
+  </div>
+
+  <div class="metric-strip">
+    <div class="metric"><div class="value">{len(maracoos_df):,}</div><div class="label">MARACOOS evidence rows</div></div>
+    <div class="metric"><div class="value">{source_count:,}</div><div class="label">Sources represented</div></div>
+    <div class="metric"><div class="value">{strong_attribution_count:,}</div><div class="label">Strong-attribution rows</div></div>
+    <div class="metric"><div class="value">{verified_count:,}</div><div class="label">Source-verified rows</div></div>
+  </div>
+
+  <div class="bottom-line">Bottom line: The MARACOOS rows above support a regional Mid-Atlantic story about ocean information used in safety, navigation, coastal hazard, and water-quality decisions, with caveats kept visible for staff review.</div>
+
+  <h2 class="section">MARACOOS Evidence Base</h2>
+  <div class="two-col">
+    <div>
+      <p><b>Impact domains in the current rows:</b></p>
+      <ul>
+{domain_items}
+      </ul>
+    </div>
+    <div>
+      <p><b>Geographies represented in the current rows:</b></p>
+      <ul>
+{region_items}
+      </ul>
+    </div>
+  </div>
+
+  <h2 class="section">Why It Matters: MARACOOS Examples</h2>
+  <div class="pillars">
+{item_cards}
+  </div>
+</div>
+
+<div class="page">
+  <div class="masthead">
+    <div class="logos">
+      <img class="logo-ucar" src="{ucar_logo_uri}" alt="UCAR">
+      <div class="divider"></div>
+      <img class="logo-col" src="{col_logo_uri}" alt="Center for Ocean Leadership">
+    </div>
+    <div class="doc-label">MARACOOS Brief</div>
+  </div>
+
+  <h2 class="section" style="margin-top:0;">Caveats Staff Should Keep With The Claims</h2>
+  <div class="caveat-grid">
+{caveat_cards}
+  </div>
+
+  <h2 class="section">Staff Takeaway</h2>
+  <p>Use MARACOOS as a concrete Mid-Atlantic example of IOOS regional association value, but keep the language tied to the rows above: decision support, operational relevance, evidence strength, attribution strength, and row-specific limitations.</p>
+  <p>This brief intentionally avoids importing national metrics or non-MARACOOS examples. Update the evidence rows first when new source verification, stronger metrics, or more current MARACOOS documentation becomes available.</p>
+
+  <div class="ask-box">
+    <div class="label">Regional Briefing Use</div>
+    Use these MARACOOS rows to brief staff on Mid-Atlantic examples, request district-specific follow-up, and identify which claims need source verification before external distribution.
+  </div>
+
+  <div class="footnote">Source note: Built only from the MARACOOS rows currently displayed above this briefing preview.</div>
+
+  <div class="footer">
+    <span>IOOS Economic Impact Evidence Matrix | MARACOOS regional brief</span>
+    <span>Sources: {source_count} | Evidence rows: {len(maracoos_df)}</span>
+  </div>
+</div>
+</body>
+</html>"""
+
+
 def filter_maracoos_briefing_rows(df: pd.DataFrame) -> pd.DataFrame:
     search_text = st.text_input("Search MARACOOS rows", key="maracoos_brief_search")
     filtered = search_dataframe(df, search_text)
@@ -1516,7 +1933,12 @@ def filter_maracoos_briefing_rows(df: pd.DataFrame) -> pd.DataFrame:
     return filtered
 
 
-def render_maracoos_congressional_tab(evidence_df: pd.DataFrame, staged_df: pd.DataFrame) -> None:
+def render_maracoos_congressional_tab(
+    evidence_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+    prepared_for: str,
+    prepared_date: date,
+) -> None:
     maracoos_df, source_label, note = maracoos_briefing_data(evidence_df, staged_df)
 
     st.subheader("MARACOOS Congressional Brief")
@@ -1624,6 +2046,25 @@ def render_maracoos_congressional_tab(evidence_df: pd.DataFrame, staged_df: pd.D
         filtered.to_csv(index=False).encode("utf-8"),
         file_name="maracoos_congressional_briefing_rows.csv",
         mime="text/csv",
+    )
+
+    st.subheader("MARACOOS Briefing Preview")
+    st.caption("Generated only from the MARACOOS evidence rows shown above.")
+    if filtered.empty:
+        st.info("No filtered MARACOOS rows are available for the briefing preview.")
+        return
+
+    maracoos_briefing_html = build_maracoos_congressional_briefing_html(
+        filtered,
+        prepared_for,
+        prepared_date,
+    )
+    components.html(maracoos_briefing_html, height=1700, scrolling=True)
+    st.download_button(
+        "Download MARACOOS congressional brief HTML",
+        maracoos_briefing_html.encode("utf-8"),
+        file_name="maracoos_congressional_brief_live.html",
+        mime="text/html",
     )
 
 
@@ -3185,7 +3626,7 @@ def page_congressional_briefing(
                         )
 
     with maracoos_tab:
-        render_maracoos_congressional_tab(evidence_df, staged_df)
+        render_maracoos_congressional_tab(evidence_df, staged_df, prepared_for, prepared_date)
 
 
 def render_intake_upload() -> None:
