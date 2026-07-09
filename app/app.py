@@ -1564,23 +1564,6 @@ def maracoos_brief_item(row: pd.Series | None, fallback_title: str, fallback_bod
     }
 
 
-def maracoos_unique_values(df: pd.DataFrame, column: str, limit: int = 8) -> list[str]:
-    if df.empty or column not in df.columns:
-        return []
-    values: list[str] = []
-    for value in df[column].map(normalize_text).tolist():
-        if value and value not in values:
-            values.append(value)
-        if len(values) >= limit:
-            break
-    return values
-
-
-def html_list_items(items: list[str], fallback: str) -> str:
-    values = items or [fallback]
-    return "\n".join(f"    <li>{brief_escape(value)}</li>" for value in values)
-
-
 def build_maracoos_congressional_briefing_html(
     maracoos_df: pd.DataFrame,
     prepared_for: str,
@@ -1600,8 +1583,6 @@ def build_maracoos_congressional_briefing_html(
         if "ioos_attribution_strength" in maracoos_df.columns
         else 0
     )
-    domains = maracoos_unique_values(maracoos_df, "impact_domain", limit=8)
-    regions = maracoos_unique_values(maracoos_df, "region", limit=8)
 
     used_indexes: set[object] = set()
     disaster = maracoos_brief_item(
@@ -1639,8 +1620,6 @@ def build_maracoos_congressional_briefing_html(
     ocean_image_uri = asset_data_uri(IOOS_OCEAN_IMAGE_PATH, "image/jpeg")
     maracoos_map_uri = asset_data_uri(MARACOOS_COVERAGE_MAP_PATH, "image/png")
     flow_chart_uri = asset_data_uri(DATA_TO_DECISION_FLOW_PATH, "image/png")
-    domain_items = html_list_items(domains, "MARACOOS impact domains in the evidence rows above")
-    region_items = html_list_items(regions, "Mid-Atlantic geographies represented in the MARACOOS rows above")
 
     pillar_items = [
         ("1. Disaster Response", disaster),
@@ -1835,18 +1814,6 @@ def build_maracoos_congressional_briefing_html(
     margin: 0;
     padding-left: 16px;
   }}
-  .sector-grid {{
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 5px 18px;
-    margin: 8px 0 12px;
-    padding-left: 0;
-    list-style: none;
-  }}
-  .sector-grid li {{
-    border-bottom: 1px solid var(--line);
-    padding-bottom: 4px;
-  }}
   .caveat-grid {{
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -1857,19 +1824,21 @@ def build_maracoos_congressional_briefing_html(
     padding: 8px 9px;
   }}
   .flow-visual {{
-    display: grid;
-    grid-template-columns: 0.86fr 1.14fr;
-    gap: 12px;
-    align-items: center;
-    margin: 8px 0 10px;
+    margin: 8px 0 12px;
   }}
   .flow-visual img {{
     display: block;
     width: 100%;
-    max-height: 1.5in;
+    max-height: 2.45in;
     object-fit: contain;
     border: 1px solid var(--line);
     background: #fff;
+  }}
+  .flow-visual .caption {{
+    color: var(--gray);
+    font-size: 7.8pt;
+    line-height: 1.2;
+    margin: 5px 0 0;
   }}
   .ask-box {{
     background: var(--teal-dark);
@@ -1957,17 +1926,11 @@ def build_maracoos_congressional_briefing_html(
   </div>
 
   <h2 class="section" style="margin-top:0;">The Economy MARACOOS Serves</h2>
+  <p>MARACOOS is regional data infrastructure for the Mid-Atlantic ocean economy and coastal safety mission. The rows above point to the decision contexts where that infrastructure is most visible.</p>
   <div class="flow-visual">
-    <div>
-      <p>MARACOOS is regional data infrastructure for the Mid-Atlantic ocean economy and coastal safety mission. The rows above point to the decision contexts where that infrastructure is most visible.</p>
-      <p><b>Impact domains and geographies represented in the current MARACOOS rows:</b></p>
-    </div>
     <img src="{flow_chart_uri}" alt="Data to decision flow chart">
+    <p class="caption">Data-to-decision pathway: observations and forecasts become regional products, then operational decisions and economic relevance.</p>
   </div>
-  <ul class="sector-grid">
-{domain_items}
-{region_items}
-  </ul>
 
   <h2 class="section">The Legislative Moment</h2>
   <p>Use MARACOOS as the regional example inside the broader IOOS reauthorization conversation. The national brief makes the overall funding case; this brief shows what the same infrastructure looks like in the Mid-Atlantic evidence rows.</p>
