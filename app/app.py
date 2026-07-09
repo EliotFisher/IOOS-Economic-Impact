@@ -516,15 +516,25 @@ def apply_hub_styles() -> None:
                 --ioos-muted: #5e6f79;
                 --ioos-line: #dbe7ea;
                 --ioos-panel: #f7fbfc;
+                --ioos-paper: #ffffff;
+                --ioos-soft: #eef6f7;
                 --ioos-blue: #0a5d8f;
                 --ioos-green: #1f7a68;
                 --ioos-gold: #c4892c;
+                --ioos-red: #b84d3f;
+                --ioos-violet: #6c5b8f;
+                --ioos-shadow: 0 12px 30px rgba(15, 47, 58, 0.08);
+            }}
+
+            .stApp {{
+                background: #fbfdfd;
+                color: var(--ioos-ink);
             }}
 
             .block-container {{
                 padding-top: 1rem;
                 padding-bottom: 3rem;
-                max-width: 1280px;
+                max-width: 1440px;
             }}
 
             h1, h2, h3, p, label, span, div {{
@@ -537,6 +547,27 @@ def apply_hub_styles() -> None:
                 font-weight: 700;
                 text-transform: uppercase;
                 margin-bottom: 0.3rem;
+            }}
+
+            .hub-page-title {{
+                border-bottom: 1px solid var(--ioos-line);
+                margin: 0.4rem 0 1.1rem;
+                padding-bottom: 0.9rem;
+            }}
+
+            .hub-page-title h1 {{
+                color: var(--ioos-ink);
+                font-size: clamp(1.9rem, 2.6vw, 3.1rem);
+                line-height: 1.05;
+                margin: 0;
+            }}
+
+            .hub-page-title p {{
+                color: var(--ioos-muted);
+                font-size: 1rem;
+                line-height: 1.62;
+                margin: 0.45rem 0 0;
+                max-width: 880px;
             }}
 
             .hub-hero {{
@@ -585,8 +616,39 @@ def apply_hub_styles() -> None:
                 margin: 0.8rem 0 1.1rem;
             }}
 
+            .hub-band {{
+                background: var(--ioos-soft);
+                border-bottom: 1px solid var(--ioos-line);
+                border-top: 1px solid var(--ioos-line);
+                margin: 1.3rem calc(50% - 50vw);
+                padding: 1.2rem calc(50vw - 50%);
+            }}
+
             .hub-strip strong {{
                 color: var(--ioos-ink);
+            }}
+
+            .hub-utility {{
+                align-items: center;
+                background: #ffffff;
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
+                display: flex;
+                gap: 0.8rem;
+                justify-content: space-between;
+                margin: 0.15rem 0 0.85rem;
+                padding: 0.58rem 0.72rem;
+            }}
+
+            .hub-utility-brand {{
+                color: var(--ioos-ink);
+                font-size: 0.94rem;
+                font-weight: 820;
+            }}
+
+            .hub-utility-user {{
+                color: var(--ioos-muted);
+                font-size: 0.84rem;
             }}
 
             .hub-chip {{
@@ -598,6 +660,24 @@ def apply_hub_styles() -> None:
                 font-size: 0.78rem;
                 font-weight: 700;
                 padding: 0.24rem 0.6rem;
+            }}
+
+            .hub-chip.neutral {{
+                background: #eef4f6;
+                border-color: #cbdce2;
+                color: #3f5660;
+            }}
+
+            .hub-chip.warning {{
+                background: #fff6df;
+                border-color: #f0cf91;
+                color: #76510c;
+            }}
+
+            .hub-chip.danger {{
+                background: #fff0ec;
+                border-color: #efb4a9;
+                color: #8f3528;
             }}
 
             .hub-callout {{
@@ -662,17 +742,531 @@ def apply_hub_styles() -> None:
                 padding: 0.85rem 0.9rem;
             }}
 
-            section[data-testid="stSidebar"] {{
-                background: #f5fafb;
+            div[data-testid="stMetric"] [data-testid="stMetricLabel"] p,
+            div[data-testid="stMetric"] [data-testid="stMetricLabel"],
+            div[data-testid="stMetric"] [data-testid="stMetricValue"],
+            div[data-testid="stMetric"] [data-testid="stMetricValue"] div {{
+                color: var(--ioos-ink) !important;
             }}
 
-            section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {{
-                color: var(--ioos-muted);
+            div[data-testid="stMetric"] [data-testid="stMetricLabel"] p {{
+                color: var(--ioos-muted) !important;
+                font-weight: 720;
+            }}
+
+            div[data-testid="stMetric"] [data-testid="stMetricValue"] {{
+                font-weight: 820;
+            }}
+
+            section[data-testid="stSidebar"],
+            div[data-testid="stSidebarCollapsedControl"],
+            button[kind="headerNoPadding"] {{
+                display: none !important;
             }}
 
             [data-testid="stDataFrame"] {{
                 border: 1px solid var(--ioos-line);
                 border-radius: 8px;
+            }}
+
+            .design-token-grid,
+            .trust-demo-grid,
+            .source-grid,
+            .brief-grid,
+            .queue-grid {{
+                display: grid;
+                gap: 0.85rem;
+            }}
+
+            .design-token-grid {{
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }}
+
+            .trust-demo-grid {{
+                grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            }}
+
+            .source-grid {{
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            }}
+
+            .brief-grid {{
+                grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+            }}
+
+            .queue-grid {{
+                grid-template-columns: repeat(4, minmax(150px, 1fr));
+            }}
+
+            .token-card,
+            .evidence-card,
+            .detail-panel,
+            .source-profile,
+            .brief-preview,
+            .review-card,
+            .metric-panel,
+            .rubric-row {{
+                background: var(--ioos-paper);
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
+                box-shadow: var(--ioos-shadow);
+            }}
+
+            .token-card,
+            .source-profile,
+            .brief-preview,
+            .review-card,
+            .metric-panel,
+            .rubric-row {{
+                padding: 0.95rem;
+            }}
+
+            .token-swatch {{
+                border-radius: 6px;
+                height: 42px;
+                margin-bottom: 0.6rem;
+                border: 1px solid rgba(16, 33, 43, 0.1);
+            }}
+
+            .token-card b,
+            .source-profile b,
+            .review-card b,
+            .metric-panel b {{
+                color: var(--ioos-ink);
+                display: block;
+                font-size: 0.93rem;
+                line-height: 1.25;
+                margin-bottom: 0.25rem;
+            }}
+
+            .token-card span,
+            .source-profile span,
+            .review-card span,
+            .metric-panel span {{
+                color: var(--ioos-muted);
+                font-size: 0.82rem;
+                line-height: 1.42;
+            }}
+
+            .trust-cluster {{
+                align-items: center;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.38rem;
+                margin-top: 0.7rem;
+            }}
+
+            .trust-badge,
+            .status-pill {{
+                align-items: center;
+                border-radius: 999px;
+                display: inline-flex;
+                font-size: 0.76rem;
+                font-weight: 760;
+                gap: 0.35rem;
+                line-height: 1;
+                min-height: 1.75rem;
+                padding: 0.34rem 0.56rem;
+                white-space: nowrap;
+            }}
+
+            .trust-badge::before,
+            .status-pill::before {{
+                border-radius: 999px;
+                content: "";
+                display: inline-block;
+                height: 0.46rem;
+                width: 0.46rem;
+            }}
+
+            .strength-strong {{
+                background: #e8f5f1;
+                border: 1px solid #99cbbc;
+                color: #145d50;
+            }}
+
+            .strength-strong::before {{ background: #1f7a68; }}
+
+            .strength-medium {{
+                background: #eef6fb;
+                border: 1px solid #9fc9de;
+                color: #13577e;
+            }}
+
+            .strength-medium::before {{ background: #0a5d8f; }}
+
+            .strength-modeled {{
+                background: #f4f1fb;
+                border: 1px solid #c7bde2;
+                color: #5b4c83;
+            }}
+
+            .strength-modeled::before {{ background: #6c5b8f; }}
+
+            .strength-contextual {{
+                background: #f3f6f7;
+                border: 1px solid #cbdce2;
+                color: #445e68;
+            }}
+
+            .strength-contextual::before {{ background: #70858e; }}
+
+            .strength-needs-verification,
+            .status-needs-follow-up,
+            .status-flagged,
+            .status-staged {{
+                background: #fff6df;
+                border: 1px solid #f0cf91;
+                color: #76510c;
+            }}
+
+            .strength-needs-verification::before,
+            .status-needs-follow-up::before,
+            .status-flagged::before,
+            .status-staged::before {{
+                background: #c4892c;
+            }}
+
+            .status-report-ready,
+            .status-ready-for-external-use,
+            .status-verified {{
+                background: #e8f5f1;
+                border: 1px solid #99cbbc;
+                color: #145d50;
+            }}
+
+            .status-report-ready::before,
+            .status-ready-for-external-use::before,
+            .status-verified::before {{
+                background: #1f7a68;
+            }}
+
+            .status-use-with-caution,
+            .status-in-review {{
+                background: #eef6fb;
+                border: 1px solid #9fc9de;
+                color: #13577e;
+            }}
+
+            .status-use-with-caution::before,
+            .status-in-review::before {{
+                background: #0a5d8f;
+            }}
+
+            .status-background-only,
+            .status-draft {{
+                background: #f3f6f7;
+                border: 1px solid #cbdce2;
+                color: #445e68;
+            }}
+
+            .status-background-only::before,
+            .status-draft::before {{
+                background: #70858e;
+            }}
+
+            .status-rejected {{
+                background: #fff0ec;
+                border: 1px solid #efb4a9;
+                color: #8f3528;
+            }}
+
+            .status-rejected::before {{
+                background: #b84d3f;
+            }}
+
+            .ioos-chain {{
+                align-items: center;
+                display: inline-flex;
+                gap: 0.24rem;
+                vertical-align: middle;
+            }}
+
+            .chain-step {{
+                align-items: center;
+                border: 1px solid #bfd3da;
+                border-radius: 999px;
+                color: #6d8189;
+                display: inline-flex;
+                font-size: 0.64rem;
+                font-weight: 800;
+                height: 1.35rem;
+                justify-content: center;
+                width: 1.35rem;
+            }}
+
+            .chain-step.active {{
+                background: #0a5d8f;
+                border-color: #0a5d8f;
+                color: #ffffff;
+            }}
+
+            .chain-label {{
+                color: var(--ioos-muted);
+                font-size: 0.76rem;
+                font-weight: 720;
+                margin-left: 0.2rem;
+            }}
+
+            .value-chain-full {{
+                display: grid;
+                gap: 0.7rem;
+                grid-template-columns: repeat(5, minmax(120px, 1fr));
+                margin: 1rem 0;
+            }}
+
+            .value-chain-node {{
+                background: #ffffff;
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
+                min-height: 118px;
+                padding: 0.9rem;
+                position: relative;
+            }}
+
+            .value-chain-node::after {{
+                background: var(--ioos-blue);
+                content: "";
+                height: 2px;
+                position: absolute;
+                right: -0.72rem;
+                top: 2rem;
+                width: 0.72rem;
+            }}
+
+            .value-chain-node:last-child::after {{
+                display: none;
+            }}
+
+            .value-chain-node b {{
+                color: var(--ioos-ink);
+                display: block;
+                line-height: 1.24;
+                margin-bottom: 0.35rem;
+            }}
+
+            .value-chain-node span {{
+                color: var(--ioos-muted);
+                font-size: 0.82rem;
+                line-height: 1.42;
+            }}
+
+            .evidence-card {{
+                margin-bottom: 0.8rem;
+                padding: 1rem;
+            }}
+
+            .evidence-card .row-meta,
+            .detail-panel .row-meta,
+            .brief-preview .row-meta {{
+                color: var(--ioos-muted);
+                display: flex;
+                flex-wrap: wrap;
+                font-size: 0.78rem;
+                gap: 0.5rem;
+                margin-top: 0.45rem;
+            }}
+
+            .evidence-card h3 {{
+                color: var(--ioos-ink);
+                font-size: 1.02rem;
+                line-height: 1.34;
+                margin: 0.25rem 0 0;
+            }}
+
+            .evidence-card .metric-value {{
+                color: var(--ioos-blue);
+                font-size: 1.14rem;
+                font-weight: 820;
+                line-height: 1.28;
+                margin-top: 0.5rem;
+            }}
+
+            .detail-panel {{
+                padding: 1rem;
+                position: sticky;
+                top: 0.8rem;
+            }}
+
+            .detail-panel h2 {{
+                font-size: 1.12rem;
+                line-height: 1.25;
+                margin: 0.35rem 0 0.45rem;
+            }}
+
+            .detail-section {{
+                border-top: 1px solid var(--ioos-line);
+                margin-top: 0.9rem;
+                padding-top: 0.8rem;
+            }}
+
+            .detail-section b {{
+                color: var(--ioos-ink);
+                display: block;
+                font-size: 0.78rem;
+                margin-bottom: 0.25rem;
+                text-transform: uppercase;
+            }}
+
+            .detail-section p {{
+                color: #354c55;
+                line-height: 1.55;
+                margin: 0;
+            }}
+
+            .filter-row {{
+                background: #ffffff;
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
+                margin-bottom: 1rem;
+                padding: 0.8rem 0.95rem 0.15rem;
+            }}
+
+            .coverage-key {{
+                align-items: center;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.45rem;
+                margin: 0.4rem 0 0.8rem;
+            }}
+
+            .coverage-key span {{
+                border: 1px solid var(--ioos-line);
+                border-radius: 999px;
+                color: var(--ioos-muted);
+                font-size: 0.76rem;
+                padding: 0.25rem 0.55rem;
+            }}
+
+            .coverage-matrix-wrap {{
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
+                overflow-x: auto;
+            }}
+
+            .coverage-matrix-table {{
+                border-collapse: collapse;
+                min-width: 840px;
+                width: 100%;
+            }}
+
+            .coverage-matrix-table th,
+            .coverage-matrix-table td {{
+                border-bottom: 1px solid var(--ioos-line);
+                border-right: 1px solid var(--ioos-line);
+                font-size: 0.78rem;
+                padding: 0.45rem 0.55rem;
+                text-align: center;
+            }}
+
+            .coverage-matrix-table th {{
+                background: #f6fbfc;
+                color: var(--ioos-ink);
+                font-weight: 820;
+            }}
+
+            .coverage-matrix-table th:first-child,
+            .coverage-matrix-table td:first-child {{
+                color: var(--ioos-ink);
+                font-weight: 760;
+                max-width: 260px;
+                min-width: 220px;
+                text-align: left;
+            }}
+
+            .review-lane-title {{
+                border-bottom: 3px solid var(--ioos-blue);
+                color: var(--ioos-ink);
+                font-size: 0.86rem;
+                font-weight: 820;
+                margin-bottom: 0.55rem;
+                padding-bottom: 0.35rem;
+                text-transform: uppercase;
+            }}
+
+            .review-card {{
+                box-shadow: none;
+                margin-bottom: 0.65rem;
+                min-height: 126px;
+            }}
+
+            .ai-label {{
+                background: #f4f1fb;
+                border: 1px solid #c7bde2;
+                border-radius: 999px;
+                color: #5b4c83;
+                display: inline-block;
+                font-size: 0.72rem;
+                font-weight: 800;
+                margin-bottom: 0.45rem;
+                padding: 0.22rem 0.5rem;
+            }}
+
+            .comparison-grid {{
+                display: grid;
+                gap: 0.85rem;
+                grid-template-columns: 1fr 1fr;
+            }}
+
+            .comparison-pane {{
+                background: #ffffff;
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
+                min-height: 190px;
+                padding: 1rem;
+            }}
+
+            .comparison-pane h3 {{
+                font-size: 0.94rem;
+                margin: 0 0 0.55rem;
+            }}
+
+            .brief-preview {{
+                box-shadow: none;
+                min-height: 440px;
+            }}
+
+            .brief-preview h2 {{
+                color: var(--ioos-ink);
+                font-size: 1.45rem;
+                line-height: 1.15;
+                margin: 0 0 0.75rem;
+            }}
+
+            .brief-number {{
+                border-left: 4px solid var(--ioos-green);
+                margin: 0.8rem 0;
+                padding-left: 0.7rem;
+            }}
+
+            .brief-number b {{
+                color: var(--ioos-blue);
+                display: block;
+                font-size: 1.35rem;
+                line-height: 1.1;
+            }}
+
+            .brief-number span {{
+                color: #405760;
+                font-size: 0.86rem;
+                line-height: 1.45;
+            }}
+
+            @media (max-width: 980px) {{
+                .brief-grid,
+                .comparison-grid,
+                .value-chain-full,
+                .queue-grid {{
+                    grid-template-columns: 1fr;
+                }}
+
+                .detail-panel {{
+                    position: static;
+                }}
+
+                .value-chain-node::after {{
+                    display: none;
+                }}
             }}
         </style>
         """,
@@ -741,23 +1335,29 @@ def render_login_page() -> None:
 
 
 def render_sidebar_identity() -> None:
-    st.sidebar.title("IOOS Hub")
+    """Render lightweight app identity without opening Streamlit's sidebar."""
     name = st.session_state.get("employee_name", "Employee")
     role = st.session_state.get("employee_role", "Viewer")
-    st.sidebar.markdown(f"**{name}**")
-    st.sidebar.caption(f"{role}: {APP_ROLES.get(role, '')}")
-    if st.sidebar.button("Sign out"):
-        st.session_state["authenticated"] = False
-        st.session_state["employee_name"] = ""
-        st.session_state["employee_role"] = "Reviewer"
-        st.rerun()
-
-    st.sidebar.divider()
-    logo_cols = st.sidebar.columns(2)
-    if UCAR_LOGO_PATH.exists():
-        logo_cols[0].image(str(UCAR_LOGO_PATH), use_container_width=True)
-    if COL_LOGO_PATH.exists():
-        logo_cols[1].image(str(COL_LOGO_PATH), use_container_width=True)
+    left, right = st.columns([0.82, 0.18], vertical_alignment="center")
+    with left:
+        st.markdown(
+            f"""
+            <div class="hub-utility">
+                <div>
+                    <span class="hub-utility-brand">IOOS Economic Impact Hub</span>
+                    <span class="hub-chip neutral" style="margin-left:0.55rem;">{hub_escape(role)}</span>
+                </div>
+                <span class="hub-utility-user">{hub_escape(name)} / {hub_escape(APP_ROLES.get(role, ""))}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with right:
+        if st.button("Sign out", use_container_width=True):
+            st.session_state["authenticated"] = False
+            st.session_state["employee_name"] = ""
+            st.session_state["employee_role"] = "Reviewer"
+            st.rerun()
 
 
 def render_top_navigation() -> str:
@@ -768,14 +1368,16 @@ def render_top_navigation() -> str:
         st.session_state["primary_navigation"] = current_page
 
     st.markdown('<div class="hub-top-nav">', unsafe_allow_html=True)
-    page = st.radio(
+    page = st.segmented_control(
         "Primary navigation",
         APP_NAVIGATION,
-        index=APP_NAVIGATION.index(current_page),
-        horizontal=True,
+        default=current_page,
         label_visibility="collapsed",
-        key="primary_navigation",
+        key="primary_navigation_picker",
     )
+    if page is None:
+        page = current_page
+    st.session_state["primary_navigation"] = page
     st.markdown("</div>", unsafe_allow_html=True)
     return page
 
@@ -1079,11 +1681,11 @@ def search_dataframe(df: pd.DataFrame, search_text: str) -> pd.DataFrame:
 
 
 def add_multiselect_filter(df: pd.DataFrame, column: str, label: str) -> pd.DataFrame:
-    """Add a sidebar multiselect for a column when that column exists."""
+    """Add an inline multiselect for a column when that column exists."""
     if column not in df.columns:
         return df
     options = sorted(value for value in df[column].dropna().unique() if str(value).strip())
-    selected = st.sidebar.multiselect(label, options)
+    selected = st.multiselect(label, options, key=f"filter_{column}_{slugify_source_id(label, set())}")
     if selected:
         return df[df[column].isin(selected)]
     return df
@@ -1118,7 +1720,7 @@ def render_filtered_table(
     preferred_columns: list[str] | None = None,
 ) -> pd.DataFrame:
     """Render search, filters, table, and CSV download for a dataframe."""
-    search_text = st.sidebar.text_input("Search", key=f"{key_prefix}_search")
+    search_text = st.text_input("Search", key=f"{key_prefix}_search")
     filtered = search_dataframe(df, search_text)
 
     filtered = add_multiselect_filter(filtered, "impact_domain", "Impact Domain")
@@ -1748,6 +2350,384 @@ def asset_data_uri(path: Path, mime_type: str) -> str:
     except OSError:
         return ""
     return f"data:{mime_type};base64,{encoded}"
+
+
+VALUE_CHAIN_LAYERS = [
+    ("Obs", "Observations", "Buoys, gliders, HF radar, satellites, coastal stations."),
+    ("Mod", "Models", "Data assimilation, circulation models, risk and exposure models."),
+    ("Fcst", "Forecast Products", "Operational products people can act on."),
+    ("Dec", "Sector Decisions", "Navigation, closures, routing, emergency response, planning."),
+    ("Val", "Economic Value", "Avoided cost, added revenue, jobs, benefit ratios, or resilience value."),
+]
+
+STRENGTH_DEFINITIONS = {
+    "strong": ("Strong", "Direct, credible, source-backed metric support.", "strength-strong"),
+    "medium": ("Moderate", "Useful evidence with method, scope, age, or transfer limits.", "strength-medium"),
+    "modeled": ("Modeled", "Scenario, projection, model, or benefit-transfer estimate.", "strength-modeled"),
+    "contextual": ("Indicative", "Context for economic relevance, not a standalone quantified claim.", "strength-contextual"),
+    "needs verification": ("Needs review", "Claim, metric, source, or attribution needs checking.", "strength-needs-verification"),
+    "": ("Unrated", "No rating is currently recorded.", "strength-contextual"),
+}
+
+ATTRIBUTION_DEFINITIONS = {
+    "strong": ("Direct attribution", 5, "IOOS traces through the value chain to a sector decision and economic value."),
+    "medium": ("Partial attribution", 4, "IOOS is a documented input, but the economic value depends on other systems or assumptions."),
+    "modeled": ("Modeled attribution", 3, "The link is estimated through a model, scenario, or transferred benefit method."),
+    "contextual": ("Contextual link", 2, "The source supports the setting, but not a direct IOOS-to-value claim."),
+    "needs verification": ("Review link", 1, "The IOOS connection needs reviewer confirmation."),
+    "": ("Unrated link", 0, "No attribution rating is currently recorded."),
+}
+
+STATUS_DEFINITIONS = {
+    "report-ready": ("Ready for external use", "status-report-ready"),
+    "ready-for-external-use": ("Ready for external use", "status-ready-for-external-use"),
+    "verified": ("Verified", "status-verified"),
+    "use-with-caution": ("Use with caution", "status-use-with-caution"),
+    "background-only": ("Background only", "status-background-only"),
+    "needs-follow-up": ("Needs follow-up", "status-needs-follow-up"),
+    "staged": ("Staged", "status-staged"),
+    "draft": ("Draft", "status-draft"),
+    "in-review": ("In review", "status-in-review"),
+    "flagged": ("Flagged", "status-flagged"),
+    "rejected": ("Rejected", "status-rejected"),
+    "": ("Unspecified", "status-background-only"),
+}
+
+SAVED_FILTER_SETS = {
+    "Custom": {},
+    "Ready external claims": {
+        "external_ready": True,
+    },
+    "Strong direct attribution": {
+        "evidence_strength": ["Strong"],
+        "ioos_attribution_strength": ["Strong"],
+        "external_ready": True,
+    },
+    "Gulf strong ready": {
+        "ioos_region_code": ["GCOOS"],
+        "evidence_strength": ["Strong"],
+        "external_ready": True,
+    },
+    "Fisheries and HABs": {
+        "impact_domain_contains": "fisheries",
+        "external_ready": False,
+    },
+    "Needs reviewer attention": {
+        "status": ["needs-follow-up", "use-with-caution"],
+        "verification_needed": ["Yes"],
+    },
+}
+
+
+def hub_escape(value: object) -> str:
+    """Escape user/data text for small HTML fragments."""
+    return html_lib.escape(normalize_text(value), quote=True)
+
+
+def rating_key(value: object) -> str:
+    text = normalize_text(value).lower()
+    if text in {"moderate", "medium"}:
+        return "medium"
+    if text in {"indicative"}:
+        return "contextual"
+    return text
+
+
+def strength_badge_html(value: object) -> str:
+    label, description, css_class = STRENGTH_DEFINITIONS.get(
+        rating_key(value),
+        (normalize_text(value) or "Unrated", "Rating not in the current rubric.", "strength-contextual"),
+    )
+    return (
+        f'<span class="trust-badge {css_class}" title="{hub_escape(description)}">'
+        f'Evidence: {hub_escape(label)}</span>'
+    )
+
+
+def attribution_definition(value: object) -> tuple[str, int, str]:
+    return ATTRIBUTION_DEFINITIONS.get(
+        rating_key(value),
+        (normalize_text(value) or "Unrated link", 0, "Attribution rating is not in the current rubric."),
+    )
+
+
+def attribution_chain_html(value: object, show_label: bool = True) -> str:
+    label, active_count, description = attribution_definition(value)
+    steps = []
+    for index, (short_label, long_label, _) in enumerate(VALUE_CHAIN_LAYERS, start=1):
+        active_class = " active" if index <= active_count else ""
+        steps.append(
+            f'<span class="chain-step{active_class}" title="{hub_escape(long_label)}">{hub_escape(short_label)}</span>'
+        )
+    label_html = (
+        f'<span class="chain-label" title="{hub_escape(description)}">{hub_escape(label)}</span>'
+        if show_label
+        else ""
+    )
+    return f'<span class="ioos-chain">{"".join(steps)}{label_html}</span>'
+
+
+def status_definition(status: object) -> tuple[str, str]:
+    key = normalize_text(status).lower().replace(" ", "-").replace("_", "-")
+    return STATUS_DEFINITIONS.get(
+        key,
+        (normalize_text(status) or "Unspecified", "status-background-only"),
+    )
+
+
+def status_pill_html(status: object) -> str:
+    label, css_class = status_definition(status)
+    return f'<span class="status-pill {css_class}">Status: {hub_escape(label)}</span>'
+
+
+def row_review_status(row: pd.Series) -> str:
+    recorded = normalize_text(row.get("dashboard_status"))
+    if recorded:
+        return recorded
+    source_verification = normalize_text(row.get("source_verification_needed")).lower()
+    evidence = normalize_text(row.get("evidence_strength"))
+    attribution = normalize_text(row.get("ioos_attribution_strength"))
+    if source_verification == "yes" or "needs verification" in {evidence.lower(), attribution.lower()}:
+        return "needs-follow-up"
+    if evidence in {"Strong", "Medium"} and attribution in {"Strong", "Medium"}:
+        return "report-ready"
+    if evidence == "Contextual" or attribution == "Contextual":
+        return "background-only"
+    return "use-with-caution"
+
+
+def is_external_ready_row(row: pd.Series) -> bool:
+    status = row_review_status(row)
+    evidence = normalize_text(row.get("evidence_strength"))
+    attribution = normalize_text(row.get("ioos_attribution_strength"))
+    source_verification = normalize_text(row.get("source_verification_needed")).lower()
+    return (
+        status in {"report-ready", "ready-for-external-use", "verified"}
+        and evidence in {"Strong", "Medium"}
+        and attribution in {"Strong", "Medium"}
+        and source_verification != "yes"
+    )
+
+
+def trust_signal_cluster_html(row: pd.Series) -> str:
+    return (
+        '<div class="trust-cluster">'
+        f'{strength_badge_html(row.get("evidence_strength"))}'
+        f'{attribution_chain_html(row.get("ioos_attribution_strength"))}'
+        f'{status_pill_html(row_review_status(row))}'
+        "</div>"
+    )
+
+
+def source_for_row(row: pd.Series, source_df: pd.DataFrame) -> pd.Series | None:
+    source_id = normalize_text(row.get("source_id"))
+    if source_id and not source_df.empty and "source_id" in source_df.columns:
+        matches = source_df[source_df["source_id"].map(normalize_text) == source_id]
+        if not matches.empty:
+            return matches.iloc[0]
+    return None
+
+
+def source_citation(row: pd.Series, source_df: pd.DataFrame) -> str:
+    source_row = source_for_row(row, source_df)
+    source_id = normalize_text(row.get("source_id"))
+    source_name = row_field(source_row, "source_name", source_id or row_field(row, "source_name", "Source not specified"))
+    source_type = row_field(source_row, "source_type", row_field(row, "source_type"))
+    source_url = row_field(source_row, "source_url", row_field(row, "source_url"))
+    year = row_field(row, "metric_year_or_dollar_year")
+    parts = [source_name]
+    if year and year.lower() != "not applicable":
+        parts.append(year)
+    if source_type:
+        parts.append(source_type)
+    if source_url:
+        parts.append(source_url)
+    return ". ".join(parts)
+
+
+def claim_copy_block(row: pd.Series, source_df: pd.DataFrame) -> str:
+    claim = row_field(row, "claim_allowed", row_field(row, "metric", "Claim not specified"))
+    metric = row_field(row, "metric")
+    limitations = row_field(row, "limitations")
+    citation = source_citation(row, source_df)
+    lines = [claim]
+    if metric and metric != claim:
+        lines.append(f"Metric: {metric}")
+    lines.append(f"Source: {citation}")
+    if limitations:
+        lines.append(f"Limitations: {limitations}")
+    lines.append(
+        "Review status: "
+        f"{status_definition(row_review_status(row))[0]}; "
+        f"evidence {normalize_text(row.get('evidence_strength')) or 'unrated'}; "
+        f"IOOS attribution {normalize_text(row.get('ioos_attribution_strength')) or 'unrated'}."
+    )
+    return "\n".join(lines)
+
+
+def render_copy_button(text: str, label: str = "Copy claim + citation") -> None:
+    button_id = f"copy_{abs(hash(text))}"
+    payload = json.dumps(text)
+    components.html(
+        f"""
+        <button id="{button_id}" style="
+            background:#0a5d8f;border:0;border-radius:6px;color:white;
+            cursor:pointer;font:700 14px system-ui;padding:10px 14px;">
+            {html_lib.escape(label)}
+        </button>
+        <span id="{button_id}_status" style="color:#5e6f79;font:13px system-ui;margin-left:10px;"></span>
+        <script>
+        const btn = document.getElementById("{button_id}");
+        const status = document.getElementById("{button_id}_status");
+        btn.addEventListener("click", async () => {{
+            try {{
+                await navigator.clipboard.writeText({payload});
+                status.textContent = "Copied";
+            }} catch (error) {{
+                status.textContent = "Copy failed; select the text below.";
+            }}
+        }});
+        </script>
+        """,
+        height=54,
+    )
+
+
+def truncate_text(value: object, max_chars: int = 180) -> str:
+    text = normalize_text(value)
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 1].rstrip() + "..."
+
+
+def evidence_card_html(row: pd.Series, source_df: pd.DataFrame) -> str:
+    row_id = row_field(row, "row_id", "Evidence row")
+    claim = row_field(row, "claim_allowed", row_field(row, "metric", "No claim text recorded."))
+    metric = row_field(row, "metric")
+    source_name = row_field(row, "source_name")
+    if not source_name:
+        source_name = row_field(source_for_row(row, source_df), "source_name", row_field(row, "source_id", "Source pending"))
+    meta = [
+        row_field(row, "impact_domain"),
+        row_field(row, "region"),
+        row_field(row, "ioos_region_code"),
+        row_field(row, "metric_year_or_dollar_year"),
+    ]
+    meta_html = "".join(f"<span>{hub_escape(item)}</span>" for item in meta if item)
+    return f"""
+    <div class="evidence-card">
+        <span class="hub-chip neutral">{hub_escape(row_id)}</span>
+        <h3>{hub_escape(claim)}</h3>
+        <div class="metric-value">{hub_escape(metric)}</div>
+        <div class="row-meta">{meta_html}<span>{hub_escape(source_name)}</span></div>
+        {trust_signal_cluster_html(row)}
+    </div>
+    """
+
+
+def evidence_display_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame()
+    display = df.copy()
+    display["claim"] = display.apply(
+        lambda row: row_field(row, "claim_allowed", row_field(row, "metric")),
+        axis=1,
+    )
+    display["review_status"] = display.apply(lambda row: status_definition(row_review_status(row))[0], axis=1)
+    display["attribution_signal"] = display["ioos_attribution_strength"].apply(
+        lambda value: attribution_definition(value)[0] if normalize_text(value) else "Unrated link"
+    )
+    display["external_use_ready"] = display.apply(
+        lambda row: "Yes" if is_external_ready_row(row) else "No",
+        axis=1,
+    )
+    display["source"] = display.apply(
+        lambda row: row_field(row, "source_name", row_field(row, "source_id")),
+        axis=1,
+    )
+    columns = [
+        "row_id",
+        "claim",
+        "metric",
+        "source",
+        "source_url",
+        "impact_domain",
+        "ioos_region_code",
+        "evidence_strength",
+        "attribution_signal",
+        "review_status",
+        "external_use_ready",
+    ]
+    return display[[column for column in columns if column in display.columns]]
+
+
+def metric_year_value(row: pd.Series) -> int | None:
+    text = row_field(row, "metric_year_or_dollar_year")
+    matches = re.findall(r"(19|20)\d{2}", text)
+    if not matches:
+        full_matches = re.findall(r"\b((?:19|20)\d{2})\b", text)
+        return int(full_matches[0]) if full_matches else None
+    full_matches = re.findall(r"\b((?:19|20)\d{2})\b", text)
+    return int(full_matches[0]) if full_matches else None
+
+
+def add_metric_year_column(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty or "metric_year_or_dollar_year" not in df.columns:
+        return df.copy()
+    with_year = df.copy()
+    with_year["metric_year"] = with_year.apply(metric_year_value, axis=1)
+    return with_year
+
+
+def filter_by_contains(df: pd.DataFrame, column: str, query: str) -> pd.DataFrame:
+    if not query or column not in df.columns:
+        return df
+    return df[df[column].map(normalize_text).str.contains(query, case=False, na=False)]
+
+
+def apply_evidence_filters(df: pd.DataFrame, filter_state: dict[str, object]) -> pd.DataFrame:
+    filtered = df.copy()
+    search_text = normalize_text(filter_state.get("search"))
+    if search_text:
+        filtered = search_dataframe(filtered, search_text)
+
+    for column in [
+        "impact_domain",
+        "ioos_region_code",
+        "source_type",
+        "evidence_strength",
+        "ioos_attribution_strength",
+    ]:
+        selected = filter_state.get(column)
+        if selected and column in filtered.columns:
+            selected_set = set(selected if isinstance(selected, list) else [selected])
+            filtered = filtered[filtered[column].isin(selected_set)]
+
+    if filter_state.get("impact_domain_contains"):
+        filtered = filter_by_contains(filtered, "impact_domain", normalize_text(filter_state.get("impact_domain_contains")))
+
+    if filter_state.get("external_ready"):
+        filtered = filtered[filtered.apply(is_external_ready_row, axis=1)]
+
+    statuses = filter_state.get("status")
+    if statuses:
+        selected_statuses = {normalize_text(status).lower() for status in statuses}
+        filtered = filtered[
+            filtered.apply(lambda row: normalize_text(row_review_status(row)).lower() in selected_statuses, axis=1)
+        ]
+
+    verification_needed = filter_state.get("verification_needed")
+    if verification_needed and "source_verification_needed" in filtered.columns:
+        selected_set = set(verification_needed if isinstance(verification_needed, list) else [verification_needed])
+        filtered = filtered[filtered["source_verification_needed"].isin(selected_set)]
+
+    year_range = filter_state.get("year_range")
+    if year_range and "metric_year" in filtered.columns:
+        start_year, end_year = year_range
+        year_series = pd.to_numeric(filtered["metric_year"], errors="coerce")
+        filtered = filtered[year_series.isna() | year_series.between(start_year, end_year)]
+
+    return filtered
 
 
 def evidence_row_by_id(evidence_df: pd.DataFrame, row_id: str) -> pd.Series | None:
@@ -3880,6 +4860,139 @@ def dashboard_queue_table(
     )
 
 
+def coverage_matrix(evidence_df: pd.DataFrame) -> pd.DataFrame:
+    required = {"impact_domain", "ioos_region_code"}
+    if evidence_df.empty or not required.issubset(evidence_df.columns):
+        return pd.DataFrame()
+    matrix = pd.crosstab(
+        evidence_df["impact_domain"].replace("", "Unspecified sector"),
+        evidence_df["ioos_region_code"].replace("", "Unspecified region"),
+    )
+    matrix.index.name = "Sector"
+    return matrix.sort_index()
+
+
+def render_coverage_matrix(evidence_df: pd.DataFrame) -> None:
+    st.subheader("Coverage Matrix")
+    matrix = coverage_matrix(evidence_df)
+    if matrix.empty:
+        st.info("Sector and region fields are required for the coverage matrix.")
+        return
+    st.markdown(
+        """
+        <div class="coverage-key">
+            <span>0 = gap</span>
+            <span>1-2 = thin</span>
+            <span>3+ = richer coverage</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    max_value = int(matrix.to_numpy().max()) if matrix.size else 0
+
+    def cell_color(value: int) -> str:
+        if value <= 0:
+            return "#f6f8f9"
+        if value == 1:
+            return "#dff0f2"
+        if value == 2:
+            return "#b8dfe2"
+        if max_value <= 3:
+            return "#79bec9"
+        return "#4fa8b6" if value < max_value else "#1f7a68"
+
+    header_cells = "".join(f"<th>{hub_escape(column)}</th>" for column in matrix.columns)
+    body_rows = []
+    for sector, row in matrix.iterrows():
+        cells = [f"<td>{hub_escape(sector)}</td>"]
+        for value in row:
+            numeric_value = int(value)
+            text_color = "#ffffff" if numeric_value and cell_color(numeric_value) in {"#4fa8b6", "#1f7a68"} else "#10212b"
+            cells.append(
+                f'<td style="background:{cell_color(numeric_value)};color:{text_color};font-weight:760;">{numeric_value}</td>'
+            )
+        body_rows.append(f"<tr>{''.join(cells)}</tr>")
+    st.markdown(
+        f"""
+        <div class="coverage-matrix-wrap">
+            <table class="coverage-matrix-table">
+                <thead><tr><th>Sector</th>{header_cells}</tr></thead>
+                <tbody>{''.join(body_rows)}</tbody>
+            </table>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_pipeline_cards(
+    evidence_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+) -> None:
+    status_counts = evidence_df["dashboard_status"].value_counts() if "dashboard_status" in evidence_df else {}
+    in_review_count = len(review_df)
+    cards = [
+        ("Staged", len(staged_df), "AI-extracted or newly imported rows held outside the official database."),
+        ("In review", in_review_count, "Rows with validation warnings or source checks waiting for a reviewer."),
+        ("Verified", int(status_counts.get("report-ready", 0)), "Rows with enough evidence and attribution for external reuse."),
+        ("Flagged", int(status_counts.get("needs-follow-up", 0)), "Rows needing source, attribution, language, or limitation work."),
+    ]
+    card_html = "".join(
+        f"""
+        <div class="metric-panel">
+            <b>{hub_escape(label)}</b>
+            <span>{count:,} rows</span>
+            <p style="color:#5e6f79;font-size:0.82rem;line-height:1.42;margin:0.45rem 0 0;">{hub_escape(description)}</p>
+        </div>
+        """
+        for label, count, description in cards
+    )
+    st.markdown(f'<div class="queue-grid">{card_html}</div>', unsafe_allow_html=True)
+
+
+def render_strength_distribution(evidence_df: pd.DataFrame) -> None:
+    st.subheader("Evidence Strength Distribution")
+    if evidence_df.empty or "evidence_strength" not in evidence_df.columns:
+        st.info("No evidence strength data is available.")
+        return
+    counts = count_summary(evidence_df, "evidence_strength")
+    st.bar_chart(counts.set_index("Category"), y="Rows")
+    st.dataframe(counts, use_container_width=True, hide_index=True)
+
+
+def render_freshness_indicators(evidence_df: pd.DataFrame) -> None:
+    st.subheader("Freshness Indicators")
+    if evidence_df.empty:
+        st.info("No evidence rows are available.")
+        return
+    with_year = add_metric_year_column(evidence_df)
+    year_series = pd.to_numeric(with_year.get("metric_year", pd.Series(dtype=float)), errors="coerce")
+    rows_with_year = with_year[year_series.notna()].copy()
+    if rows_with_year.empty:
+        st.info("Metric years are not structured enough to compute freshness indicators.")
+        return
+    rows_with_year["metric_year"] = pd.to_numeric(rows_with_year["metric_year"], errors="coerce").astype("Int64")
+    oldest = rows_with_year.sort_values("metric_year").head(8)
+    current_year = date.today().year
+    rows_with_year["age_years"] = current_year - rows_with_year["metric_year"].astype(int)
+    stale_count = int((rows_with_year["age_years"] >= 10).sum())
+    missing_limitations = (
+        int((with_year["limitations"].map(normalize_text) == "").sum())
+        if "limitations" in with_year.columns
+        else 0
+    )
+    metric_cols = st.columns(3)
+    metric_cols[0].metric("Oldest metric year", f"{int(rows_with_year['metric_year'].min())}")
+    metric_cols[1].metric("Rows 10+ years old", f"{stale_count:,}")
+    metric_cols[2].metric("Missing limitations", f"{missing_limitations:,}")
+    st.dataframe(
+        oldest[[column for column in ["row_id", "impact_domain", "ioos_region_code", "metric_year", "metric", "source_id"] if column in oldest.columns]],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
 def page_dashboard_summary(
     evidence_df: pd.DataFrame,
     source_df: pd.DataFrame,
@@ -3925,6 +5038,9 @@ def page_dashboard_summary(
     else:
         st.warning(f"Validation review shows {review_errors} errors and {review_warnings} warnings.")
 
+    st.subheader("Review Pipeline Status")
+    render_pipeline_cards(evidence_dashboard_df, review_df, staged_df)
+
     focus_col, map_col = st.columns([1.1, 0.9], gap="large")
     with focus_col:
         st.subheader("Work Queue")
@@ -3950,67 +5066,116 @@ def page_dashboard_summary(
         if MARACOOS_COVERAGE_MAP_PATH.exists():
             st.image(str(MARACOOS_COVERAGE_MAP_PATH), caption="MARACOOS regional pilot coverage", use_container_width=True)
 
-    overview_tab, coverage_tab, review_tab = st.tabs(["Readiness", "Coverage", "Review"])
+    overview_tab, coverage_tab, freshness_tab, review_tab = st.tabs(
+        ["Health Check", "Coverage Matrix", "Freshness", "Review Queue"]
+    )
     with overview_tab:
         top_left, top_right = st.columns([1.15, 1])
         with top_left:
             render_report_readiness_breakdown(evidence_dashboard_df)
+            render_strength_distribution(evidence_dashboard_df)
         with top_right:
             render_strength_crosstab(evidence_dashboard_df)
     with coverage_tab:
+        render_coverage_matrix(evidence_dashboard_df)
         render_domain_coverage(evidence_dashboard_df)
         bottom_left, bottom_right = st.columns(2)
         with bottom_left:
             render_update_frequency_breakdown(evidence_dashboard_df)
         with bottom_right:
             render_source_type_breakdown(source_df)
+    with freshness_tab:
+        render_freshness_indicators(evidence_dashboard_df)
     with review_tab:
         render_review_workload(review_df)
         render_best_candidates(evidence_dashboard_df)
         render_follow_up_rows(evidence_dashboard_df)
 
 
-def render_record_detail(row: pd.Series, source_df: pd.DataFrame) -> None:
-    source_id = normalize_text(row.get("source_id"))
-    source_row: pd.Series | None = None
-    if source_id and not source_df.empty and "source_id" in source_df.columns:
-        matches = source_df[source_df["source_id"].map(normalize_text) == source_id]
-        if not matches.empty:
-            source_row = matches.iloc[0]
+def render_record_detail(
+    row: pd.Series,
+    source_df: pd.DataFrame,
+    all_rows: pd.DataFrame | None = None,
+) -> None:
+    source_row = source_for_row(row, source_df)
+    row_id = row_field(row, "row_id", "Selected record")
+    claim = row_field(row, "claim_allowed", row_field(row, "metric", "No claim recorded."))
+    metric = row_field(row, "metric", "Metric not recorded.")
+    limitations = row_field(row, "limitations", "No limitations recorded.")
+    source_name = row_field(source_row, "source_name", row_field(row, "source_name", row_field(row, "source_id", "Source pending")))
+    source_url = row_field(source_row, "source_url", row_field(row, "source_url"))
+    source_type = row_field(source_row, "source_type", row_field(row, "source_type", "Source type pending"))
+    verification_status = row_field(source_row, "verification_status", row_field(row, "source_verification_status", "Not recorded"))
+    provenance_items = [
+        f"Official row: {row_id}",
+        f"Source verification needed: {row_field(row, 'source_verification_needed', 'Not recorded')}",
+        f"Update frequency: {row_field(row, 'update_frequency', 'Not recorded')}",
+    ]
+    if row_field(row, "ai_extraction_notes"):
+        provenance_items.append(f"AI notes: {truncate_text(row_field(row, 'ai_extraction_notes'), 120)}")
+    provenance_html = "".join(f"<span>{hub_escape(item)}</span>" for item in provenance_items)
+    source_link_html = (
+        f'<p><a href="{hub_escape(source_url)}" target="_blank" rel="noopener">Open source</a></p>'
+        if source_url
+        else "<p>Source link not recorded.</p>"
+    )
 
-    detail_cols = st.columns([1, 1], gap="large")
-    with detail_cols[0]:
-        st.subheader(row_field(row, "row_id", "Selected Record"))
-        for column in ["impact_domain", "ioos_component", "region", "ioos_region_code", "user_group"]:
-            if column in row.index:
-                st.write(f"**{column.replace('_', ' ').title()}**")
-                st.write(row_field(row, column, "Not specified"))
+    st.markdown(
+        f"""
+        <div class="detail-panel">
+            <span class="hub-chip neutral">{hub_escape(row_id)}</span>
+            <h2>{hub_escape(claim)}</h2>
+            <div class="row-meta">
+                <span>{hub_escape(row_field(row, "impact_domain", "Domain pending"))}</span>
+                <span>{hub_escape(row_field(row, "region", "Region pending"))}</span>
+                <span>{hub_escape(row_field(row, "ioos_region_code", "Region code pending"))}</span>
+            </div>
+            {trust_signal_cluster_html(row)}
+            <div class="detail-section">
+                <b>Metric Details</b>
+                <p>{hub_escape(metric)}</p>
+                <p class="row-meta"><span>{hub_escape(row_field(row, "metric_year_or_dollar_year", "Year pending"))}</span><span>{hub_escape(row_field(row, "user_group", "Users pending"))}</span></p>
+            </div>
+            <div class="detail-section">
+                <b>Source</b>
+                <p>{hub_escape(source_name)}</p>
+                <p class="row-meta"><span>{hub_escape(source_type)}</span><span>{hub_escape(verification_status)}</span></p>
+                {source_link_html}
+            </div>
+            <div class="detail-section">
+                <b>Limitations</b>
+                <p>{hub_escape(limitations)}</p>
+            </div>
+            <div class="detail-section">
+                <b>Provenance Trail</b>
+                <div class="row-meta">{provenance_html}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    with detail_cols[1]:
-        st.subheader("Claim and Support")
-        for column in ["metric", "claim_allowed", "limitations"]:
-            if column in row.index:
-                st.write(f"**{column.replace('_', ' ').title()}**")
-                st.write(row_field(row, column, "Not specified"))
+    copy_text = claim_copy_block(row, source_df)
+    render_copy_button(copy_text)
+    st.text_area("Copy-ready claim block", value=copy_text, height=210)
 
-    source_cols = st.columns([1, 1, 1])
-    source_cols[0].metric("Evidence strength", row_field(row, "evidence_strength", "Blank"))
-    source_cols[1].metric("IOOS attribution", row_field(row, "ioos_attribution_strength", "Blank"))
-    source_cols[2].metric("Verification needed", row_field(row, "source_verification_needed", "Blank"))
-
-    if source_row is not None:
-        st.subheader("Source")
-        source_name = row_field(source_row, "source_name", source_id)
-        source_url = row_field(source_row, "source_url")
-        st.write(f"**{source_name}**")
-        if source_url:
-            st.markdown(f"[Open source]({source_url})")
-        source_columns = [column for column in ["source_type", "verification_status", "notes"] if column in source_row.index]
-        for column in source_columns:
-            value = row_field(source_row, column)
-            if value:
-                st.write(f"**{column.replace('_', ' ').title()}**")
-                st.write(value)
+    if all_rows is not None and not all_rows.empty and "source_id" in all_rows.columns:
+        source_id = row_field(row, "source_id")
+        if source_id:
+            related = all_rows[
+                (all_rows["source_id"].map(normalize_text) == source_id)
+                & (all_rows.get("row_id", pd.Series(dtype=str)).map(normalize_text) != row_id)
+            ]
+            if not related.empty:
+                st.subheader("Related Claims From This Source")
+                st.dataframe(
+                    evidence_display_dataframe(related.head(5)),
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={"source_url": st.column_config.LinkColumn("Source URL")}
+                    if "source_url" in related.columns
+                    else {},
+                )
 
 
 def enrich_evidence_with_source_fields(evidence_df: pd.DataFrame, source_df: pd.DataFrame) -> pd.DataFrame:
@@ -4031,24 +5196,150 @@ def enrich_evidence_with_source_fields(evidence_df: pd.DataFrame, source_df: pd.
     return merged.fillna("")
 
 
-def page_evidence_matrix(evidence_df: pd.DataFrame, source_df: pd.DataFrame) -> None:
-    st.title("Evidence Database")
-    st.caption("Search the living evidence database, open source links directly, and inspect record-level context.")
+def page_evidence_matrix(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+) -> None:
+    st.markdown(
+        """
+        <div class="hub-page-title">
+            <div class="hub-kicker">Official promoted evidence</div>
+            <h1>Evidence Database</h1>
+            <p>Search source-backed economic impact claims, inspect trust signals, and copy verified claim blocks for briefs, reports, and presentations.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     if evidence_df.empty:
         st.warning(f"No evidence matrix found at {EVIDENCE_PATH}")
         return
-    explorer_df = enrich_evidence_with_source_fields(evidence_df, source_df)
-    filtered = render_filtered_table(explorer_df, "evidence_matrix", EVIDENCE_DATABASE_COLUMNS)
 
+    explorer_df = enrich_evidence_with_source_fields(evidence_df, source_df)
+    explorer_df = add_dashboard_fields(explorer_df, review_df)
+    explorer_df = add_metric_year_column(explorer_df)
+
+    ready_count = int(explorer_df.apply(is_external_ready_row, axis=1).sum()) if not explorer_df.empty else 0
+    metric_cols = st.columns(4)
+    metric_cols[0].metric("Promoted rows", f"{len(explorer_df):,}")
+    metric_cols[1].metric("Ready for external use", f"{ready_count:,}")
+    metric_cols[2].metric("Unique sources", f"{explorer_df['source_id'].replace('', pd.NA).dropna().nunique():,}" if "source_id" in explorer_df else "0")
+    metric_cols[3].metric("Validation items", f"{len(review_df):,}")
+
+    st.subheader("Search And Filters")
+    saved_filter = st.selectbox("Saved filter set", list(SAVED_FILTER_SETS), index=0)
+    saved_defaults = SAVED_FILTER_SETS.get(saved_filter, {})
+    search_text = st.text_input(
+        "Search claims, metrics, sources, sectors, regions, and limitations",
+        value=normalize_text(saved_defaults.get("search")),
+        placeholder="Try PORTS, fisheries, avoided cost, MARACOOS...",
+    )
+
+    quick_col, view_col = st.columns([1, 1])
+    with quick_col:
+        external_ready = st.checkbox(
+            "External-use ready only",
+            value=bool(saved_defaults.get("external_ready", False)),
+        )
+    with view_col:
+        view_mode = st.radio("View mode", ["Dense table", "Evidence cards"], horizontal=True)
+
+    filter_cols = st.columns(5)
+
+    def multiselect_filter(column: str, label: str, slot: int) -> list[str]:
+        if column not in explorer_df.columns:
+            return []
+        options = sorted(value for value in explorer_df[column].dropna().unique() if normalize_text(value))
+        default = [
+            value
+            for value in saved_defaults.get(column, [])
+            if value in options
+        ]
+        return filter_cols[slot].multiselect(label, options, default=default)
+
+    impact_domain = multiselect_filter("impact_domain", "Sector", 0)
+    region = multiselect_filter("ioos_region_code", "Region", 1)
+    source_type = multiselect_filter("source_type", "Source type", 2)
+    evidence_strength = multiselect_filter("evidence_strength", "Evidence strength", 3)
+    attribution = multiselect_filter("ioos_attribution_strength", "Attribution", 4)
+
+    year_values = sorted(
+        int(value)
+        for value in pd.to_numeric(explorer_df.get("metric_year", pd.Series(dtype=float)), errors="coerce").dropna().unique()
+    )
+    year_range: tuple[int, int] | None = None
+    if year_values:
+        year_range = st.slider(
+            "Metric or dollar-year range",
+            min_value=min(year_values),
+            max_value=max(year_values),
+            value=(min(year_values), max(year_values)),
+        )
+
+    filter_state: dict[str, object] = {
+        "search": search_text,
+        "external_ready": external_ready,
+        "impact_domain": impact_domain,
+        "ioos_region_code": region,
+        "source_type": source_type,
+        "evidence_strength": evidence_strength,
+        "ioos_attribution_strength": attribution,
+        "impact_domain_contains": saved_defaults.get("impact_domain_contains"),
+        "status": saved_defaults.get("status"),
+        "verification_needed": saved_defaults.get("verification_needed"),
+        "year_range": year_range,
+    }
+    filtered = apply_evidence_filters(explorer_df, filter_state)
+
+    st.caption(f"Showing {len(filtered):,} of {len(explorer_df):,} promoted evidence rows")
     if filtered.empty or "row_id" not in filtered.columns:
+        st.info("No promoted rows match the current filters.")
         return
 
-    st.divider()
-    st.subheader("Record Detail")
-    selected_row_id = st.selectbox("Open evidence record", filtered["row_id"].map(normalize_text).tolist())
-    selected_rows = filtered[filtered["row_id"].map(normalize_text) == selected_row_id]
-    if not selected_rows.empty:
-        render_record_detail(selected_rows.iloc[0], source_df)
+    results_col, detail_col = st.columns([1.45, 0.9], gap="large")
+    filtered_reset = filtered.reset_index(drop=True)
+    table_selected_row_id = ""
+
+    with results_col:
+        if view_mode == "Dense table":
+            display_df = evidence_display_dataframe(filtered_reset)
+            table_state = st.dataframe(
+                display_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "claim": st.column_config.TextColumn("Claim", width="large"),
+                    "metric": st.column_config.TextColumn("Metric", width="large"),
+                    "source_url": st.column_config.LinkColumn("Source URL"),
+                    "external_use_ready": st.column_config.TextColumn("External use", width="small"),
+                },
+                on_select="rerun",
+                selection_mode="single-row",
+                key="evidence_database_results",
+            )
+            selected_positions = getattr(getattr(table_state, "selection", None), "rows", [])
+            if selected_positions:
+                table_selected_row_id = row_field(filtered_reset.iloc[selected_positions[0]], "row_id")
+        else:
+            for _, row in filtered_reset.head(16).iterrows():
+                st.markdown(evidence_card_html(row, source_df), unsafe_allow_html=True)
+            if len(filtered_reset) > 16:
+                st.info("Showing the first 16 cards. Tighten filters or use dense table view for the full result set.")
+
+        st.download_button(
+            "Download filtered CSV",
+            filtered.to_csv(index=False).encode("utf-8"),
+            file_name="ioos_evidence_filtered.csv",
+            mime="text/csv",
+        )
+
+    with detail_col:
+        row_options = filtered_reset["row_id"].map(normalize_text).tolist()
+        selected_index = row_options.index(table_selected_row_id) if table_selected_row_id in row_options else 0
+        selected_row_id = st.selectbox("Detail panel", row_options, index=selected_index)
+        selected_rows = filtered_reset[filtered_reset["row_id"].map(normalize_text) == selected_row_id]
+        if not selected_rows.empty:
+            render_record_detail(selected_rows.iloc[0], source_df, explorer_df)
 
 
 def page_about_data(
@@ -4058,12 +5349,14 @@ def page_about_data(
     staged_df: pd.DataFrame,
     best_sources_df: pd.DataFrame,
 ) -> None:
+    evidence_dashboard_df = add_dashboard_fields(evidence_df, review_df)
+    status_counts = evidence_dashboard_df["dashboard_status"].value_counts() if "dashboard_status" in evidence_dashboard_df else {}
     st.markdown(
         """
         <div class="hub-hero hub-about-hero">
-            <div class="hub-kicker">About the data</div>
-            <h1>Turning ocean information into trusted economic evidence</h1>
-            <p>The IOOS Economic Impact Hub is a shared workspace for finding, reviewing, and using source-backed evidence about how ocean observing information supports decisions.</p>
+            <div class="hub-kicker">Methodology transparency</div>
+            <h1>IOOS Economic Impact Hub</h1>
+            <p>A staff-accessible evidence database where every reusable economic claim travels with its source, strength rating, IOOS attribution level, review status, and provenance trail.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -4072,20 +5365,20 @@ def page_about_data(
     metric_columns = st.columns(4)
     metric_columns[0].metric("Evidence rows", f"{len(evidence_df):,}")
     metric_columns[1].metric("Source records", f"{len(source_df):,}")
-    metric_columns[2].metric("Briefing sources", f"{len(best_sources_df):,}")
-    metric_columns[3].metric("Review queue", f"{len(review_df):,}")
+    metric_columns[2].metric("External-ready rows", f"{int(status_counts.get('report-ready', 0)):,}")
+    metric_columns[3].metric("Staged draft rows", f"{len(staged_df):,}")
 
-    intro_col, image_col = st.columns([0.92, 1.08], gap="large")
+    intro_col, method_col = st.columns([0.95, 1.05], gap="large")
     with intro_col:
         st.markdown('<div class="hub-section">', unsafe_allow_html=True)
-        st.subheader("What This App Is For")
+        st.subheader("What This Data Is")
         st.markdown(
             """
             <p class="hub-lede">
-                This is a living evidence database for IOOS economic impact work. It helps employees move from scattered reports and candidate findings to source-backed claims that can be searched, reviewed, exported, and reused.
+                The Hub is an internal evidence workspace for congressional briefs, reports, presentations, funding materials, and regional case studies. It is not a public dashboard and not a marketing site. Its job is to preserve institutional memory and make trust legible.
             </p>
             <p class="hub-lede">
-                Every useful claim should travel with its metric, source link, evidence strength, IOOS attribution strength, and limitations. That is what keeps the database useful for both everyday readers and maintainers.
+                Everyday staff use the promoted evidence database. Maintainers work in staged and review views. The interface keeps those worlds visibly separate so draft AI-assisted rows are never mistaken for verified evidence.
             </p>
             """,
             unsafe_allow_html=True,
@@ -4093,25 +5386,130 @@ def page_about_data(
         st.markdown(
             """
             <div class="hub-callout">
-                Sources are shown directly in the Evidence Database. The registry stays behind the scenes as traceability infrastructure.
+                Responsible use rule: quote only rows that are verified, source-backed, and marked ready for external use. Preserve caveats when evidence is modeled, contextual, dated, or transferred from another setting.
             </div>
             """,
             unsafe_allow_html=True,
         )
         st.markdown("</div>", unsafe_allow_html=True)
-    with image_col:
+    with method_col:
         st.markdown('<div class="hub-section">', unsafe_allow_html=True)
         if DATA_TO_DECISION_FLOW_PATH.exists():
             st.image(str(DATA_TO_DECISION_FLOW_PATH), use_container_width=True)
+        else:
+            st.info("Data-to-decision flow image is not available.")
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="hub-section">', unsafe_allow_html=True)
-    st.subheader("How Evidence Moves Through the Hub")
-    render_process_steps()
+    st.subheader("IOOS Value Chain")
+    value_chain_nodes = "".join(
+        f"""
+        <div class="value-chain-node">
+            <span class="hub-chip neutral">{index}</span>
+            <b>{hub_escape(label)}</b>
+            <span>{hub_escape(description)}</span>
+        </div>
+        """
+        for index, (_, label, description) in enumerate(VALUE_CHAIN_LAYERS, start=1)
+    )
+    st.markdown(
+        f"""
+        <p class="hub-lede">
+            Attribution is scored by how far the source traces impact along this chain. A direct claim reaches sector decisions or economic value; contextual evidence may only establish the setting.
+        </p>
+        <div class="value-chain-full">{value_chain_nodes}</div>
+        """,
+        unsafe_allow_html=True,
+    )
     st.markdown("</div>", unsafe_allow_html=True)
 
-    table_col, method_col = st.columns([1, 1], gap="large")
-    with table_col:
+    st.markdown('<div class="hub-band">', unsafe_allow_html=True)
+    st.subheader("Trust-Signal Component Set")
+    sample_rows = [
+        pd.Series(
+            {
+                "evidence_strength": "Strong",
+                "ioos_attribution_strength": "Strong",
+                "dashboard_status": "report-ready",
+            }
+        ),
+        pd.Series(
+            {
+                "evidence_strength": "Modeled",
+                "ioos_attribution_strength": "Medium",
+                "dashboard_status": "use-with-caution",
+            }
+        ),
+        pd.Series(
+            {
+                "evidence_strength": "Needs verification",
+                "ioos_attribution_strength": "Contextual",
+                "dashboard_status": "needs-follow-up",
+            }
+        ),
+    ]
+    trust_examples = "".join(
+        f"""
+        <div class="metric-panel">
+            <b>{hub_escape(status_definition(row_review_status(row))[0])}</b>
+            <span>Color is paired with text, dots, and the five-step IOOS attribution glyph.</span>
+            {trust_signal_cluster_html(row)}
+        </div>
+        """
+        for row in sample_rows
+    )
+    st.markdown(f'<div class="trust-demo-grid">{trust_examples}</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    rubric_col, attribution_col = st.columns(2, gap="large")
+    with rubric_col:
+        st.subheader("Evidence Strength Rubric")
+        strength_rows = []
+        for key in ["strong", "medium", "modeled", "contextual", "needs verification"]:
+            label, description, _ = STRENGTH_DEFINITIONS[key]
+            strength_rows.append({"Rating": label, "How to interpret it": description})
+        st.dataframe(pd.DataFrame(strength_rows), use_container_width=True, hide_index=True)
+
+    with attribution_col:
+        st.subheader("IOOS Attribution Rubric")
+        attribution_rows = []
+        for key in ["strong", "medium", "modeled", "contextual", "needs verification"]:
+            label, active_count, description = ATTRIBUTION_DEFINITIONS[key]
+            attribution_rows.append(
+                {
+                    "Level": label,
+                    "Chain depth": f"{active_count} of 5 layers",
+                    "How to interpret it": description,
+                }
+            )
+        st.dataframe(pd.DataFrame(attribution_rows), use_container_width=True, hide_index=True)
+
+    st.markdown('<div class="hub-section">', unsafe_allow_html=True)
+    st.subheader("Visual Design System")
+    design_tokens = [
+        ("#10212b", "Ink", "Primary text and serious institutional headings."),
+        ("#0a5d8f", "Ocean blue", "Navigation, attribution chain, and primary actions."),
+        ("#1f7a68", "Verified teal", "Ready, strong, reviewed, and source-backed signals."),
+        ("#c4892c", "Review amber", "Warnings, staged rows, and reviewer attention."),
+        ("#b84d3f", "Flag red", "Rejected or high-risk governance states."),
+        ("#eef6f7", "Quiet field", "Background bands and table-friendly surfaces."),
+    ]
+    token_html = "".join(
+        f"""
+        <div class="token-card">
+            <div class="token-swatch" style="background:{color};"></div>
+            <b>{hub_escape(name)}</b>
+            <span>{hub_escape(description)}</span>
+        </div>
+        """
+        for color, name, description in design_tokens
+    )
+    st.markdown(f'<div class="design-token-grid">{token_html}</div>', unsafe_allow_html=True)
+    st.caption("Type uses system UI fonts for dense staff work, tabular numerals where the browser supports them, 8px corner radii, and 4/8/16px spacing increments.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    data_col, workflow_col = st.columns([1, 1], gap="large")
+    with data_col:
         st.subheader("Data Layers")
         st.dataframe(
             project_table_status(evidence_df, source_df, review_df, staged_df, best_sources_df),
@@ -4122,35 +5520,9 @@ def page_about_data(
                 "Purpose": st.column_config.TextColumn(width="large"),
             },
         )
-    with method_col:
-        st.subheader("Claim Strength")
-        st.dataframe(
-            pd.DataFrame(
-                [
-                    {"Rating": "Strong", "Use": "Direct evidence from a credible source with clear metric support."},
-                    {"Rating": "Medium", "Use": "Useful evidence with limits in scope, method, age, or transferability."},
-                    {"Rating": "Contextual", "Use": "Background evidence that supports the setting but not a quantified claim by itself."},
-                    {"Rating": "Modeled", "Use": "Scenario, model, estimate, or projection rather than observed impact."},
-                    {"Rating": "Needs verification", "Use": "Claim, metric, or IOOS connection needs checking before use."},
-                ]
-            ),
-            use_container_width=True,
-            hide_index=True,
-        )
-
-    st.markdown('<div class="hub-section">', unsafe_allow_html=True)
-    st.subheader("How We Got Here")
-    st.dataframe(
-        project_timeline_df(date.today()),
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Dates": st.column_config.TextColumn(width="small"),
-            "Status": st.column_config.TextColumn(width="small"),
-            "Focus": st.column_config.TextColumn(width="large"),
-        },
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
+    with workflow_col:
+        st.subheader("How Evidence Moves")
+        render_process_steps()
 
 
 def page_how_to_use() -> None:
@@ -4216,7 +5588,7 @@ def page_source_registry(source_df: pd.DataFrame) -> None:
         st.warning(f"No source registry found at {SOURCE_PATH}")
         return
 
-    search_text = st.sidebar.text_input("Search sources", key="source_search")
+    search_text = st.text_input("Search sources", key="source_search")
     filtered = search_dataframe(source_df, search_text)
     filtered = add_multiselect_filter(filtered, "source_type", "Source Type")
     filtered = add_multiselect_filter(filtered, "verification_status", "Verification Status")
@@ -4234,8 +5606,16 @@ def page_source_registry(source_df: pd.DataFrame) -> None:
 
 
 def page_best_sources(best_sources_df: pd.DataFrame) -> None:
-    st.title("Best Sources")
-    st.caption("Curated source shortlist for congressional briefs, final report sections, and retreat materials.")
+    st.markdown(
+        """
+        <div class="hub-page-title">
+            <div class="hub-kicker">Curated source shelf</div>
+            <h1>Best Sources</h1>
+            <p>Profile the highest-value studies and reports before pulling them into briefs, reports, or regional case studies.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if best_sources_df.empty:
         st.warning(f"No best sources table found at {BEST_SOURCES_PATH}")
@@ -4263,7 +5643,7 @@ def page_best_sources(best_sources_df: pd.DataFrame) -> None:
     metric_columns[2].metric("Verified", f"{verified_count:,}")
     metric_columns[3].metric("Planned", f"{planned_count:,}")
 
-    search_text = st.sidebar.text_input("Search best sources", key="best_sources_search")
+    search_text = st.text_input("Search best sources", key="best_sources_search")
     filtered = search_dataframe(best_sources_df, search_text)
     filtered = add_multiselect_filter(filtered, "ioos_region_code", "IOOS Region Code")
     filtered = add_multiselect_filter(filtered, "priority_tier", "Priority Tier")
@@ -4272,6 +5652,46 @@ def page_best_sources(best_sources_df: pd.DataFrame) -> None:
     filtered = add_multiselect_filter(filtered, "status", "Status")
 
     st.caption(f"Showing {len(filtered):,} of {len(best_sources_df):,} sources")
+    if not filtered.empty:
+        profile_cards = []
+        for _, row in filtered.head(6).iterrows():
+            verification = "Verification needed" if row_field(row, "source_verification_needed") == "Yes" else "Verified source"
+            caveats = row_field(row, "caveats", "No limitations recorded.")
+            source_url = row_field(row, "source_url")
+            source_link = (
+                f'<a href="{hub_escape(source_url)}" target="_blank" rel="noopener">Open source</a>'
+                if source_url
+                else "Source link pending"
+            )
+            profile_cards.append(
+                f"""
+                <div class="source-profile">
+                    <span class="hub-chip {'warning' if row_field(row, 'source_verification_needed') == 'Yes' else ''}">{hub_escape(verification)}</span>
+                    <b>{hub_escape(row_field(row, "source_name", row_field(row, "source_id", "Untitled source")))}</b>
+                    <span>{hub_escape(row_field(row, "source_type", "Source type pending"))} / {hub_escape(row_field(row, "ioos_region_code", "Region pending"))}</span>
+                    <div class="detail-section">
+                        <b>What it covers</b>
+                        <p>{hub_escape(row_field(row, "briefing_role", row_field(row, "impact_domains", "Coverage pending.")))}</p>
+                    </div>
+                    <div class="detail-section">
+                        <b>Headline numbers</b>
+                        <p>{hub_escape(row_field(row, "key_metrics", "Metrics pending."))}</p>
+                    </div>
+                    <div class="detail-section">
+                        <b>Strengths / limitations</b>
+                        <p>{hub_escape(row_field(row, "evidence_profile", ""))} {hub_escape(caveats)}</p>
+                    </div>
+                    <div class="detail-section">
+                        <b>Claims citing it</b>
+                        <p>{hub_escape(row_field(row, "staged_row_ids", "Claim links pending."))}</p>
+                        <p>{source_link}</p>
+                    </div>
+                </div>
+                """
+            )
+        st.markdown(f'<div class="source-grid">{"".join(profile_cards)}</div>', unsafe_allow_html=True)
+        st.divider()
+
     column_config = {
         "source_url": st.column_config.LinkColumn("Source URL"),
         "briefing_role": st.column_config.TextColumn(width="large"),
@@ -4300,53 +5720,196 @@ def page_congressional_briefing(
     source_df: pd.DataFrame,
     staged_df: pd.DataFrame,
 ) -> None:
-    st.title("Congressional Brief")
-    st.caption("A punchy two-page IOOS reauthorization brief generated from the current evidence matrix and source registry.")
+    st.markdown(
+        """
+        <div class="hub-page-title">
+            <div class="hub-kicker">Briefs & Outputs</div>
+            <h1>Claim Basket And Exports</h1>
+            <p>Select trusted claims, generate copy-ready citation blocks, preview a congressional one-pager, and download reusable evidence exports.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if evidence_df.empty:
         st.warning("No evidence matrix rows are available for the national brief preview.")
 
-    st.sidebar.subheader("Congressional Brief Draft")
-    prepared_for = st.sidebar.text_input("Prepared for", value="Congressional Staff")
-    prepared_date = st.sidebar.date_input("Brief date", value=date.today())
+    export_df = enrich_evidence_with_source_fields(evidence_df, source_df)
+    export_df = add_dashboard_fields(export_df, pd.DataFrame())
+    ready_df = export_df[export_df.apply(is_external_ready_row, axis=1)].copy()
+    basket_source = ready_df if not ready_df.empty else export_df
 
-    briefing_html = build_congressional_briefing_html(
-        evidence_df,
-        source_df,
-        prepared_for,
-        prepared_date,
+    prepared_cols = st.columns([1, 1, 1])
+    prepared_for = prepared_cols[0].text_input("Prepared for", value="Congressional Staff")
+    prepared_date = prepared_cols[1].date_input("Brief date", value=date.today())
+    basket_mode = prepared_cols[2].selectbox("Basket starter", ["Ready external claims", "Briefing default rows", "All promoted rows"])
+
+    if basket_mode == "Briefing default rows" and "row_id" in export_df.columns:
+        default_ids = [row_id for row_id in BRIEFING_ROW_IDS.values() if row_id in set(export_df["row_id"].map(normalize_text))]
+        option_df = export_df
+    elif basket_mode == "All promoted rows":
+        option_df = export_df
+        default_ids = option_df["row_id"].map(normalize_text).head(4).tolist() if "row_id" in option_df else []
+    else:
+        option_df = basket_source
+        default_ids = option_df["row_id"].map(normalize_text).head(4).tolist() if "row_id" in option_df else []
+
+    option_labels: dict[str, str] = {}
+    for _, row in option_df.iterrows():
+        row_id = row_field(row, "row_id")
+        if row_id:
+            option_labels[row_id] = f"{row_id} - {truncate_text(row_field(row, 'claim_allowed', row_field(row, 'metric')), 92)}"
+
+    selected_ids = st.multiselect(
+        "Claim basket",
+        list(option_labels),
+        default=[row_id for row_id in default_ids if row_id in option_labels],
+        format_func=lambda row_id: option_labels.get(row_id, row_id),
     )
-    try:
-        briefing_pdf = build_congressional_briefing_pdf(
+    basket_df = option_df[option_df["row_id"].map(normalize_text).isin(selected_ids)].copy() if selected_ids else option_df.head(0)
+
+    basket_tab, one_pager_tab, source_tab, generated_tab, maracoos_tab = st.tabs(
+        ["Claim Basket", "One-Pager Preview", "Citation List", "Generated Brief", "MARACOOS"]
+    )
+
+    with basket_tab:
+        if basket_df.empty:
+            st.info("No claims are in the basket. Select one or more promoted evidence rows above.")
+        else:
+            copy_blocks = [
+                claim_copy_block(row, source_df)
+                for _, row in basket_df.iterrows()
+            ]
+            basket_text = "\n\n---\n\n".join(copy_blocks)
+            st.subheader("Copy-Ready Claim Blocks")
+            render_copy_button(basket_text, "Copy basket")
+            st.text_area("Claim + citation blocks", value=basket_text, height=360)
+            st.download_button(
+                "Download basket text",
+                basket_text.encode("utf-8"),
+                file_name="ioos_claim_basket.txt",
+                mime="text/plain",
+            )
+            st.download_button(
+                "Download basket CSV",
+                basket_df.to_csv(index=False).encode("utf-8"),
+                file_name="ioos_claim_basket.csv",
+                mime="text/csv",
+            )
+            st.dataframe(
+                evidence_display_dataframe(basket_df),
+                use_container_width=True,
+                hide_index=True,
+                column_config={"source_url": st.column_config.LinkColumn("Source URL")}
+                if "source_url" in basket_df.columns
+                else {},
+            )
+
+    with one_pager_tab:
+        if basket_df.empty:
+            st.info("Add claims to the basket to preview a one-pager.")
+        else:
+            number_blocks = "".join(
+                f"""
+                <div class="brief-number">
+                    <b>{hub_escape(truncate_text(row_field(row, "metric"), 90))}</b>
+                    <span>{hub_escape(row_field(row, "claim_allowed"))}</span>
+                </div>
+                """
+                for _, row in basket_df.head(4).iterrows()
+            )
+            source_line = "; ".join(
+                sorted(
+                    {
+                        row_field(source_for_row(row, source_df), "source_name", row_field(row, "source_id"))
+                        for _, row in basket_df.iterrows()
+                        if row_field(row, "source_id")
+                    }
+                )
+            )
+            st.markdown(
+                f"""
+                <div class="brief-preview">
+                    <div class="hub-kicker">Congressional one-pager preview</div>
+                    <h2>IOOS Economic Impact Evidence</h2>
+                    <p style="color:#405760;line-height:1.55;margin:0;">Prepared for {hub_escape(prepared_for)} on {hub_escape(prepared_date.strftime('%B %d, %Y'))}. Claims below are selected from promoted evidence rows and should retain their limitations when quoted.</p>
+                    {number_blocks}
+                    <div class="detail-section">
+                        <b>Source shelf</b>
+                        <p>{hub_escape(source_line or "Sources pending.")}</p>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    with source_tab:
+        if basket_df.empty:
+            st.info("No citation list is available until the basket has claims.")
+        else:
+            citation_rows = []
+            for _, row in basket_df.iterrows():
+                source_row = source_for_row(row, source_df)
+                citation_rows.append(
+                    {
+                        "row_id": row_field(row, "row_id"),
+                        "source": row_field(source_row, "source_name", row_field(row, "source_id")),
+                        "source_type": row_field(source_row, "source_type", row_field(row, "source_type")),
+                        "source_url": row_field(source_row, "source_url", row_field(row, "source_url")),
+                        "evidence_strength": row_field(row, "evidence_strength"),
+                        "ioos_attribution_strength": row_field(row, "ioos_attribution_strength"),
+                        "limitations": row_field(row, "limitations"),
+                    }
+                )
+            citation_df = pd.DataFrame(citation_rows)
+            st.dataframe(
+                citation_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={"source_url": st.column_config.LinkColumn("Source URL")},
+            )
+            citation_text = "\n".join(
+                f"{row['row_id']}: {row['source']}. {row['source_type']}. {row['source_url']}"
+                for row in citation_rows
+            )
+            st.download_button(
+                "Download citation list",
+                citation_text.encode("utf-8"),
+                file_name="ioos_citations.txt",
+                mime="text/plain",
+            )
+
+    with generated_tab:
+        briefing_html = build_congressional_briefing_html(
             evidence_df,
             source_df,
             prepared_for,
             prepared_date,
         )
-        pdf_error = ""
-    except Exception as exc:
-        briefing_pdf = b""
-        pdf_error = str(exc)
-
-    preview_tab, evidence_tab, maracoos_tab = st.tabs(["Preview", "Evidence Used", "MARACOOS"])
-
-    with preview_tab:
-        components.html(briefing_html, height=1700, scrolling=True)
+        components.html(briefing_html, height=1500, scrolling=True)
         st.download_button(
             "Download live congressional brief HTML",
             briefing_html.encode("utf-8"),
             file_name="ioos_congressional_brief_live.html",
             mime="text/html",
         )
-        if briefing_pdf:
-            st.download_button(
-                "Download live congressional brief PDF",
-                briefing_pdf,
-                file_name="ioos_congressional_brief_live.pdf",
-                mime="application/pdf",
-            )
-        else:
-            st.warning(f"PDF export is unavailable: {pdf_error}")
+        if st.button("Build PDF export"):
+            try:
+                briefing_pdf = build_congressional_briefing_pdf(
+                    evidence_df,
+                    source_df,
+                    prepared_for,
+                    prepared_date,
+                )
+            except Exception as exc:
+                st.warning(f"PDF export is unavailable: {exc}")
+            else:
+                st.download_button(
+                    "Download live congressional brief PDF",
+                    briefing_pdf,
+                    file_name="ioos_congressional_brief_live.pdf",
+                    mime="application/pdf",
+                )
 
         if FILLED_BRIEFING_PATH.exists():
             st.download_button(
@@ -4355,53 +5918,6 @@ def page_congressional_briefing(
                 file_name=FILLED_BRIEFING_PATH.name,
                 mime="text/html",
             )
-
-    with evidence_tab:
-        briefing_row_ids = list(BRIEFING_ROW_IDS.values())
-        if "row_id" not in evidence_df.columns:
-            st.info("The evidence matrix has no row_id column.")
-        else:
-            rows_used = evidence_df[evidence_df["row_id"].map(normalize_text).isin(briefing_row_ids)].copy()
-            if rows_used.empty:
-                st.info("The brief row IDs are not present in the current matrix.")
-            else:
-                display_columns = [
-                    column
-                    for column in [
-                        "row_id",
-                        "impact_domain",
-                        "region",
-                        "ioos_region_code",
-                        "metric",
-                        "source_id",
-                        "evidence_strength",
-                        "ioos_attribution_strength",
-                        "source_verification_needed",
-                        "claim_allowed",
-                        "limitations",
-                    ]
-                    if column in rows_used.columns
-                ]
-                st.dataframe(rows_used[display_columns], use_container_width=True, hide_index=True)
-
-                if not source_df.empty and "source_id" in source_df.columns:
-                    source_ids = {
-                        normalize_text(value)
-                        for value in rows_used.get("source_id", pd.Series(dtype=str)).tolist()
-                        if normalize_text(value)
-                    }
-                    sources_used = source_df[source_df["source_id"].map(normalize_text).isin(source_ids)]
-                    if not sources_used.empty:
-                        st.subheader("Sources")
-                        source_config = {}
-                        if "source_url" in sources_used.columns:
-                            source_config["source_url"] = st.column_config.LinkColumn("Source URL")
-                        st.dataframe(
-                            sources_used,
-                            use_container_width=True,
-                            hide_index=True,
-                            column_config=source_config,
-                        )
 
     with maracoos_tab:
         render_maracoos_congressional_tab(evidence_df, staged_df, prepared_for, prepared_date)
@@ -4469,6 +5985,152 @@ def render_intake_upload() -> None:
                 st.success(f"Saved {len(normalized):,} candidate rows to local staged_evidence.csv.")
 
     st.caption("Open Staged Evidence in the sidebar to review, edit, and accept verified rows.")
+
+
+def review_queue_card_html(
+    title: str,
+    status: str,
+    body: str,
+    machine_drafted: bool = False,
+) -> str:
+    machine_label = '<span class="ai-label">Machine-drafted</span>' if machine_drafted else ""
+    return f"""
+    <div class="review-card">
+        {machine_label}
+        {status_pill_html(status)}
+        <b style="margin-top:0.55rem;">{hub_escape(title)}</b>
+        <span>{hub_escape(body)}</span>
+    </div>
+    """
+
+
+def render_review_queue_board(
+    evidence_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+) -> None:
+    st.subheader("Review Queue")
+    staged_normalized = normalize_intake_df(staged_df) if not staged_df.empty else staged_df
+    evidence_dashboard_df = add_dashboard_fields(evidence_df, review_df)
+    verified = (
+        evidence_dashboard_df[evidence_dashboard_df["dashboard_status"] == "report-ready"]
+        if "dashboard_status" in evidence_dashboard_df.columns
+        else pd.DataFrame()
+    )
+
+    staged_cards = []
+    if staged_normalized.empty:
+        staged_cards.append(review_queue_card_html("No staged rows", "staged", "Add evidence or run an extraction to populate this lane.", True))
+    else:
+        for _, row in staged_normalized.head(3).iterrows():
+            staged_cards.append(
+                review_queue_card_html(
+                    row_field(row, "row_id", "Candidate row"),
+                    "staged",
+                    truncate_text(row_field(row, "Claim allowed", row_field(row, "Metric")), 120),
+                    True,
+                )
+            )
+
+    review_cards = []
+    if review_df.empty:
+        review_cards.append(review_queue_card_html("No validation warnings", "in-review", "The validation queue is currently clear."))
+    else:
+        grouped = review_df.groupby("row_id", dropna=False).head(1)
+        for _, row in grouped.head(3).iterrows():
+            review_cards.append(
+                review_queue_card_html(
+                    row_field(row, "row_id", "Unassigned row"),
+                    "in-review",
+                    truncate_text(row_field(row, "message", row_field(row, "check")), 120),
+                )
+            )
+
+    verified_cards = []
+    if verified.empty:
+        verified_cards.append(review_queue_card_html("No ready rows", "verified", "Rows appear here after evidence and attribution checks clear."))
+    else:
+        for _, row in verified.head(3).iterrows():
+            verified_cards.append(
+                review_queue_card_html(
+                    row_field(row, "row_id", "Verified row"),
+                    "verified",
+                    truncate_text(row_field(row, "claim_allowed", row_field(row, "metric")), 120),
+                )
+            )
+
+    rejected_cards = [
+        review_queue_card_html(
+            "Rejected lane",
+            "rejected",
+            "Rejected or retired candidates stay out of the official evidence database.",
+        )
+    ]
+
+    lanes = [
+        ("Staged", staged_cards),
+        ("In Review", review_cards),
+        ("Verified", verified_cards),
+        ("Rejected", rejected_cards),
+    ]
+    columns = st.columns(4)
+    for column, (lane_title, cards) in zip(columns, lanes):
+        with column:
+            st.markdown(f'<div class="review-lane-title">{hub_escape(lane_title)}</div>', unsafe_allow_html=True)
+            for card in cards:
+                st.markdown(card, unsafe_allow_html=True)
+
+
+def render_ai_staging_comparison(staged_df: pd.DataFrame, review_df: pd.DataFrame) -> None:
+    st.subheader("AI Staging Comparison")
+    if staged_df.empty:
+        st.markdown(
+            """
+            <div class="hub-callout">
+                No staged rows are waiting. When AI-extracted candidates arrive, this panel compares the extracted row against source support and validation warnings before promotion.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return
+
+    staged_normalized = normalize_intake_df(staged_df)
+    labels = [
+        f"{row_field(row, 'row_id', f'Candidate {index + 1}')} - {truncate_text(row_field(row, 'Claim allowed', row_field(row, 'Metric')), 70)}"
+        for index, row in staged_normalized.iterrows()
+    ]
+    selected_label = st.selectbox("Candidate row", labels)
+    selected_index = labels.index(selected_label)
+    row = staged_normalized.iloc[selected_index]
+    row_id = row_field(row, "row_id")
+    warnings = (
+        review_df[review_df["row_id"].map(normalize_text) == row_id]
+        if row_id and not review_df.empty and "row_id" in review_df.columns
+        else pd.DataFrame()
+    )
+    warning_text = "; ".join(warnings.get("message", pd.Series(dtype=str)).map(normalize_text).head(4)) or "No validation warnings are currently attached to this row."
+
+    st.markdown(
+        f"""
+        <div class="comparison-grid">
+            <div class="comparison-pane">
+                <span class="ai-label">Machine-drafted</span>
+                <h3>Extracted Evidence Row</h3>
+                <p><b>Claim</b><br>{hub_escape(row_field(row, "Claim allowed", "Claim pending."))}</p>
+                <p><b>Metric</b><br>{hub_escape(row_field(row, "Metric", "Metric pending."))}</p>
+                <p><b>Strength / attribution</b><br>{hub_escape(row_field(row, "Evidence strength", "Unrated"))} / {hub_escape(row_field(row, "IOOS attribution strength", "Unrated"))}</p>
+            </div>
+            <div class="comparison-pane">
+                <h3>Source Support And Review Notes</h3>
+                <p><b>Source</b><br>{hub_escape(row_field(row, "Source", "Source pending."))}</p>
+                <p><b>Source URL</b><br>{hub_escape(row_field(row, "Source URL", "URL pending."))}</p>
+                <p><b>Warnings</b><br>{hub_escape(warning_text)}</p>
+                <p><b>Limitations</b><br>{hub_escape(row_field(row, "Limitations", "Limitations pending."))}</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def page_regional_builds(regional_targets_df: pd.DataFrame, evidence_df: pd.DataFrame) -> None:
@@ -4655,7 +6317,7 @@ def page_staged_evidence(staged_df: pd.DataFrame, evidence_df: pd.DataFrame, sou
         st.info("No staged evidence file exists yet. Use Evidence Intake to stage candidate rows.")
         return
     if staged_df.empty:
-        st.success("No candidate rows are currently staged.")
+        st.success("No staged rows - add evidence or run an extraction to populate the review queue.")
         return
 
     staged_df = normalize_intake_df(staged_df)
@@ -4695,7 +6357,7 @@ def page_staged_evidence(staged_df: pd.DataFrame, evidence_df: pd.DataFrame, sou
     with right:
         verified_mask = staged_to_save["Source verification needed"].map(normalize_text) == "No"
         verified_count = int(verified_mask.sum())
-        if st.button(f"Accept {verified_count} verified rows", type="primary", disabled=verified_count == 0):
+        if st.button(f"Promote {verified_count} verified rows to database", type="primary", disabled=verified_count == 0):
             if save_errors:
                 st.error("Fix staged validation errors before accepting rows.")
                 for error in save_errors:
@@ -4790,8 +6452,20 @@ def page_review_admin(
     staged_df: pd.DataFrame,
     best_sources_df: pd.DataFrame,
 ) -> None:
-    st.title("Review / Admin")
-    st.caption("Maintainer tools for adding, reviewing, validating, and promoting evidence.")
+    st.markdown(
+        """
+        <div class="hub-page-title">
+            <div class="hub-kicker">Maintainer workspace</div>
+            <h1>Review / Admin</h1>
+            <p>Stage candidate evidence, compare AI extraction against source support, resolve validation warnings, and deliberately promote verified rows into the official database.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    render_review_queue_board(evidence_df, review_df, staged_df)
+    render_ai_staging_comparison(staged_df, review_df)
+    st.divider()
 
     current_section = st.session_state.get("review_admin_navigation", REVIEW_ADMIN_NAVIGATION[0])
     if current_section not in REVIEW_ADMIN_NAVIGATION:
@@ -4846,7 +6520,7 @@ def main() -> None:
     elif page == "Dashboard":
         page_dashboard_summary(evidence_df, source_df, review_df, staged_df, best_sources_df)
     elif page == "Evidence Database":
-        page_evidence_matrix(evidence_df, source_df)
+        page_evidence_matrix(evidence_df, source_df, review_df)
     elif page == "Briefs & Outputs":
         page_congressional_briefing(evidence_df, source_df, staged_df)
     elif page == "Best Sources":
