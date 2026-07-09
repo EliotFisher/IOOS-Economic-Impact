@@ -1830,12 +1830,12 @@ def build_maracoos_congressional_briefing_html(
     padding: 8px 9px;
   }}
   .flow-visual {{
-    margin: 8px 0 12px;
+    margin: 6px 0 10px;
   }}
   .flow-visual img {{
     display: block;
     width: 100%;
-    max-height: 2.45in;
+    max-height: 3.05in;
     object-fit: contain;
     border: 1px solid var(--line);
     background: #fff;
@@ -1844,7 +1844,7 @@ def build_maracoos_congressional_briefing_html(
     color: var(--gray);
     font-size: 7.8pt;
     line-height: 1.2;
-    margin: 5px 0 0;
+    margin: 4px 0 0;
   }}
   .ask-box {{
     background: var(--teal-dark);
