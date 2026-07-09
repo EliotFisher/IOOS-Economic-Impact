@@ -1698,31 +1698,30 @@ def build_maracoos_congressional_briefing_html(
     letter-spacing: 0.08em;
   }}
   .hero {{
-    background: var(--teal);
+    background: linear-gradient(90deg, var(--teal-dark), var(--teal));
     color: #fff;
-    padding: 13px 16px;
-    border-radius: 3px;
-    margin-bottom: 10px;
+    padding: 12px 16px 11px;
+    border-radius: 3px 3px 0 0;
+    margin-bottom: 0;
   }}
-  .image-hero {{
-    background-color: #006875;
-    background-image:
-      linear-gradient(90deg, rgba(0, 58, 67, 0.82) 0%, rgba(0, 96, 110, 0.58) 34%, rgba(0, 119, 133, 0.16) 56%, rgba(0, 119, 133, 0) 72%),
-      url("{hero_image_uri}");
-    background-position: center center, right center;
-    background-repeat: no-repeat;
-    background-size: 100% 100%, auto 100%;
-    aspect-ratio: 33 / 10;
+  .hero-art {{
+    height: 2.15in;
+    border: 1px solid var(--line);
+    border-top: 0;
+    border-radius: 0 0 3px 3px;
+    background: #fff;
     display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
+    align-items: center;
+    justify-content: center;
+    margin: 0 0 10px;
     overflow: hidden;
   }}
-  .image-hero .kicker,
-  .image-hero h1,
-  .image-hero .subtitle {{
-    max-width: 4.35in;
-    text-shadow: 0 1.5px 4px rgba(0, 0, 0, 0.62);
+  .hero-art img {{
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center center;
   }}
   .hero .kicker {{
     font-size: 8.5pt;
@@ -1889,10 +1888,13 @@ def build_maracoos_congressional_briefing_html(
     <div class="doc-label">MARACOOS Brief</div>
   </div>
 
-  <div class="hero image-hero">
+  <div class="hero">
     <div class="kicker">IOOS Reauthorization Brief</div>
     <h1>MARACOOS: Mid-Atlantic Ocean Intelligence</h1>
     <p class="subtitle">The regional case for reauthorizing the Integrated Ocean Observing System (IOOS)</p>
+  </div>
+  <div class="hero-art">
+    <img src="{hero_image_uri}" alt="Integrated Ocean Observing System at work in coastal waters">
   </div>
   <div class="brief-meta">
     <span>Prepared for: {brief_escape(prepared_for)}</span>
