@@ -35,7 +35,7 @@ VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_matrix.py"
 FILLED_BRIEFING_PATH = REPO_ROOT / "outputs" / "IOOS_Congressional_Briefing_Filled.html"
 UCAR_LOGO_PATH = APP_DIR / "logo-ucar.avif"
 COL_LOGO_PATH = APP_DIR / "col-logo.avif"
-IOOS_HERO_IMAGE_PATH = APP_DIR / "Hero.png"
+IOOS_HERO_IMAGE_PATH = APP_DIR / "HERO1.png"
 MARACOOS_COVERAGE_MAP_PATH = APP_DIR / "MARACOOS Coverage Map.png"
 DATA_TO_DECISION_FLOW_PATH = APP_DIR / "data to decision flow chart.png"
 IOOS_COVERAGE_MAP_PATH = APP_DIR / "IOOS Coverage Mao.png"
@@ -5684,7 +5684,28 @@ def render_ioos_system_tab(evidence_df: pd.DataFrame, source_df: pd.DataFrame, r
         """,
         unsafe_allow_html=True,
     )
-    render_overview_stat_cards(evidence_df, source_df, review_df, staged_df)
+
+    st.subheader("The Value Chain")
+    value_chain_nodes = "".join(
+        f"""
+        <div class="value-chain-node">
+            <span class="hub-chip neutral">{index}</span>
+            <b>{hub_escape(label)}</b>
+            <span>{hub_escape(description)}</span>
+        </div>
+        """
+        for index, (_, label, description) in enumerate(VALUE_CHAIN_LAYERS, start=1)
+    )
+    st.markdown(
+        f"""
+        <p class="overview-intro">
+            The app scores evidence by how far a source traces this chain: from observation, through
+            products and decisions, toward economic value.
+        </p>
+        <div class="value-chain-full">{value_chain_nodes}</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     system_col, map_col = st.columns([1.05, 0.95], gap="large")
     with system_col:
@@ -5712,28 +5733,6 @@ def render_ioos_system_tab(evidence_df: pd.DataFrame, source_df: pd.DataFrame, r
             st.image(str(IOOS_OCEAN_SYSTEMS_PATH), use_container_width=True)
         else:
             st.info("IOOS system image is not available.")
-
-    st.subheader("The Value Chain")
-    value_chain_nodes = "".join(
-        f"""
-        <div class="value-chain-node">
-            <span class="hub-chip neutral">{index}</span>
-            <b>{hub_escape(label)}</b>
-            <span>{hub_escape(description)}</span>
-        </div>
-        """
-        for index, (_, label, description) in enumerate(VALUE_CHAIN_LAYERS, start=1)
-    )
-    st.markdown(
-        f"""
-        <p class="overview-intro">
-            The app scores evidence by how far a source traces this chain: from observation, through
-            products and decisions, toward economic value.
-        </p>
-        <div class="value-chain-full">{value_chain_nodes}</div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
 def render_sectors_supported_tab(evidence_df: pd.DataFrame, review_df: pd.DataFrame) -> None:
