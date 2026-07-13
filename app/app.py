@@ -433,7 +433,7 @@ APP_ROLES = {
 }
 
 APP_NAVIGATION = [
-    "About",
+    "Overview",
     "Dashboard",
     "Evidence Database",
     "Briefs & Outputs",
@@ -494,6 +494,93 @@ METHOD_STEPS = [
         "Step": "5. Use",
         "What happens": "Export trusted data for reports, briefs, presentations, and updates.",
         "Owner": "Viewer",
+    },
+]
+
+NARRATIVE_TAB_LABELS = [
+    "What is IOOS?",
+    "Sectors supported",
+    "System cost",
+    "Return case studies",
+    "How we work",
+]
+
+SECTOR_STORYLINES = [
+    {
+        "name": "Maritime transportation and ports",
+        "keywords": ["ports", "port", "maritime", "navigation", "shipping", "commerce"],
+        "why": "Real-time water levels, currents, bridge air gap, and weather information help pilots, vessel operators, and ports make safer and more efficient movement decisions.",
+    },
+    {
+        "name": "Seafood, shellfish, and fisheries",
+        "keywords": ["hab", "shellfish", "fisher", "seafood", "aquaculture", "acidification", "oxygen"],
+        "why": "Forecasts and monitoring can help managers target sampling, time closures and reopenings, protect hatchery operations, and understand habitat conditions.",
+    },
+    {
+        "name": "Emergency response and maritime safety",
+        "keywords": ["search", "rescue", "sarops", "hf radar", "hfr", "emergency", "safety", "spill"],
+        "why": "Surface-current data, models, and regional products support search planning, spill response, storm preparation, and other time-sensitive public-safety decisions.",
+    },
+    {
+        "name": "Coastal hazards and resilience",
+        "keywords": ["hazard", "resilience", "flood", "storm", "beach", "rip", "digital coast"],
+        "why": "Observations, webcams, forecasts, and planning tools give communities better situational awareness for flooding, erosion, beach safety, and resilience planning.",
+    },
+    {
+        "name": "Ocean technology and the blue economy",
+        "keywords": ["ocean enterprise", "technology", "data services", "blue economy", "marine economy"],
+        "why": "IOOS data services, Regional Association websites, and ocean observing capability support a broader market of data users, service providers, and ocean-technology firms.",
+    },
+    {
+        "name": "Offshore wind and marine operations",
+        "keywords": ["offshore wind", "wind", "energy", "metocean", "construction", "blade"],
+        "why": "Metocean observations and forecast products can support safer planning windows, reduced uncertainty, and better coordination for offshore energy and marine operations.",
+    },
+]
+
+SYSTEM_COST_COMPONENTS = [
+    {
+        "name": "Regional operations",
+        "description": "Regional Associations, observing assets, field staff, partner coordination, and local product maintenance.",
+    },
+    {
+        "name": "Observing infrastructure",
+        "description": "Buoys, shore stations, HF radar, gliders, sensors, telecommunications, calibration, repair, and replacement cycles.",
+    },
+    {
+        "name": "Data management",
+        "description": "Quality control, metadata, cyber hygiene, archives, APIs, interoperability, and user-facing data portals.",
+    },
+    {
+        "name": "Forecast and decision products",
+        "description": "Models, dashboards, maps, alerts, web tools, and partner workflows that translate observations into operational decisions.",
+    },
+]
+
+CASE_STUDY_THEMES = [
+    {
+        "name": "PORTS and port efficiency",
+        "keywords": ["ports", "tampa", "houston", "columbia", "grounding", "draft"],
+    },
+    {
+        "name": "HF radar and search and rescue",
+        "keywords": ["hf radar", "hfr", "search", "rescue", "sarops"],
+    },
+    {
+        "name": "HAB forecasts and seafood decisions",
+        "keywords": ["hab", "harmful algal", "shellfish", "seafood"],
+    },
+    {
+        "name": "Regional data user value",
+        "keywords": ["prototype user valuation", "regional association", "data services", "user value"],
+    },
+    {
+        "name": "Ocean Enterprise and marine economy context",
+        "keywords": ["ocean enterprise", "marine economy", "jobs", "revenue"],
+    },
+    {
+        "name": "Coastal hazards and resilience",
+        "keywords": ["coastal", "hazard", "resilience", "digital coast", "flood"],
     },
 ]
 
@@ -699,6 +786,101 @@ def apply_hub_styles() -> None:
                 margin-bottom: 1.2rem;
             }}
 
+            .overview-intro {{
+                color: var(--ioos-muted);
+                font-size: 1.02rem;
+                line-height: 1.65;
+                margin: 0 0 1rem;
+                max-width: 940px;
+            }}
+
+            .overview-card,
+            .sector-card,
+            .cost-card,
+            .case-card,
+            .method-card {{
+                background: var(--ioos-paper);
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
+                padding: 1rem;
+            }}
+
+            .overview-card b,
+            .sector-card b,
+            .cost-card b,
+            .case-card b,
+            .method-card b {{
+                color: var(--ioos-ink);
+                display: block;
+                font-size: 0.98rem;
+                line-height: 1.28;
+                margin-bottom: 0.35rem;
+            }}
+
+            .overview-card p,
+            .sector-card p,
+            .cost-card p,
+            .case-card p,
+            .method-card p {{
+                color: var(--ioos-muted);
+                font-size: 0.86rem;
+                line-height: 1.52;
+                margin: 0.38rem 0 0;
+            }}
+
+            .overview-grid,
+            .sector-grid,
+            .cost-grid,
+            .case-grid,
+            .method-grid {{
+                display: grid;
+                gap: 0.85rem;
+            }}
+
+            .overview-grid {{
+                grid-template-columns: repeat(4, minmax(150px, 1fr));
+            }}
+
+            .sector-grid,
+            .cost-grid {{
+                grid-template-columns: repeat(2, minmax(240px, 1fr));
+            }}
+
+            .case-grid {{
+                grid-template-columns: repeat(3, minmax(250px, 1fr));
+            }}
+
+            .method-grid {{
+                grid-template-columns: repeat(3, minmax(220px, 1fr));
+            }}
+
+            .overview-stat {{
+                color: var(--ioos-blue);
+                display: block;
+                font-size: 1.55rem;
+                font-weight: 860;
+                line-height: 1.05;
+                margin-top: 0.45rem;
+            }}
+
+            .overview-link {{
+                color: var(--ioos-blue);
+                display: inline-block;
+                font-size: 0.82rem;
+                font-weight: 760;
+                margin-top: 0.55rem;
+                text-decoration: none;
+            }}
+
+            .evidence-empty-state {{
+                background: #fff9eb;
+                border: 1px solid #efcf90;
+                border-radius: 8px;
+                color: #6d4f13;
+                line-height: 1.55;
+                padding: 1rem;
+            }}
+
             .hub-process-step {{
                 border: 1px solid var(--ioos-line);
                 border-radius: 8px;
@@ -731,6 +913,30 @@ def apply_hub_styles() -> None:
             }}
 
             .hub-top-nav label:has(input:checked) {{
+                border-bottom-color: var(--ioos-blue);
+                color: var(--ioos-ink);
+            }}
+
+            div[data-testid="stTabs"] [role="tablist"] {{
+                border-bottom: 1px solid var(--ioos-line);
+                gap: 0.35rem;
+                margin-bottom: 1rem;
+            }}
+
+            div[data-testid="stTabs"] [role="tab"] {{
+                border-bottom: 3px solid transparent;
+                color: var(--ioos-muted);
+                font-weight: 780;
+                padding: 0.45rem 0.55rem 0.62rem;
+            }}
+
+            div[data-testid="stTabs"] [role="tab"] p {{
+                color: inherit;
+                font-size: 0.92rem;
+                font-weight: 780;
+            }}
+
+            div[data-testid="stTabs"] [role="tab"][aria-selected="true"] {{
                 border-bottom-color: var(--ioos-blue);
                 color: var(--ioos-ink);
             }}
@@ -1263,7 +1469,12 @@ def apply_hub_styles() -> None:
                 .brief-grid,
                 .comparison-grid,
                 .value-chain-full,
-                .queue-grid {{
+                .queue-grid,
+                .overview-grid,
+                .sector-grid,
+                .cost-grid,
+                .case-grid,
+                .method-grid {{
                     grid-template-columns: 1fr;
                 }}
 
@@ -1291,9 +1502,9 @@ def render_login_page() -> None:
     st.markdown(
         """
         <div class="hub-hero">
-            <div class="hub-kicker">Employee data workspace</div>
+            <div class="hub-kicker">Evidence-guided IOOS story</div>
             <h1>IOOS Economic Impact Hub</h1>
-            <p>A living evidence database for understanding, reviewing, and communicating how ocean information supports economic decisions.</p>
+            <p>Start with five explanatory tabs, then move into the evidence database, source shelf, briefs, and review workflow behind the claims.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1334,7 +1545,7 @@ def render_login_page() -> None:
         st.markdown(
             """
             <div class="hub-callout">
-                The hub keeps draft evidence separate from official evidence until a person verifies the source, attribution, limitation, and claim language.
+                The hub explains IOOS in plain language first, then keeps draft evidence separate from official evidence until a person verifies the source, attribution, limitation, and claim language.
             </div>
             """,
             unsafe_allow_html=True,
@@ -5349,66 +5560,160 @@ def page_evidence_matrix(
             render_record_detail(selected_rows.iloc[0], source_df, explorer_df)
 
 
-def page_about_data(
+NARRATIVE_TEXT_COLUMNS = [
+    "impact_domain",
+    "ioos_component",
+    "region",
+    "ioos_region_code",
+    "user_group",
+    "decision_supported",
+    "economic_pathway",
+    "metric",
+    "claim_allowed",
+    "limitations",
+    "ai_extraction_notes",
+    "source_id",
+    "source_name",
+]
+
+BEST_SOURCE_TEXT_COLUMNS = [
+    "source_id",
+    "source_name",
+    "source_type",
+    "ioos_region_code",
+    "briefing_role",
+    "impact_domains",
+    "key_metrics",
+    "evidence_profile",
+    "attribution_profile",
+    "recommended_claim_language",
+    "caveats",
+]
+
+
+def keyword_filter(df: pd.DataFrame, keywords: list[str], columns: list[str]) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+    available_columns = [column for column in columns if column in df.columns]
+    if not available_columns:
+        return df.head(0).copy()
+    lowered_keywords = [keyword.lower() for keyword in keywords]
+    mask = df.apply(
+        lambda row: any(keyword in combined_row_text(row, available_columns) for keyword in lowered_keywords),
+        axis=1,
+    )
+    return df[mask].copy()
+
+
+def unique_region_code_count(df: pd.DataFrame) -> int:
+    if df.empty or "ioos_region_code" not in df.columns:
+        return 0
+    codes: set[str] = set()
+    for value in df["ioos_region_code"]:
+        codes.update(split_ioos_region_codes(value))
+    return len(codes)
+
+
+def source_count_for_rows(df: pd.DataFrame) -> int:
+    if df.empty or "source_id" not in df.columns:
+        return 0
+    return int(df["source_id"].replace("", pd.NA).dropna().nunique())
+
+
+def sector_story_table(evidence_df: pd.DataFrame, review_df: pd.DataFrame) -> pd.DataFrame:
+    evidence_dashboard_df = add_dashboard_fields(evidence_df, review_df)
+    rows: list[dict[str, object]] = []
+    for story in SECTOR_STORYLINES:
+        matches = keyword_filter(evidence_dashboard_df, story["keywords"], NARRATIVE_TEXT_COLUMNS)
+        if matches.empty:
+            sample_decision = "Evidence rows for this sector have not been loaded yet."
+        else:
+            sample_decision = first_row_value(
+                matches.iloc[0],
+                ["decision_supported", "economic_pathway", "claim_allowed"],
+            )
+        rows.append(
+            {
+                "Sector": story["name"],
+                "Rows": len(matches),
+                "Sources": source_count_for_rows(matches),
+                "External-ready rows": int(matches.apply(is_external_ready_row, axis=1).sum()) if not matches.empty else 0,
+                "Why it matters": story["why"],
+                "Example decision": sample_decision,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def render_overview_stat_cards(
     evidence_df: pd.DataFrame,
     source_df: pd.DataFrame,
     review_df: pd.DataFrame,
     staged_df: pd.DataFrame,
-    best_sources_df: pd.DataFrame,
 ) -> None:
     evidence_dashboard_df = add_dashboard_fields(evidence_df, review_df)
-    status_counts = evidence_dashboard_df["dashboard_status"].value_counts() if "dashboard_status" in evidence_dashboard_df else {}
+    ready_count = int(evidence_dashboard_df.apply(is_external_ready_row, axis=1).sum()) if not evidence_dashboard_df.empty else 0
+    stats = [
+        ("Evidence rows", len(evidence_df), "Promoted rows in the evidence matrix."),
+        ("Source records", len(source_df), "Registered sources and URLs."),
+        ("IOOS regions", unique_region_code_count(evidence_df), "Regional and national coverage represented."),
+        ("Ready claims", ready_count, "Rows with enough evidence and attribution for reuse."),
+        ("Staged drafts", len(staged_df), "Candidate rows held outside the official matrix."),
+    ]
+    card_html = "".join(
+        (
+            '<div class="overview-card">'
+            f"<b>{hub_escape(label)}</b>"
+            f'<span class="overview-stat">{value:,}</span>'
+            f"<p>{hub_escape(description)}</p>"
+            "</div>"
+        )
+        for label, value, description in stats
+    )
+    st.markdown(f'<div class="overview-grid">{card_html}</div>', unsafe_allow_html=True)
+
+
+def render_ioos_system_tab(evidence_df: pd.DataFrame, source_df: pd.DataFrame, review_df: pd.DataFrame, staged_df: pd.DataFrame) -> None:
     st.markdown(
         """
-        <div class="hub-hero hub-about-hero">
-            <div class="hub-kicker">Methodology transparency</div>
-            <h1>IOOS Economic Impact Hub</h1>
-            <p>A staff-accessible evidence database where every reusable economic claim travels with its source, strength rating, IOOS attribution level, review status, and provenance trail.</p>
-        </div>
+        <p class="overview-intro">
+            IOOS is shared ocean information infrastructure: observing assets, regional associations,
+            data systems, models, and products that turn ocean conditions into decisions people can use.
+            This app explains that system through the evidence base you are building.
+        </p>
         """,
         unsafe_allow_html=True,
     )
+    render_overview_stat_cards(evidence_df, source_df, review_df, staged_df)
 
-    metric_columns = st.columns(4)
-    metric_columns[0].metric("Evidence rows", f"{len(evidence_df):,}")
-    metric_columns[1].metric("Source records", f"{len(source_df):,}")
-    metric_columns[2].metric("External-ready rows", f"{int(status_counts.get('report-ready', 0)):,}")
-    metric_columns[3].metric("Staged draft rows", f"{len(staged_df):,}")
-
-    intro_col, method_col = st.columns([0.95, 1.05], gap="large")
-    with intro_col:
-        st.markdown('<div class="hub-section">', unsafe_allow_html=True)
-        st.subheader("What This Data Is")
-        st.markdown(
-            """
-            <p class="hub-lede">
-                The Hub is an internal evidence workspace for congressional briefs, reports, presentations, funding materials, and regional case studies. It is not a public dashboard and not a marketing site. Its job is to preserve institutional memory and make trust legible.
-            </p>
-            <p class="hub-lede">
-                Everyday staff use the promoted evidence database. Maintainers work in staged and review views. The interface keeps those worlds visibly separate so draft AI-assisted rows are never mistaken for verified evidence.
-            </p>
-            """,
-            unsafe_allow_html=True,
+    system_col, map_col = st.columns([1.05, 0.95], gap="large")
+    with system_col:
+        st.subheader("What The System Does")
+        system_cards = [
+            ("Observe", "Collects real-time and historical ocean, coastal, Great Lakes, and meteorological conditions."),
+            ("Integrate", "Connects federal, regional, academic, state, local, and private-sector data streams."),
+            ("Translate", "Turns observations and models into forecasts, maps, dashboards, alerts, and APIs."),
+            ("Support decisions", "Helps users make navigation, safety, fisheries, hazard, planning, and operations decisions."),
+        ]
+        card_html = "".join(
+            (
+                '<div class="overview-card">'
+                f"<b>{hub_escape(title)}</b>"
+                f"<p>{hub_escape(body)}</p>"
+                "</div>"
+            )
+            for title, body in system_cards
         )
-        st.markdown(
-            """
-            <div class="hub-callout">
-                Responsible use rule: quote only rows that are verified, source-backed, and marked ready for external use. Preserve caveats when evidence is modeled, contextual, dated, or transferred from another setting.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-    with method_col:
-        st.markdown('<div class="hub-section">', unsafe_allow_html=True)
+        st.markdown(f'<div class="cost-grid">{card_html}</div>', unsafe_allow_html=True)
+    with map_col:
         if IOOS_COVERAGE_MAP_PATH.exists():
             st.image(str(IOOS_COVERAGE_MAP_PATH), caption="IOOS regional coverage", use_container_width=True)
+        elif IOOS_OCEAN_SYSTEMS_PATH.exists():
+            st.image(str(IOOS_OCEAN_SYSTEMS_PATH), use_container_width=True)
         else:
-            st.info("IOOS coverage map image is not available.")
-        st.markdown("</div>", unsafe_allow_html=True)
+            st.info("IOOS system image is not available.")
 
-    st.markdown('<div class="hub-section">', unsafe_allow_html=True)
-    st.subheader("IOOS Value Chain")
+    st.subheader("The Value Chain")
     value_chain_nodes = "".join(
         f"""
         <div class="value-chain-node">
@@ -5421,52 +5726,375 @@ def page_about_data(
     )
     st.markdown(
         f"""
-        <p class="hub-lede">
-            Attribution is scored by how far the source traces impact along this chain. A direct claim reaches sector decisions or economic value; contextual evidence may only establish the setting.
+        <p class="overview-intro">
+            The app scores evidence by how far a source traces this chain: from observation, through
+            products and decisions, toward economic value.
         </p>
         <div class="value-chain-full">{value_chain_nodes}</div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown('<div class="hub-band">', unsafe_allow_html=True)
-    st.subheader("Trust-Signal Component Set")
-    sample_rows = [
-        pd.Series(
-            {
-                "evidence_strength": "Strong",
-                "ioos_attribution_strength": "Strong",
-                "dashboard_status": "report-ready",
-            }
-        ),
-        pd.Series(
-            {
-                "evidence_strength": "Modeled",
-                "ioos_attribution_strength": "Medium",
-                "dashboard_status": "use-with-caution",
-            }
-        ),
-        pd.Series(
-            {
-                "evidence_strength": "Needs verification",
-                "ioos_attribution_strength": "Contextual",
-                "dashboard_status": "needs-follow-up",
-            }
-        ),
-    ]
-    trust_examples = "".join(
-        f"""
-        <div class="metric-panel">
-            <b>{hub_escape(status_definition(row_review_status(row))[0])}</b>
-            <span>Color is paired with text, dots, and the five-step IOOS attribution glyph.</span>
-            {trust_signal_cluster_html(row)}
-        </div>
+
+def render_sectors_supported_tab(evidence_df: pd.DataFrame, review_df: pd.DataFrame) -> None:
+    st.markdown(
         """
-        for row in sample_rows
+        <p class="overview-intro">
+            The economy IOOS supports is not one industry. It is a portfolio of decisions across
+            ports, fisheries, emergency response, coastal resilience, ocean technology, and marine
+            operations. The counts below are calculated from the current evidence matrix.
+        </p>
+        """,
+        unsafe_allow_html=True,
     )
-    st.markdown(f'<div class="trust-demo-grid">{trust_examples}</div>', unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    sector_df = sector_story_table(evidence_df, review_df)
+    card_html = "".join(
+        (
+            '<div class="sector-card">'
+            f'<span class="hub-chip neutral">{int(row["Rows"]):,} rows</span>'
+            f'<b>{hub_escape(row["Sector"])}</b>'
+            f'<p>{hub_escape(row["Why it matters"])}</p>'
+            f'<p><strong>Example:</strong> {hub_escape(row["Example decision"])}</p>'
+            "</div>"
+        )
+        for _, row in sector_df.iterrows()
+    )
+    st.markdown(f'<div class="sector-grid">{card_html}</div>', unsafe_allow_html=True)
+
+    if not sector_df.empty:
+        chart_df = sector_df.set_index("Sector")[["Rows", "External-ready rows"]]
+        st.subheader("Sector Coverage In The Matrix")
+        st.bar_chart(chart_df)
+        st.dataframe(
+            sector_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Rows": st.column_config.NumberColumn(format="%d", width="small"),
+                "Sources": st.column_config.NumberColumn(format="%d", width="small"),
+                "External-ready rows": st.column_config.NumberColumn(format="%d", width="small"),
+                "Why it matters": st.column_config.TextColumn(width="large"),
+                "Example decision": st.column_config.TextColumn(width="large"),
+            },
+        )
+
+
+def system_cost_matches(evidence_df: pd.DataFrame, best_sources_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    cost_keywords = [
+        "appropriation",
+        "budget",
+        "federal funding",
+        "funding level",
+        "funding levels",
+        "reauthorization",
+        "current levels",
+        "system cost",
+        "program cost",
+    ]
+    return (
+        keyword_filter(evidence_df, cost_keywords, NARRATIVE_TEXT_COLUMNS),
+        keyword_filter(best_sources_df, cost_keywords, BEST_SOURCE_TEXT_COLUMNS),
+    )
+
+
+def render_system_cost_tab(evidence_df: pd.DataFrame, best_sources_df: pd.DataFrame) -> None:
+    st.markdown(
+        """
+        <p class="overview-intro">
+            This tab is where the app should answer the investment question: what does it currently
+            cost to keep IOOS operating, and what return stories can responsibly be compared against
+            that cost? Right now the local database does not contain a verified current operating-cost row.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    cost_evidence_df, cost_source_df = system_cost_matches(evidence_df, best_sources_df)
+    metric_cols = st.columns(3)
+    metric_cols[0].metric("Verified current-cost figure", "Pending")
+    metric_cols[1].metric("Matching evidence rows", f"{len(cost_evidence_df):,}")
+    metric_cols[2].metric("Matching source leads", f"{len(cost_source_df):,}")
+
+    if cost_evidence_df.empty and cost_source_df.empty:
+        st.markdown(
+            """
+            <div class="evidence-empty-state">
+                <strong>Cost figure not yet loaded.</strong>
+                Add a source-backed row before the app states a current annual cost. Best source candidates
+                would be a NOAA budget justification, enacted CJS appropriation, congressional report language,
+                IOOS Association funding summary, or official program operating plan.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.info("Potential cost-related records were found. Verify that they are actually about maintaining IOOS before using them as the cost denominator.")
+
+    card_html = "".join(
+        (
+            '<div class="cost-card">'
+            f'<b>{hub_escape(component["name"])}</b>'
+            f'<p>{hub_escape(component["description"])}</p>'
+            "</div>"
+        )
+        for component in SYSTEM_COST_COMPONENTS
+    )
+    st.subheader("What The Cost Needs To Cover")
+    st.markdown(f'<div class="cost-grid">{card_html}</div>', unsafe_allow_html=True)
+
+    st.subheader("Database Row To Add")
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "Needed field": "Current annual operating cost",
+                    "What to capture": "Most recent enacted or official current-year IOOS funding level, including what is and is not included.",
+                },
+                {
+                    "Needed field": "Source and dollar year",
+                    "What to capture": "Source URL, fiscal year, appropriation or budget line, and whether the number is enacted, requested, or authorized.",
+                },
+                {
+                    "Needed field": "Maintenance scope",
+                    "What to capture": "Whether the figure covers Regional Associations, federal program office, sensors, DMAC, models, operations, or only part of the system.",
+                },
+                {
+                    "Needed field": "Use rule",
+                    "What to capture": "Whether the figure can be used as a return-on-investment denominator or only as funding context.",
+                },
+            ]
+        ),
+        use_container_width=True,
+        hide_index=True,
+        column_config={"What to capture": st.column_config.TextColumn(width="large")},
+    )
+
+    if not cost_evidence_df.empty:
+        st.subheader("Potential Cost Evidence Rows")
+        st.dataframe(cost_evidence_df, use_container_width=True, hide_index=True)
+    if not cost_source_df.empty:
+        st.subheader("Potential Cost Source Leads")
+        st.dataframe(cost_source_df, use_container_width=True, hide_index=True)
+
+
+def sort_best_source_matches(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    sorted_df = df.copy()
+    sorted_df["_priority_rank"] = sorted_df.get("priority_tier", pd.Series("", index=sorted_df.index)).map(
+        lambda value: 0 if normalize_text(value).lower() == "primary" else 1
+    )
+    sorted_df["_verification_rank"] = sorted_df.get(
+        "source_verification_needed",
+        pd.Series("", index=sorted_df.index),
+    ).map(lambda value: 1 if normalize_text(value).lower() == "yes" else 0)
+    return sorted_df.sort_values(["_priority_rank", "_verification_rank", "source_name"]).drop(
+        columns=["_priority_rank", "_verification_rank"],
+        errors="ignore",
+    )
+
+
+def case_study_cards(best_sources_df: pd.DataFrame, evidence_df: pd.DataFrame, source_df: pd.DataFrame) -> list[dict[str, str]]:
+    cards: list[dict[str, str]] = []
+    used_keys: set[str] = set()
+    evidence_dashboard_df = add_dashboard_fields(evidence_df, pd.DataFrame())
+
+    for theme in CASE_STUDY_THEMES:
+        source_matches = sort_best_source_matches(keyword_filter(best_sources_df, theme["keywords"], BEST_SOURCE_TEXT_COLUMNS))
+        source_matches = source_matches[
+            ~source_matches.get("source_id", pd.Series("", index=source_matches.index)).map(normalize_text).isin(used_keys)
+        ]
+        if not source_matches.empty:
+            row = source_matches.iloc[0]
+            key = row_field(row, "source_id", row_field(row, "source_name"))
+            used_keys.add(key)
+            cards.append(
+                {
+                    "theme": theme["name"],
+                    "title": row_field(row, "source_name", theme["name"]),
+                    "metric": row_field(row, "key_metrics", "Metrics pending."),
+                    "claim": row_field(row, "recommended_claim_language", row_field(row, "briefing_role")),
+                    "caveat": row_field(row, "caveats", "Keep source limitations attached."),
+                    "source_url": row_field(row, "source_url"),
+                    "status": row_field(row, "source_verification_needed", "Unknown"),
+                }
+            )
+            continue
+
+        evidence_matches = keyword_filter(evidence_dashboard_df, theme["keywords"], NARRATIVE_TEXT_COLUMNS)
+        if evidence_matches.empty:
+            continue
+        row = evidence_matches.iloc[0]
+        source_row = source_for_row(row, source_df)
+        cards.append(
+            {
+                "theme": theme["name"],
+                "title": row_field(source_row, "source_name", row_field(row, "ioos_component", theme["name"])),
+                "metric": row_field(row, "metric", "Metric pending."),
+                "claim": row_field(row, "claim_allowed", row_field(row, "decision_supported")),
+                "caveat": row_field(row, "limitations", "Keep source limitations attached."),
+                "source_url": row_field(source_row, "source_url", row_field(row, "source_url")),
+                "status": row_field(row, "source_verification_needed", "Unknown"),
+            }
+        )
+    return cards
+
+
+def render_return_case_studies_tab(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> None:
+    st.markdown(
+        """
+        <p class="overview-intro">
+            Case studies are the clearest way to show return: a named IOOS component, a decision,
+            an economic pathway, a metric, a source, and a caveat. These cards are selected from
+            the current best-source shortlist first, then from promoted evidence rows if needed.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
+    cards = case_study_cards(best_sources_df, evidence_df, source_df)
+    if not cards:
+        st.info("No case-study records are available yet.")
+        return
+
+    card_html = "".join(
+        (
+            '<div class="case-card">'
+            f'<span class="hub-chip {"warning" if card["status"] == "Yes" else "neutral"}">{hub_escape(card["theme"])}</span>'
+            f'<b>{hub_escape(card["title"])}</b>'
+            f'<p><strong>Metric:</strong> {hub_escape(truncate_text(card["metric"], 220))}</p>'
+            f'<p><strong>Use claim:</strong> {hub_escape(truncate_text(card["claim"], 230))}</p>'
+            f'<p><strong>Caveat:</strong> {hub_escape(truncate_text(card["caveat"], 210))}</p>'
+            + (
+                f'<a class="overview-link" href="{hub_escape(card["source_url"])}" target="_blank" rel="noopener">Open source</a>'
+                if card["source_url"]
+                else ""
+            )
+            + "</div>"
+        )
+        for card in cards
+    )
+    st.markdown(f'<div class="case-grid">{card_html}</div>', unsafe_allow_html=True)
+
+    st.subheader("Best-Source Shortlist")
+    if best_sources_df.empty:
+        st.info("No best_sources.csv table is loaded.")
+    else:
+        display_columns = [
+            column
+            for column in [
+                "source_name",
+                "source_type",
+                "ioos_region_code",
+                "priority_tier",
+                "impact_domains",
+                "key_metrics",
+                "recommended_claim_language",
+                "caveats",
+                "source_url",
+            ]
+            if column in best_sources_df.columns
+        ]
+        st.dataframe(
+            best_sources_df[display_columns],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "source_url": st.column_config.LinkColumn("Source URL"),
+                "key_metrics": st.column_config.TextColumn(width="large"),
+                "recommended_claim_language": st.column_config.TextColumn(width="large"),
+                "caveats": st.column_config.TextColumn(width="large"),
+            },
+        )
+
+
+def render_how_we_work_tab(
+    evidence_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> None:
+    st.markdown(
+        """
+        <p class="overview-intro">
+            The app is intentionally conservative. AI can help discover candidate evidence, but the
+            official matrix only gets rows after source, attribution, limitation, and claim-language review.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    method_cards = [
+        ("1. Collect", "Gather source leads, metrics, claims, regions, user groups, and decision pathways."),
+        ("2. Stage", "Hold AI-assisted or newly imported evidence outside the official matrix."),
+        ("3. Review", "Check source support, attribution strength, limitations, and claim language."),
+        ("4. Promote", "Move verified rows into the official evidence matrix with durable IDs."),
+        ("5. Use", "Export trusted claims, case studies, citations, and briefing materials."),
+        ("6. Update", "Run validation, clear review items, and refresh source records as evidence changes."),
+    ]
+    card_html = "".join(
+        (
+            '<div class="method-card">'
+            f"<b>{hub_escape(title)}</b>"
+            f"<p>{hub_escape(body)}</p>"
+            "</div>"
+        )
+        for title, body in method_cards
+    )
+    st.markdown(f'<div class="method-grid">{card_html}</div>', unsafe_allow_html=True)
+
+    data_col, rubric_col = st.columns([0.95, 1.05], gap="large")
+    with data_col:
+        st.subheader("Data Layers")
+        st.dataframe(
+            project_table_status(evidence_df, source_df, review_df, staged_df, best_sources_df),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Rows": st.column_config.NumberColumn(format="%d", width="small"),
+                "Purpose": st.column_config.TextColumn(width="large"),
+            },
+        )
+    with rubric_col:
+        st.subheader("Trust Signals")
+        sample_rows = [
+            pd.Series(
+                {
+                    "evidence_strength": "Strong",
+                    "ioos_attribution_strength": "Strong",
+                    "dashboard_status": "report-ready",
+                }
+            ),
+            pd.Series(
+                {
+                    "evidence_strength": "Modeled",
+                    "ioos_attribution_strength": "Medium",
+                    "dashboard_status": "use-with-caution",
+                }
+            ),
+            pd.Series(
+                {
+                    "evidence_strength": "Needs verification",
+                    "ioos_attribution_strength": "Contextual",
+                    "dashboard_status": "needs-follow-up",
+                }
+            ),
+        ]
+        trust_examples = "".join(
+            (
+                '<div class="metric-panel">'
+                f"<b>{hub_escape(status_definition(row_review_status(row))[0])}</b>"
+                "<span>Evidence strength, IOOS attribution, and review status travel with every reusable claim.</span>"
+                f"{trust_signal_cluster_html(row)}"
+                "</div>"
+            )
+            for row in sample_rows
+        )
+        st.markdown(f'<div class="trust-demo-grid">{trust_examples}</div>', unsafe_allow_html=True)
 
     rubric_col, attribution_col = st.columns(2, gap="large")
     with rubric_col:
@@ -5491,45 +6119,49 @@ def page_about_data(
             )
         st.dataframe(pd.DataFrame(attribution_rows), use_container_width=True, hide_index=True)
 
-    st.markdown('<div class="hub-section">', unsafe_allow_html=True)
-    st.subheader("Visual Design System")
-    design_tokens = [
-        ("#10212b", "Ink", "Primary text and serious institutional headings."),
-        ("#0a5d8f", "Ocean blue", "Navigation, attribution chain, and primary actions."),
-        ("#1f7a68", "Verified teal", "Ready, strong, reviewed, and source-backed signals."),
-        ("#c4892c", "Review amber", "Warnings, staged rows, and reviewer attention."),
-        ("#b84d3f", "Flag red", "Rejected or high-risk governance states."),
-        ("#eef6f7", "Quiet field", "Background bands and table-friendly surfaces."),
-    ]
-    token_html = "".join(
-        f"""
-        <div class="token-card">
-            <div class="token-swatch" style="background:{color};"></div>
-            <b>{hub_escape(name)}</b>
-            <span>{hub_escape(description)}</span>
-        </div>
-        """
-        for color, name, description in design_tokens
-    )
-    st.markdown(f'<div class="design-token-grid">{token_html}</div>', unsafe_allow_html=True)
-    st.caption("Type uses system UI fonts for dense staff work, tabular numerals where the browser supports them, 8px corner radii, and 4/8/16px spacing increments.")
-    st.markdown("</div>", unsafe_allow_html=True)
 
-    data_col, workflow_col = st.columns([1, 1], gap="large")
-    with data_col:
-        st.subheader("Data Layers")
-        st.dataframe(
-            project_table_status(evidence_df, source_df, review_df, staged_df, best_sources_df),
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Rows": st.column_config.NumberColumn(format="%d", width="small"),
-                "Purpose": st.column_config.TextColumn(width="large"),
-            },
-        )
-    with workflow_col:
-        st.subheader("How Evidence Moves")
-        render_process_steps()
+def page_about_data(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> None:
+    st.markdown(
+        """
+        <div class="hub-hero hub-about-hero">
+            <div class="hub-kicker">Start here</div>
+            <h1>IOOS Economic Impact Hub</h1>
+            <p>A guided evidence app for explaining what IOOS is, who it serves, what it costs to maintain, and where the database already supports return-on-investment case studies.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
+        <p class="overview-intro">
+            Use these tabs as the app's front door. They explain the system first, then move from
+            sectors, to cost, to return evidence, to the workflow that keeps claims defensible.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    system_tab, sectors_tab, cost_tab, cases_tab, workflow_tab = st.tabs(
+        NARRATIVE_TAB_LABELS
+    )
+
+    with system_tab:
+        render_ioos_system_tab(evidence_df, source_df, review_df, staged_df)
+    with sectors_tab:
+        render_sectors_supported_tab(evidence_df, review_df)
+    with cost_tab:
+        render_system_cost_tab(evidence_df, best_sources_df)
+    with cases_tab:
+        render_return_case_studies_tab(evidence_df, source_df, best_sources_df)
+    with workflow_tab:
+        render_how_we_work_tab(evidence_df, review_df, staged_df, source_df, best_sources_df)
 
 
 def page_how_to_use() -> None:
@@ -6522,7 +7154,7 @@ def main() -> None:
     render_sidebar_identity()
     page = render_top_navigation()
 
-    if page == "About":
+    if page == "Overview":
         page_about_data(evidence_df, source_df, review_df, staged_df, best_sources_df)
     elif page == "Dashboard":
         page_dashboard_summary(evidence_df, source_df, review_df, staged_df, best_sources_df)
