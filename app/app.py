@@ -676,8 +676,7 @@ def apply_hub_styles() -> None:
 
             .hub-hero.hub-about-hero {{
                 min-height: 470px;
-                margin-top: 0.7rem;
-                margin-bottom: 1.6rem;
+                margin-bottom: 1rem;
             }}
 
             .hub-hero h1 {{
@@ -894,9 +893,11 @@ def apply_hub_styles() -> None:
             }}
 
             .hub-top-nav {{
-                border-bottom: 1px solid var(--ioos-line);
+                background: #ffffff;
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
                 margin-bottom: 1.2rem;
-                padding-bottom: 0.45rem;
+                padding: 0.42rem 0.5rem 0.18rem;
             }}
 
             .hub-top-nav [role="radiogroup"] {{
@@ -915,6 +916,44 @@ def apply_hub_styles() -> None:
             .hub-top-nav label:has(input:checked) {{
                 border-bottom-color: var(--ioos-blue);
                 color: var(--ioos-ink);
+            }}
+
+            .hub-top-nav div[data-testid="stButton"] button {{
+                background: #ffffff !important;
+                border: 1px solid var(--ioos-line) !important;
+                color: var(--ioos-ink) !important;
+                min-height: 2.25rem;
+            }}
+
+            .hub-top-nav div[data-testid="stButton"] button p {{
+                color: var(--ioos-ink) !important;
+                font-weight: 760;
+            }}
+
+            .hub-top-nav div[data-testid="stButton"] button:hover {{
+                background: var(--ioos-soft) !important;
+                border-color: var(--ioos-blue) !important;
+            }}
+
+            button[data-testid="stBaseButton-secondary"] {{
+                background: #ffffff !important;
+                border: 1px solid var(--ioos-line) !important;
+                color: var(--ioos-ink) !important;
+            }}
+
+            button[data-testid="stBaseButton-secondary"] p {{
+                color: var(--ioos-ink) !important;
+                font-weight: 760;
+            }}
+
+            button[data-testid="stBaseButton-secondary"]:hover {{
+                background: var(--ioos-soft) !important;
+                border-color: var(--ioos-blue) !important;
+                color: var(--ioos-ink) !important;
+            }}
+
+            button[data-testid="stBaseButton-secondary"]:hover p {{
+                color: var(--ioos-ink) !important;
             }}
 
             div[data-testid="stTabs"] [role="tablist"] {{
@@ -1578,6 +1617,20 @@ def render_sidebar_identity() -> None:
             st.rerun()
 
 
+def render_app_hero() -> None:
+    """Render the app hero above the primary navigation."""
+    st.markdown(
+        """
+        <div class="hub-hero hub-about-hero">
+            <div class="hub-kicker">Start here</div>
+            <h1>IOOS Economic Impact Hub</h1>
+            <p>A guided evidence app for explaining what IOOS is, who it serves, what it costs to maintain, and where the database already supports return-on-investment case studies.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_top_navigation() -> str:
     """Render the primary left-to-right app navigation."""
     current_page = st.session_state.get("primary_navigation", APP_NAVIGATION[0])
@@ -1586,13 +1639,21 @@ def render_top_navigation() -> str:
         st.session_state["primary_navigation"] = current_page
 
     st.markdown('<div class="hub-top-nav">', unsafe_allow_html=True)
-    page = st.segmented_control(
-        "Primary navigation",
-        APP_NAVIGATION,
-        default=current_page,
-        label_visibility="collapsed",
-        key="primary_navigation_picker",
-    )
+    nav_col, signout_col = st.columns([0.86, 0.14], vertical_alignment="center")
+    with nav_col:
+        page = st.segmented_control(
+            "Primary navigation",
+            APP_NAVIGATION,
+            default=current_page,
+            label_visibility="collapsed",
+            key="primary_navigation_picker",
+        )
+    with signout_col:
+        if st.button("Sign out", key="sign_out_button", width="stretch"):
+            st.session_state["authenticated"] = False
+            st.session_state["employee_name"] = ""
+            st.session_state["employee_role"] = "Reviewer"
+            st.rerun()
     if page is None:
         page = current_page
     st.session_state["primary_navigation"] = page
@@ -6128,17 +6189,6 @@ def page_about_data(
 ) -> None:
     st.markdown(
         """
-        <div class="hub-hero hub-about-hero">
-            <div class="hub-kicker">Start here</div>
-            <h1>IOOS Economic Impact Hub</h1>
-            <p>A guided evidence app for explaining what IOOS is, who it serves, what it costs to maintain, and where the database already supports return-on-investment case studies.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        """
         <p class="overview-intro">
             Use these tabs as the app's front door. They explain the system first, then move from
             sectors, to cost, to return evidence, to the workflow that keeps claims defensible.
@@ -7150,7 +7200,7 @@ def main() -> None:
     best_sources_df = load_csv(BEST_SOURCES_PATH)
     regional_targets_df = load_csv(REGIONAL_TARGETS_PATH)
 
-    render_sidebar_identity()
+    render_app_hero()
     page = render_top_navigation()
 
     if page == "Overview":
