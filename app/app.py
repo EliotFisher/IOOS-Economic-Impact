@@ -4439,24 +4439,117 @@ def congressional_briefing_context(
     }
 
 
+def congressional_brief_item(
+    row: pd.Series | None,
+    source_df: pd.DataFrame,
+    fallback_title: str,
+    fallback_body: str,
+    fallback_metric: str = "",
+    fallback_source: str = "",
+    fallback_caveat: str = "",
+) -> dict[str, str]:
+    if row is None:
+        return {
+            "title": fallback_title,
+            "claim": fallback_body,
+            "metric": fallback_metric,
+            "source": fallback_source,
+            "caveat": fallback_caveat,
+        }
+
+    source_row = source_for_row(row, source_df)
+    return {
+        "title": row_field(row, "impact_domain", row_field(row, "ioos_component", fallback_title)),
+        "claim": row_field(row, "claim_allowed", row_field(row, "decision_supported", fallback_body)),
+        "metric": row_field(row, "metric", fallback_metric),
+        "source": row_field(source_row, "source_name", row_field(row, "source_id", fallback_source)),
+        "caveat": row_field(row, "limitations", fallback_caveat),
+    }
+
+
 def build_congressional_briefing_html(
     evidence_df: pd.DataFrame,
     source_df: pd.DataFrame,
     prepared_for: str,
     prepared_date: date,
 ) -> str:
-    """Build a concise print-friendly congressional brief from the current matrix rows."""
+    """Build a two-page print-friendly congressional brief from the current matrix rows."""
     context = congressional_briefing_context(evidence_df, source_df, prepared_for, prepared_date)
     prepared_for = str(context["prepared_for"])
     date_label = str(context["date_label"])
     evidence_count = int(context["evidence_count"])
     source_count = int(context["source_count"])
     ocean_enterprise_metric = str(context["ocean_enterprise_metric"])
-    tampa_metric = str(context["tampa_metric"])
-    hab_forecast_claim = str(context["hab_forecast_claim"])
-    hf_radar_claim = str(context["hf_radar_claim"])
+
+    rows = {
+        key: evidence_row_by_id(evidence_df, row_id)
+        for key, row_id in BRIEFING_ROW_IDS.items()
+    }
+    disaster = congressional_brief_item(
+        rows["hf_radar"],
+        source_df,
+        "Disaster Response",
+        "IOOS real-time coastal and surface-current data support emergency response, search planning, storm decisions, and maritime safety operations.",
+        "HF radar and emergency-response evidence is tracked in the matrix.",
+        "IOOS evidence matrix",
+        "Retain row-specific limitations before treating emergency-response examples as quantified dollar claims.",
+    )
+    ports = congressional_brief_item(
+        rows["ports"],
+        source_df,
+        "Port and Navigation Decisions",
+        "IOOS water-level and current data helps port pilots optimize vessel drafts, reduce delays, and minimize costly lightering operations.",
+        "PORTS benefit evidence is tracked in the matrix.",
+        "IOOS evidence matrix",
+        "Keep port examples tied to the geography and operating assumptions in the underlying source.",
+    )
+    communities = congressional_brief_item(
+        rows["habs"],
+        source_df,
+        "Coastal Communities",
+        "IOOS powers HAB early-warning systems, supports fisheries decisions, and feeds coastal water-quality and public-health decision support.",
+        "HAB and coastal community evidence is tracked in the matrix.",
+        "IOOS evidence matrix",
+        "Do not overstate avoided costs where the source supports decision support rather than a hard-dollar return.",
+    )
+    economy = congressional_brief_item(
+        rows["ocean_enterprise"],
+        source_df,
+        "Ocean Enterprise Context",
+        "The Ocean Enterprise row frames the private-sector and employment context for IOOS-enabled ocean data services.",
+        ocean_enterprise_metric,
+        "IOOS evidence matrix",
+        "Use Ocean Enterprise figures as sector context, not as a claim that IOOS directly caused all revenue or jobs.",
+    )
+    pillar_items = [
+        ("1. Disaster Response", disaster),
+        ("2. Port Efficiency", ports),
+        ("3. Coastal Communities", communities),
+    ]
+    item_cards = "\n".join(
+        f"""
+    <div class="pillar">
+      <h3>{brief_escape(title)}</h3>
+      <p>{brief_escape(item['claim'])}</p>
+      <p><b>Evidence:</b> {brief_escape(item['metric'] or "Qualitative IOOS evidence row")}</p>
+      <p><b>Source:</b> {brief_escape(item['source'] or "IOOS evidence matrix")}</p>
+    </div>"""
+        for title, item in pillar_items
+    )
+    caveat_cards = "\n".join(
+        f"""
+    <div class="caveat">
+      <h3>{brief_escape(item['title'])}</h3>
+      <p>{brief_escape(item['caveat'] or "Keep row-specific caveats attached before external distribution.")}</p>
+    </div>"""
+        for item in [disaster, ports, communities, economy]
+    )
+
     ucar_logo_uri = asset_data_uri(UCAR_LOGO_PATH, "image/avif")
     col_logo_uri = asset_data_uri(COL_LOGO_PATH, "image/avif")
+    hero_image_uri = asset_data_uri(IOOS_HERO_IMAGE_PATH, "image/png")
+    ioos_map_uri = asset_data_uri(IOOS_COVERAGE_MAP_PATH, "image/png")
+    flow_chart_uri = asset_data_uri(DATA_TO_DECISION_FLOW_PATH, "image/png")
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -4511,11 +4604,24 @@ def build_congressional_briefing_html(
     letter-spacing: 0.08em;
   }}
   .hero {{
-    background: var(--teal);
+    background:
+      linear-gradient(90deg, rgba(0, 48, 63, 0.86) 0%, rgba(0, 88, 104, 0.64) 34%, rgba(0, 119, 133, 0.22) 60%, rgba(0, 119, 133, 0.04) 82%),
+      url("{hero_image_uri}") center 45%/100% auto no-repeat;
     color: #fff;
+    min-height: 2.08in;
     padding: 14px 16px;
     border-radius: 3px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    overflow: hidden;
+  }}
+  .hero .kicker,
+  .hero h1,
+  .hero .subtitle {{
+    max-width: 4.35in;
+    text-shadow: 0 1.5px 4px rgba(0, 0, 0, 0.64);
   }}
   .hero .kicker {{
     font-size: 8.5pt;
@@ -4525,8 +4631,8 @@ def build_congressional_briefing_html(
     margin-bottom: 5px;
     font-weight: 700;
   }}
-  .hero h1 {{ font-size: 23pt; line-height: 1.05; margin: 0 0 5px; }}
-  .hero .subtitle {{ font-size: 11.2pt; margin: 0; color: #F2FCFD; }}
+  .hero h1 {{ font-size: 24pt; line-height: 1.05; margin: 0 0 5px; }}
+  .hero .subtitle {{ font-size: 10.4pt; margin: 0 0 6px; color: #F2FCFD; }}
   .brief-meta {{
     display: flex;
     justify-content: space-between;
@@ -4577,26 +4683,69 @@ def build_congressional_briefing_html(
     border: 1px solid var(--line);
     border-left: 4px solid var(--blue);
     padding: 8px 9px;
-    min-height: 145px;
+    min-height: 185px;
   }}
-  .pillar h3 {{
+  .pillar h3, .caveat h3 {{
     margin: 0 0 5px;
     color: var(--teal-dark);
     font-size: 10.2pt;
   }}
-  .pillar p {{ font-size: 9.2pt; margin-bottom: 6px; }}
+  .pillar p, .caveat p {{ font-size: 9.1pt; margin-bottom: 6px; }}
   .highlight {{ color: var(--teal-dark); font-weight: 800; }}
-  .sector-grid {{
+  .two-col {{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 8px 0 12px;
+  }}
+  .map-row {{
+    grid-template-columns: 1.06fr 0.94fr;
+    gap: 12px;
+    align-items: start;
+  }}
+  .visual-card {{
+    border: 1px solid var(--line);
+    padding: 7px;
+    background: #fff;
+  }}
+  .visual-card img {{
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 1.75in;
+    object-fit: contain;
+  }}
+  .visual-card .caption {{
+    color: var(--gray);
+    font-size: 7.8pt;
+    margin: 5px 0 0;
+    line-height: 1.2;
+  }}
+  .caveat-grid {{
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 5px 18px;
-    margin: 8px 0 12px;
-    padding-left: 0;
-    list-style: none;
+    gap: 8px;
   }}
-  .sector-grid li {{
-    border-bottom: 1px solid var(--line);
-    padding-bottom: 4px;
+  .caveat {{
+    border: 1px solid var(--line);
+    padding: 8px 9px;
+  }}
+  .flow-visual {{
+    margin: 6px 0 10px;
+  }}
+  .flow-visual img {{
+    display: block;
+    width: 100%;
+    max-height: 3.05in;
+    object-fit: contain;
+    border: 1px solid var(--line);
+    background: #fff;
+  }}
+  .flow-visual .caption {{
+    color: var(--gray);
+    font-size: 7.8pt;
+    line-height: 1.2;
+    margin: 4px 0 0;
   }}
   .ask-box {{
     background: var(--teal-dark);
@@ -4656,26 +4805,20 @@ def build_congressional_briefing_html(
   <div class="bottom-line">Bottom line: IOOS is proven national infrastructure. It turns ocean observations into safer ports, better storm decisions, stronger coastal economies, and private-sector growth.</div>
 
   <h2 class="section">What IOOS Is</h2>
-  <p>IOOS is the United States&rsquo; national network of ocean sensors, buoys, radar systems, satellites, and data platforms that continuously monitors U.S. coastal waters, the Great Lakes, and ocean conditions.</p>
-  <p>Think of it as the <b>interstate highway system for ocean data</b>: a federal investment that enables private-sector activity, operational decisions, and public safety outcomes that would not be possible without shared data infrastructure.</p>
+  <div class="two-col map-row">
+    <div>
+      <p>IOOS is the United States&rsquo; national network of ocean sensors, buoys, radar systems, satellites, and data platforms that continuously monitors U.S. coastal waters, the Great Lakes, and ocean conditions.</p>
+      <p>Think of it as the <b>interstate highway system for ocean data</b>: a federal investment that enables private-sector activity, operational decisions, and public safety outcomes that would not be possible without shared data infrastructure.</p>
+    </div>
+    <div class="visual-card">
+      <img src="{ioos_map_uri}" alt="IOOS regional coverage map">
+      <p class="caption">IOOS regional coverage, used here to localize the national value story across U.S. coastal and Great Lakes regions.</p>
+    </div>
+  </div>
 
   <h2 class="section">Why It Matters: Three Things Only IOOS Can Do</h2>
   <div class="pillars">
-    <div class="pillar">
-      <h3>1. Disaster Response</h3>
-      <p>Storm surge kills more Americans than any other hurricane hazard. IOOS real-time coastal data powers forecasts that determine evacuation timing.</p>
-      <p><b>Template example:</b> During Hurricane Sandy, IOOS data enabled 80 ships to safely evacuate Hampton Roads three days early, avoiding an estimated $28M in potential losses.</p>
-    </div>
-    <div class="pillar">
-      <h3>2. Port Efficiency</h3>
-      <p>IOOS water-level and current data helps port pilots optimize vessel drafts, reduce delays, and minimize costly lightering operations.</p>
-      <p><b>Matrix evidence:</b> Tampa Bay PORTS&reg; benefits are {brief_escape(tampa_metric)}.</p>
-    </div>
-    <div class="pillar">
-      <h3>3. Coastal Communities</h3>
-      <p>IOOS powers HAB early-warning systems, supports fisheries decisions, and feeds search-and-rescue operations on every U.S. coastline.</p>
-      <p><b>Matrix evidence:</b> {brief_escape(hab_forecast_claim)} {brief_escape(hf_radar_claim)}</p>
-    </div>
+{item_cards}
   </div>
 </div>
 
@@ -4692,17 +4835,10 @@ def build_congressional_briefing_html(
   <h2 class="section" style="margin-top:0;">The Economy IOOS Enables</h2>
   <p>IOOS is public data infrastructure for the ocean economy, including commercial shipping, offshore energy, recreational boating, coastal tourism, and seafood.</p>
   <p>The Ocean Enterprise survey reported <span class="highlight">{brief_escape(ocean_enterprise_metric)}</span>. Use this as sector context, not a claim that IOOS directly caused all revenue or jobs.</p>
-
-  <ul class="sector-grid">
-    <li>Commercial shipping and port operations</li>
-    <li>Offshore energy development</li>
-    <li>Recreational boating and coastal tourism</li>
-    <li>Commercial and recreational fisheries</li>
-    <li>Coastal hazard and emergency management</li>
-    <li>U.S. Navy and Coast Guard operations</li>
-    <li>Marine technology industry</li>
-    <li>Shellfish and aquaculture businesses</li>
-  </ul>
+  <div class="flow-visual">
+    <img src="{flow_chart_uri}" alt="Data to decision flow chart">
+    <p class="caption">Data-to-decision pathway: observations and forecasts become regional products, then operational decisions and economic relevance.</p>
+  </div>
 
   <h2 class="section">The Legislative Moment</h2>
   <p>H.R. 2294 passed the House in March 2026 and companion S. 2126 is pending Senate action. Both bills authorize <b>$280 million over FY2026-2030</b>, or $56 million per year, consistent with current appropriations.</p>
@@ -4710,6 +4846,12 @@ def build_congressional_briefing_html(
 
   <h2 class="section">Staff Takeaway</h2>
   <p><b>Do not make this complicated:</b> IOOS is a modest federal investment that coastal states, ports, emergency managers, scientists, and ocean businesses already rely on. The policy choice is whether to keep that infrastructure stable.</p>
+  <p>This brief mirrors the MARACOOS brief structure, but its evidence examples are drawn from the national IOOS briefing rows in the current matrix.</p>
+
+  <h2 class="section">Caveats Staff Should Keep With The Claims</h2>
+  <div class="caveat-grid">
+{caveat_cards}
+  </div>
 
   <div class="ask-box">
     <div class="label">The Ask</div>
@@ -7269,7 +7411,7 @@ def page_congressional_briefing(
             prepared_for,
             prepared_date,
         )
-        components.html(briefing_html, height=1500, scrolling=True)
+        components.html(briefing_html, height=1700, scrolling=True)
         st.download_button(
             "Download live congressional brief HTML",
             briefing_html.encode("utf-8"),
@@ -7297,7 +7439,7 @@ def page_congressional_briefing(
         if FILLED_BRIEFING_PATH.exists():
             st.download_button(
                 "Download generated congressional brief draft",
-                FILLED_BRIEFING_PATH.read_bytes(),
+                briefing_html.encode("utf-8"),
                 file_name=FILLED_BRIEFING_PATH.name,
                 mime="text/html",
             )
