@@ -314,6 +314,49 @@ MARACOOS_STRENGTH_RANK = {
     "Contextual": 3,
     "Needs verification": 4,
 }
+IOOS_TOP_STATEMENT = (
+    "IOOS helps coastal communities, ports, emergency managers, fishermen, offshore operators, "
+    "and coastal businesses make safer, faster, and more cost-effective decisions using real-time ocean data."
+)
+MARACOOS_TOP_STATEMENT = (
+    "MARACOOS helps Mid-Atlantic communities, ports, emergency managers, fishermen, offshore operators, "
+    "and coastal businesses make safer, faster, and more cost-effective decisions using real-time ocean data."
+)
+FUNDING_TO_OUTCOME_STATEMENT = (
+    "Continued IOOS funding keeps regional observing assets, data systems, and decision-support tools "
+    "operational. Increased funding would improve coverage, reliability, modernization, and service to "
+    "high-risk coastal and maritime users."
+)
+FLAT_OR_REDUCED_FUNDING_RISK = (
+    "Reduced or stagnant funding could limit regional observing coverage, delay sensor replacement, "
+    "reduce data product maintenance, constrain regional stakeholder support, and weaken the ability to "
+    "translate national ocean infrastructure into state and local decision support."
+)
+PLACEHOLDER_BRIEF_NOTICE = (
+    "Draft placeholder only: no claim, metric, source label, legislative statement, or example in this "
+    "preview should be treated as verified or externally usable until reviewed against the source record."
+)
+FEDERAL_FUNDING_PROTECTS = [
+    "Observing assets, including buoys, shore stations, HF radar, sensors, and gliders",
+    "Data systems that move quality-controlled observations into public and partner tools",
+    "Forecasts and decision-support products for ports, hazards, fisheries, and water quality",
+    "Web tools, maps, APIs, and user support that make federal ocean data usable locally",
+    "Regional staff capacity to work with state, local, maritime, and emergency-response users",
+]
+FEDERAL_FUNDING_RISKS = [
+    "Reduced observing coverage and less redundancy in high-risk coastal and offshore areas",
+    "Delayed replacement of aging sensors and slower modernization of data systems",
+    "Less maintenance for forecasts, web products, and public-facing decision tools",
+    "Less regional support for stakeholders who need help applying national ocean data locally",
+]
+MID_ATLANTIC_STATE_RELEVANCE = [
+    ("New York", "NY-NJ Harbor operations, coastal flooding, beach economies, offshore wind, fisheries, and water quality."),
+    ("New Jersey", "Port corridors, coastal flooding, beach tourism, offshore wind areas, fisheries, and water-quality decisions."),
+    ("Delaware", "Delaware Bay navigation, coastal hazards, fisheries, shellfish and water quality, offshore wind, and emergency response."),
+    ("Maryland", "Chesapeake and coastal flooding, Port of Baltimore connections, fisheries, water quality, and emergency management."),
+    ("Virginia", "Hampton Roads ports, naval and military operations, coastal flooding, offshore wind, fisheries, and emergency response."),
+    ("North Carolina", "Outer Banks hazards, fisheries, offshore operations, military and naval coordination, and emergency response where applicable."),
+]
 
 REQUIRED_ADD_FIELDS = [
     "impact_domain",
@@ -4554,31 +4597,56 @@ def build_maracoos_congressional_briefing_html(
     flow_chart_uri = asset_data_uri(DATA_TO_DECISION_FLOW_PATH, "image/png")
 
     pillar_items = [
-        ("1. Disaster Response", disaster),
-        ("2. Port Efficiency", ports),
-        ("3. Coastal Communities", communities),
+        (
+            "1. Disaster Response",
+            disaster,
+            "During major storms, IOOS-supported information helps ports and vessel operators make pre-storm decisions.",
+        ),
+        (
+            "2. Port Efficiency",
+            ports,
+            "Real-time water level, current, and air-gap observations support safer navigation in high-value port and shipping corridors.",
+        ),
+        (
+            "3. Coastal Communities",
+            communities,
+            "Regional ocean data improves coastal hazard awareness for emergency managers and communities.",
+        ),
     ]
     item_cards = "\n".join(
         f"""
     <div class="pillar">
       <h3>{brief_escape(title)}</h3>
-      <p>{brief_escape(item['claim'])}</p>
-      <p><b>Evidence:</b> {brief_escape(item['metric'] or "Qualitative MARACOOS evidence row")}</p>
-      <p><b>Source:</b> {brief_escape(item['source'] or "MARACOOS evidence row")}</p>
+      <p class="action"><b>Placeholder action statement:</b> {brief_escape(action)}</p>
+      <p><b>Placeholder evidence slot:</b> {brief_escape(item['claim'])}</p>
+      <p><b>Placeholder metric slot:</b> {brief_escape(item['metric'] or "Qualitative MARACOOS evidence row")}</p>
+      <p><b>Placeholder source slot:</b> {brief_escape(item['source'] or "MARACOOS evidence row")}</p>
     </div>"""
-        for title, item in pillar_items
+        for title, item, action in pillar_items
     )
     caveat_cards = "\n".join(
         f"""
     <div class="caveat">
       <h3>{brief_escape(item['title'])}</h3>
-      <p>{brief_escape(item['caveat'] or "Use the row caveats above before external distribution.")}</p>
+      <p>{brief_escape(item['caveat'] or "Placeholder caveat slot; verify before external distribution.")}</p>
     </div>"""
         for item in items
     )
     metric_strip = "\n".join(
         f"""    <div class="metric"><div class="value">{brief_escape(card['value'])}</div><div class="label">{brief_escape(card['label'])}</div></div>"""
         for card in congressional_brief_metric_cards(maracoos_df, pd.DataFrame())
+    )
+    state_relevance = "\n".join(
+        f"""      <div><b>{brief_escape(state)}:</b> {brief_escape(relevance)}</div>"""
+        for state, relevance in MID_ATLANTIC_STATE_RELEVANCE
+    )
+    funding_protect_items = "\n".join(
+        f"""          <li>{brief_escape(item)}</li>"""
+        for item in FEDERAL_FUNDING_PROTECTS
+    )
+    funding_risk_items = "\n".join(
+        f"""          <li>{brief_escape(item)}</li>"""
+        for item in FEDERAL_FUNDING_RISKS
     )
 
     return f"""<!DOCTYPE html>
@@ -4703,6 +4771,23 @@ def build_maracoos_congressional_briefing_html(
     font-weight: 700;
     font-size: 11.2pt;
   }}
+  .top-statement {{
+    background: var(--panel);
+    border-left: 5px solid var(--teal);
+    padding: 10px 13px;
+    margin: 8px 0 10px;
+    font-weight: 700;
+    font-size: 11.2pt;
+  }}
+  .placeholder-note {{
+    border: 1px solid var(--gold);
+    background: #FFF8EB;
+    color: #4F3A12;
+    padding: 7px 10px;
+    margin: 6px 0 9px;
+    font-size: 8.9pt;
+    font-weight: 700;
+  }}
   .pillars {{
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -4721,6 +4806,7 @@ def build_maracoos_congressional_briefing_html(
     font-size: 10.2pt;
   }}
   .pillar p, .caveat p {{ font-size: 9.1pt; margin-bottom: 6px; }}
+  .pillar .action {{ font-weight: 700; }}
   .two-col {{
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -4753,6 +4839,42 @@ def build_maracoos_congressional_briefing_html(
   .two-col ul {{
     margin: 0;
     padding-left: 16px;
+  }}
+  .state-box, .funding-box {{
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--gold);
+    padding: 8px 10px;
+    margin: 8px 0 10px;
+    background: #fff;
+  }}
+  .state-box h3, .funding-panel h3 {{
+    margin: 0 0 5px;
+    color: var(--teal-dark);
+    font-size: 10pt;
+  }}
+  .state-grid {{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px 12px;
+    font-size: 8.7pt;
+    line-height: 1.25;
+  }}
+  .funding-grid {{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 6px 0 9px;
+  }}
+  .funding-panel {{
+    border: 1px solid var(--line);
+    padding: 8px 9px;
+    background: #fff;
+  }}
+  .compact-list {{
+    margin: 0;
+    padding-left: 16px;
+    font-size: 8.7pt;
+    line-height: 1.25;
   }}
   .caveat-grid {{
     display: grid;
@@ -4828,11 +4950,12 @@ def build_maracoos_congressional_briefing_html(
     <span>{brief_escape(date_label)}</span>
   </div>
 
+  <div class="placeholder-note">{brief_escape(PLACEHOLDER_BRIEF_NOTICE)}</div>
+  <div class="top-statement">Draft top statement: {brief_escape(MARACOOS_TOP_STATEMENT)}</div>
+
   <div class="metric-strip">
 {metric_strip}
   </div>
-
-  <div class="bottom-line">Bottom line: MARACOOS gives staff a concrete Mid-Atlantic example of IOOS regional infrastructure turning ocean observations into safety, navigation, coastal hazard, and water-quality decision support.</div>
 
   <h2 class="section">What IOOS Is</h2>
   <div class="two-col map-row">
@@ -4843,6 +4966,13 @@ def build_maracoos_congressional_briefing_html(
     <div class="visual-card">
       <img src="{maracoos_map_uri}" alt="MARACOOS coverage map">
       <p class="caption">MARACOOS coverage map, used here to localize the IOOS value story for the Mid-Atlantic.</p>
+    </div>
+  </div>
+
+  <div class="state-box">
+    <h3>Why this matters for Mid-Atlantic states - placeholder relevance map</h3>
+    <div class="state-grid">
+{state_relevance}
     </div>
   </div>
 
@@ -4871,7 +5001,26 @@ def build_maracoos_congressional_briefing_html(
 
   <h2 class="section">The Legislative Moment</h2>
   <p>Use MARACOOS as the regional example inside the broader IOOS reauthorization conversation. The national brief makes the overall funding case; this brief shows what the same infrastructure looks like in the Mid-Atlantic evidence rows.</p>
-  <p>The MARACOOS rows currently shown above include {len(maracoos_df):,} evidence rows and {source_count:,} represented sources. Keep row-specific caveats attached when moving from staff briefing language to external distribution.</p>
+  <p>Legislative status, bill numbers, authorization levels, and appropriations language are placeholder slots in this draft and must be verified immediately before external use.</p>
+  <p>This preview is currently wired to {len(maracoos_df):,} MARACOOS rows and {source_count:,} represented source slots. Treat row-specific caveats, counts, source labels, and example language as draft placeholders until reviewed.</p>
+
+  <h2 class="section">What Federal Funding Protects</h2>
+  <p><b>Draft funding-to-outcome connection:</b> {brief_escape(FUNDING_TO_OUTCOME_STATEMENT)}</p>
+  <div class="funding-grid">
+    <div class="funding-panel">
+      <h3>Placeholder: federal funding protects</h3>
+      <ul class="compact-list">
+{funding_protect_items}
+      </ul>
+    </div>
+    <div class="funding-panel">
+      <h3>Placeholder: what is at risk if funding is flat or reduced</h3>
+      <p>{brief_escape(FLAT_OR_REDUCED_FUNDING_RISK)}</p>
+      <ul class="compact-list">
+{funding_risk_items}
+      </ul>
+    </div>
+  </div>
 
   <h2 class="section">Staff Takeaway</h2>
   <p><b>Do not make this complicated:</b> MARACOOS is the Mid-Atlantic version of the IOOS story. Its value is clearest when staff can see specific regional decisions supported by ocean observations, forecasts, web tools, and partner systems.</p>
@@ -4884,14 +5033,14 @@ def build_maracoos_congressional_briefing_html(
 
   <div class="ask-box">
     <div class="label">The Ask</div>
-    Support Senate floor action on S. 2126 &nbsp; | &nbsp; Defend IOOS funding in CJS appropriations at or above current levels &nbsp; | &nbsp; Request a MARACOOS-specific briefing on how IOOS serves Mid-Atlantic coastal, port, fisheries, or emergency management stakeholders.
+    Support floor action on IOOS reauthorization &nbsp; | &nbsp; Defend IOOS funding in CJS appropriations at or above current levels &nbsp; | &nbsp; Request a MARACOOS-specific briefing on how IOOS serves Mid-Atlantic coastal, port, fisheries, or emergency management stakeholders.
   </div>
 
-  <div class="footnote">Source note: The metric strip uses verified use and benefit evidence signals calculated from the MARACOOS rows. MARACOOS-specific evidence examples, caveats, source counts, and regional claims are built only from the MARACOOS rows currently displayed above this briefing preview.</div>
+  <div class="footnote">Source note: Draft placeholder only. The metric strip, examples, caveats, source counts, legislative references, and regional relevance statements are not verification findings and should not be used externally until reviewed against source records.</div>
 
   <div class="footer">
-    <span>IOOS Economic Impact Evidence Matrix | MARACOOS regional brief</span>
-    <span>Sources: {source_count} | Evidence rows: {len(maracoos_df)}</span>
+    <span>IOOS Economic Impact Evidence Matrix | MARACOOS regional placeholder brief</span>
+    <span>Source slots: {source_count} | Row slots: {len(maracoos_df)}</span>
   </div>
 </div>
 </body>
@@ -5134,19 +5283,23 @@ def congressional_brief_metric_cards(evidence_df: pd.DataFrame, benefit_sources_
     return [
         {
             "value": f"{verified_use_count:,}",
-            "label": pluralized_label(verified_use_count, "verified decision use"),
+            "label": pluralized_label(verified_use_count, "placeholder decision-use slot"),
         },
         {
             "value": f"{benefit_count:,}",
-            "label": pluralized_label(benefit_count, "quantified benefit study", "quantified benefit studies"),
+            "label": pluralized_label(
+                benefit_count,
+                "placeholder benefit-study slot",
+                "placeholder benefit-study slots",
+            ),
         },
         {
             "value": safety_value,
-            "label": safety_unit,
+            "label": f"placeholder {safety_unit}",
         },
         {
             "value": ocean_value,
-            "label": "Ocean Enterprise footprint",
+            "label": "placeholder Ocean Enterprise slot",
         },
     ]
 
@@ -5207,25 +5360,38 @@ def build_congressional_briefing_html(
         "Use Ocean Enterprise figures as sector context, not as a claim that IOOS directly caused all revenue or jobs.",
     )
     pillar_items = [
-        ("1. Disaster Response", disaster),
-        ("2. Port Efficiency", ports),
-        ("3. Coastal Communities", communities),
+        (
+            "1. Disaster Response",
+            disaster,
+            "During major storms, IOOS-supported information helps ports and vessel operators make pre-storm decisions.",
+        ),
+        (
+            "2. Port Efficiency",
+            ports,
+            "Real-time water level, current, and air-gap observations support safer navigation in high-value port and shipping corridors.",
+        ),
+        (
+            "3. Coastal Communities",
+            communities,
+            "Regional ocean data improves coastal hazard awareness for emergency managers and communities.",
+        ),
     ]
     item_cards = "\n".join(
         f"""
     <div class="pillar">
       <h3>{brief_escape(title)}</h3>
-      <p>{brief_escape(item['claim'])}</p>
-      <p><b>Evidence:</b> {brief_escape(item['metric'] or "Qualitative IOOS evidence row")}</p>
-      <p><b>Source:</b> {brief_escape(item['source'] or "IOOS evidence matrix")}</p>
+      <p class="action"><b>Placeholder action statement:</b> {brief_escape(action)}</p>
+      <p><b>Placeholder evidence slot:</b> {brief_escape(item['claim'])}</p>
+      <p><b>Placeholder metric slot:</b> {brief_escape(item['metric'] or "Qualitative IOOS evidence row")}</p>
+      <p><b>Placeholder source slot:</b> {brief_escape(item['source'] or "IOOS evidence matrix")}</p>
     </div>"""
-        for title, item in pillar_items
+        for title, item, action in pillar_items
     )
     caveat_cards = "\n".join(
         f"""
     <div class="caveat">
       <h3>{brief_escape(item['title'])}</h3>
-      <p>{brief_escape(item['caveat'] or "Keep row-specific caveats attached before external distribution.")}</p>
+      <p>{brief_escape(item['caveat'] or "Placeholder caveat slot; verify before external distribution.")}</p>
     </div>"""
         for item in [disaster, ports, communities, economy]
     )
@@ -5240,6 +5406,14 @@ def build_congressional_briefing_html(
     hero_image_uri = asset_data_uri(IOOS_HERO_IMAGE_PATH, "image/png")
     ioos_map_uri = asset_data_uri(IOOS_COVERAGE_MAP_PATH, "image/png")
     flow_chart_uri = asset_data_uri(DATA_TO_DECISION_FLOW_PATH, "image/png")
+    funding_protect_items = "\n".join(
+        f"""          <li>{brief_escape(item)}</li>"""
+        for item in FEDERAL_FUNDING_PROTECTS
+    )
+    funding_risk_items = "\n".join(
+        f"""          <li>{brief_escape(item)}</li>"""
+        for item in FEDERAL_FUNDING_RISKS
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -5363,6 +5537,23 @@ def build_congressional_briefing_html(
     font-weight: 700;
     font-size: 11.2pt;
   }}
+  .top-statement {{
+    background: var(--panel);
+    border-left: 5px solid var(--teal);
+    padding: 10px 13px;
+    margin: 8px 0 10px;
+    font-weight: 700;
+    font-size: 11.2pt;
+  }}
+  .placeholder-note {{
+    border: 1px solid var(--gold);
+    background: #FFF8EB;
+    color: #4F3A12;
+    padding: 7px 10px;
+    margin: 6px 0 9px;
+    font-size: 8.9pt;
+    font-weight: 700;
+  }}
   .pillars {{
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -5381,6 +5572,7 @@ def build_congressional_briefing_html(
     font-size: 10.2pt;
   }}
   .pillar p, .caveat p {{ font-size: 9.1pt; margin-bottom: 6px; }}
+  .pillar .action {{ font-weight: 700; }}
   .highlight {{ color: var(--teal-dark); font-weight: 800; }}
   .two-col {{
     display: grid;
@@ -5410,6 +5602,28 @@ def build_congressional_briefing_html(
     font-size: 7.8pt;
     margin: 5px 0 0;
     line-height: 1.2;
+  }}
+  .funding-grid {{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 6px 0 9px;
+  }}
+  .funding-panel {{
+    border: 1px solid var(--line);
+    padding: 8px 9px;
+    background: #fff;
+  }}
+  .funding-panel h3 {{
+    margin: 0 0 5px;
+    color: var(--teal-dark);
+    font-size: 10pt;
+  }}
+  .compact-list {{
+    margin: 0;
+    padding-left: 16px;
+    font-size: 8.7pt;
+    line-height: 1.25;
   }}
   .caveat-grid {{
     display: grid;
@@ -5485,17 +5699,20 @@ def build_congressional_briefing_html(
     <span>{brief_escape(date_label)}</span>
   </div>
 
+  <div class="placeholder-note">{brief_escape(PLACEHOLDER_BRIEF_NOTICE)}</div>
+  <div class="top-statement">Draft top statement: {brief_escape(IOOS_TOP_STATEMENT)}</div>
+
   <div class="metric-strip">
 {metric_strip}
   </div>
 
-  <div class="bottom-line">Bottom line: IOOS is proven national infrastructure. It turns ocean observations into safer ports, better storm decisions, stronger coastal economies, and private-sector growth.</div>
+  <div class="bottom-line">Draft funding-to-outcome connection: {brief_escape(FUNDING_TO_OUTCOME_STATEMENT)}</div>
 
   <h2 class="section">What IOOS Is</h2>
   <div class="two-col map-row">
     <div>
-      <p>IOOS is the United States&rsquo; national network of ocean sensors, buoys, radar systems, satellites, and data platforms that continuously monitors U.S. coastal waters, the Great Lakes, and ocean conditions.</p>
-      <p>Think of it as the <b>interstate highway system for ocean data</b>: a federal investment that enables private-sector activity, operational decisions, and public safety outcomes that would not be possible without shared data infrastructure.</p>
+      <p><b>Draft framing:</b> IOOS can be described as the United States&rsquo; national network of ocean sensors, buoys, radar systems, satellites, and data platforms for coastal, Great Lakes, and ocean information.</p>
+      <p><b>Placeholder analogy:</b> Think of it as the interstate highway system for ocean data: a federal investment that can enable private-sector activity, operational decisions, and public safety outcomes through shared data infrastructure.</p>
     </div>
     <div class="visual-card">
       <img src="{ioos_map_uri}" alt="IOOS regional coverage map">
@@ -5520,20 +5737,38 @@ def build_congressional_briefing_html(
   </div>
 
   <h2 class="section" style="margin-top:0;">The Economy IOOS Enables</h2>
-  <p>IOOS is public data infrastructure for the ocean economy, including commercial shipping, offshore energy, recreational boating, coastal tourism, and seafood.</p>
-  <p>The Ocean Enterprise survey reported <span class="highlight">{brief_escape(ocean_enterprise_metric)}</span>. Use this as sector context, not a claim that IOOS directly caused all revenue or jobs.</p>
+  <p><b>Placeholder economy framing:</b> IOOS can be positioned as public data infrastructure for ocean economy users, including commercial shipping, offshore energy, recreational boating, coastal tourism, and seafood.</p>
+  <p><b>Placeholder sector context slot:</b> <span class="highlight">{brief_escape(ocean_enterprise_metric)}</span>. Do not treat this as verified or as a claim that IOOS directly caused revenue or jobs.</p>
   <div class="flow-visual">
     <img src="{flow_chart_uri}" alt="Data to decision flow chart">
     <p class="caption">Data-to-decision pathway: observations and forecasts become regional products, then operational decisions and economic relevance.</p>
   </div>
 
   <h2 class="section">The Legislative Moment</h2>
-  <p>H.R. 2294 passed the House in March 2026 and companion S. 2126 is pending Senate action. Both bills authorize <b>$280 million over FY2026-2030</b>, or $56 million per year, consistent with current appropriations.</p>
-  <p>This is not a new program. It is routine reauthorization of proven national infrastructure with documented economic and public safety value.</p>
+  <p>Legislative status, bill numbers, authorization levels, and appropriations language are placeholder slots in this draft and must be verified immediately before external use.</p>
+  <p>This section should hold the current reauthorization and appropriations frame after review, but this preview does not certify those facts.</p>
+
+  <h2 class="section">What Federal Funding Protects</h2>
+  <p><b>Draft funding-to-outcome connection:</b> {brief_escape(FUNDING_TO_OUTCOME_STATEMENT)}</p>
+  <div class="funding-grid">
+    <div class="funding-panel">
+      <h3>Placeholder: federal funding protects</h3>
+      <ul class="compact-list">
+{funding_protect_items}
+      </ul>
+    </div>
+    <div class="funding-panel">
+      <h3>Placeholder: what is at risk if funding is flat or reduced</h3>
+      <p>{brief_escape(FLAT_OR_REDUCED_FUNDING_RISK)}</p>
+      <ul class="compact-list">
+{funding_risk_items}
+      </ul>
+    </div>
+  </div>
 
   <h2 class="section">Staff Takeaway</h2>
-  <p><b>Do not make this complicated:</b> IOOS is a modest federal investment that coastal states, ports, emergency managers, scientists, and ocean businesses already rely on. The policy choice is whether to keep that infrastructure stable.</p>
-  <p>This brief mirrors the MARACOOS brief structure, but its evidence examples are drawn from the national IOOS briefing rows in the current matrix.</p>
+  <p><b>Draft takeaway:</b> IOOS can be framed as a modest federal investment serving coastal states, ports, emergency managers, scientists, and ocean businesses. The policy choice can be framed around whether to keep that infrastructure stable.</p>
+  <p>This brief mirrors the MARACOOS brief structure, but its examples are placeholder slots drawn from national IOOS briefing rows in the current matrix.</p>
 
   <h2 class="section">Caveats Staff Should Keep With The Claims</h2>
   <div class="caveat-grid">
@@ -5542,14 +5777,14 @@ def build_congressional_briefing_html(
 
   <div class="ask-box">
     <div class="label">The Ask</div>
-    Support Senate floor action on S. 2126 &nbsp; | &nbsp; Defend IOOS funding in CJS appropriations at or above current levels &nbsp; | &nbsp; Request a district-specific briefing on how IOOS serves coastal, port, fisheries, or emergency management stakeholders.
+    Placeholder ask: Support floor action on IOOS reauthorization &nbsp; | &nbsp; Defend IOOS funding in CJS appropriations at or above current levels &nbsp; | &nbsp; Request a district-specific briefing on how IOOS serves coastal, port, fisheries, or emergency management stakeholders.
   </div>
 
-  <div class="footnote">Source note: Built from the supplied Word brief template plus the current evidence matrix and source registry. Template legislative and non-matrix figures should be source-checked before external distribution.</div>
+  <div class="footnote">Source note: Draft placeholder only. The metric strip, examples, caveats, source counts, legislative references, and national framing statements are not verification findings and should not be used externally until reviewed against source records.</div>
 
   <div class="footer">
-    <span>IOOS Economic Impact Evidence Matrix | template-based congressional brief</span>
-    <span>Sources: {source_count} | Evidence rows: {evidence_count}</span>
+    <span>IOOS Economic Impact Evidence Matrix | national placeholder brief</span>
+    <span>Source slots: {source_count} | Row slots: {evidence_count}</span>
   </div>
 </div>
 </body>
@@ -5720,6 +5955,13 @@ def build_congressional_briefing_pdf(
             leading=13.5,
             textColor=colors.HexColor("#222222"),
         ),
+        "placeholder_note": ParagraphStyle(
+            "PlaceholderNote",
+            fontName="Helvetica-Bold",
+            fontSize=8.5,
+            leading=10.5,
+            textColor=colors.HexColor("#4F3A12"),
+        ),
         "pillar_heading": ParagraphStyle(
             "PillarHeading",
             fontName="Helvetica-Bold",
@@ -5861,6 +6103,40 @@ def build_congressional_briefing_pdf(
     meta.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
     story.extend([meta, Spacer(1, 7)])
 
+    placeholder_note = Table(
+        [[paragraph(PLACEHOLDER_BRIEF_NOTICE, "placeholder_note")]],
+        colWidths=[content_width],
+    )
+    placeholder_note.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FFF8EB")),
+                ("BOX", (0, 0), (-1, -1), 0.7, gold),
+                ("LEFTPADDING", (0, 0), (-1, -1), 9),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 9),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    top_statement = Table(
+        [[paragraph(f"Draft top statement: {IOOS_TOP_STATEMENT}", "bottom_line")]],
+        colWidths=[content_width],
+    )
+    top_statement.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), panel),
+                ("LINEBEFORE", (0, 0), (0, 0), 5, teal),
+                ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
+    story.extend([placeholder_note, Spacer(1, 6), top_statement, Spacer(1, 7)])
+
     metric_cells = []
     for card in congressional_brief_metric_cards(evidence_df, metric_source_df):
         metric_cells.append(
@@ -5886,7 +6162,7 @@ def build_congressional_briefing_pdf(
     story.extend([metric_table, Spacer(1, 8)])
 
     bottom_line = Table(
-        [[paragraph("Bottom line: IOOS is proven national infrastructure. It turns ocean observations into safer ports, better storm decisions, stronger coastal economies, and private-sector growth.", "bottom_line")]],
+        [[paragraph(f"Draft funding-to-outcome connection: {FUNDING_TO_OUTCOME_STATEMENT}", "bottom_line")]],
         colWidths=[content_width],
     )
     bottom_line.setStyle(
@@ -5904,25 +6180,25 @@ def build_congressional_briefing_pdf(
     story.extend([bottom_line, Spacer(1, 3)])
 
     story.extend(section("What IOOS Is"))
-    story.append(paragraph("IOOS is the United States' national network of ocean sensors, buoys, radar systems, satellites, and data platforms that continuously monitors U.S. coastal waters, the Great Lakes, and ocean conditions.", "body"))
-    story.append(rich_paragraph("Think of it as the <b>interstate highway system for ocean data</b>: a federal investment that enables private-sector activity, operational decisions, and public safety outcomes that would not be possible without shared data infrastructure.", "body"))
+    story.append(paragraph("Draft framing: IOOS can be described as the United States' national network of ocean sensors, buoys, radar systems, satellites, and data platforms for coastal, Great Lakes, and ocean information.", "body"))
+    story.append(rich_paragraph("Placeholder analogy: Think of it as the <b>interstate highway system for ocean data</b>: a federal investment that can enable private-sector activity, operational decisions, and public safety outcomes through shared data infrastructure.", "body"))
 
     story.extend(section("Why It Matters: Three Things Only IOOS Can Do"))
     pillar_cells = [
         [
             rich_paragraph("1. Disaster Response", "pillar_heading"),
-            paragraph("Storm surge kills more Americans than any other hurricane hazard. IOOS real-time coastal data powers forecasts that determine evacuation timing.", "body_small"),
-            rich_paragraph("<b>Template example:</b> During Hurricane Sandy, IOOS data enabled 80 ships to safely evacuate Hampton Roads three days early, avoiding an estimated $28M in potential losses.", "body_small"),
+            rich_paragraph("<b>Placeholder action statement:</b> During major storms, IOOS-supported information helps ports and vessel operators make pre-storm decisions.", "body_small"),
+            rich_paragraph("<b>Placeholder evidence slot:</b> Add reviewed storm, port, or vessel decision example here before external use.", "body_small"),
         ],
         [
             rich_paragraph("2. Port Efficiency", "pillar_heading"),
-            paragraph("IOOS water-level and current data helps port pilots optimize vessel drafts, reduce delays, and minimize costly lightering operations.", "body_small"),
-            rich_paragraph(f"<b>Matrix evidence:</b> Tampa Bay PORTS(R) benefits are {pdf_markup(context['tampa_metric'])}.", "body_small"),
+            rich_paragraph("<b>Placeholder action statement:</b> Real-time water level, current, and air-gap observations support safer navigation in high-value port and shipping corridors.", "body_small"),
+            rich_paragraph(f"<b>Placeholder metric slot:</b> {pdf_markup(context['tampa_metric'])}.", "body_small"),
         ],
         [
             rich_paragraph("3. Coastal Communities", "pillar_heading"),
-            paragraph("IOOS powers HAB early-warning systems, supports fisheries decisions, and feeds search-and-rescue operations on every U.S. coastline.", "body_small"),
-            rich_paragraph(f"<b>Matrix evidence:</b> {pdf_markup(context['hab_forecast_claim'])} {pdf_markup(context['hf_radar_claim'])}", "body_small"),
+            rich_paragraph("<b>Placeholder action statement:</b> Regional ocean data improves coastal hazard awareness for emergency managers and communities.", "body_small"),
+            rich_paragraph(f"<b>Placeholder evidence slot:</b> {pdf_markup(context['hab_forecast_claim'])} {pdf_markup(context['hf_radar_claim'])}", "body_small"),
         ],
     ]
     pillars = Table([pillar_cells], colWidths=[content_width / 3] * 3)
@@ -5944,8 +6220,8 @@ def build_congressional_briefing_pdf(
 
     story.extend(masthead())
     story.extend(section("The Economy IOOS Enables"))
-    story.append(paragraph("IOOS is public data infrastructure for the ocean economy, including commercial shipping, offshore energy, recreational boating, coastal tourism, and seafood.", "body"))
-    story.append(rich_paragraph(f"The Ocean Enterprise survey reported <b><font color='#007785'>{pdf_markup(context['ocean_enterprise_metric'])}</font></b>. Use this as sector context, not a claim that IOOS directly caused all revenue or jobs.", "body"))
+    story.append(paragraph("Placeholder economy framing: IOOS can be positioned as public data infrastructure for ocean economy users, including commercial shipping, offshore energy, recreational boating, coastal tourism, and seafood.", "body"))
+    story.append(rich_paragraph(f"<b>Placeholder sector context slot:</b> <font color='#007785'>{pdf_markup(context['ocean_enterprise_metric'])}</font>. Do not treat this as verified or as a claim that IOOS directly caused revenue or jobs.", "body"))
 
     sector_rows = [
         ["Commercial shipping and port operations", "Offshore energy development"],
@@ -5971,11 +6247,35 @@ def build_congressional_briefing_pdf(
     story.extend([sector_table, Spacer(1, 6)])
 
     story.extend(section("The Legislative Moment"))
-    story.append(rich_paragraph("H.R. 2294 passed the House in March 2026 and companion S. 2126 is pending Senate action. Both bills authorize <b>$280 million over FY2026-2030</b>, or $56 million per year, consistent with current appropriations.", "body"))
-    story.append(paragraph("This is not a new program. It is routine reauthorization of proven national infrastructure with documented economic and public safety value.", "body"))
+    story.append(paragraph("Legislative status, bill numbers, authorization levels, and appropriations language are placeholder slots in this draft and must be verified immediately before external use.", "body"))
+    story.append(paragraph("This section should hold the current reauthorization and appropriations frame after review, but this preview does not certify those facts.", "body"))
+
+    story.extend(section("What Federal Funding Protects"))
+    story.append(rich_paragraph(f"<b>Draft funding-to-outcome connection:</b> {pdf_markup(FUNDING_TO_OUTCOME_STATEMENT)}", "body"))
+    funding_rows = [
+        [
+            rich_paragraph("<b>Placeholder: federal funding protects</b><br/>" + "<br/>".join(f"- {pdf_markup(item)}" for item in FEDERAL_FUNDING_PROTECTS[:4]), "body_small"),
+            rich_paragraph("<b>Placeholder: what is at risk if funding is flat or reduced</b><br/>" + pdf_markup(FLAT_OR_REDUCED_FUNDING_RISK), "body_small"),
+        ]
+    ]
+    funding_table = Table(funding_rows, colWidths=[content_width / 2, content_width / 2])
+    funding_table.setStyle(
+        TableStyle(
+            [
+                ("BOX", (0, 0), (-1, -1), 0.7, line),
+                ("INNERGRID", (0, 0), (-1, -1), 0.7, line),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 7),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    story.extend([funding_table, Spacer(1, 6)])
 
     story.extend(section("Staff Takeaway"))
-    story.append(rich_paragraph("<b>Do not make this complicated:</b> IOOS is a modest federal investment that coastal states, ports, emergency managers, scientists, and ocean businesses already rely on. The policy choice is whether to keep that infrastructure stable.", "body"))
+    story.append(rich_paragraph("<b>Draft takeaway:</b> IOOS can be framed as a modest federal investment serving coastal states, ports, emergency managers, scientists, and ocean businesses. The policy choice can be framed around whether to keep that infrastructure stable.", "body"))
 
     ask_box = Table(
         [
@@ -5983,7 +6283,7 @@ def build_congressional_briefing_pdf(
                 [
                     rich_paragraph("THE ASK", "ask_label"),
                     paragraph(
-                        "Support Senate floor action on S. 2126 | Defend IOOS funding in CJS appropriations at or above current levels | Request a district-specific briefing on how IOOS serves coastal, port, fisheries, or emergency management stakeholders.",
+                        "Placeholder ask: Support floor action on IOOS reauthorization | Defend IOOS funding in CJS appropriations at or above current levels | Request a district-specific briefing on how IOOS serves coastal, port, fisheries, or emergency management stakeholders.",
                         "ask",
                     ),
                 ]
@@ -6003,14 +6303,14 @@ def build_congressional_briefing_pdf(
         )
     )
     story.extend([ask_box, Spacer(1, 10)])
-    story.append(paragraph("Source note: Built from the supplied Word brief template plus the current evidence matrix and source registry. Template legislative and non-matrix figures should be source-checked before external distribution.", "footnote"))
+    story.append(paragraph("Source note: Draft placeholder only. The metric strip, examples, caveats, source counts, legislative references, and national framing statements are not verification findings and should not be used externally until reviewed against source records.", "footnote"))
     story.extend([Spacer(1, 10), HRFlowable(width="100%", thickness=0.7, color=line, spaceBefore=0, spaceAfter=5)])
     footer = Table(
         [
             [
-                paragraph("IOOS Economic Impact Evidence Matrix | template-based congressional brief", "footer"),
+                paragraph("IOOS Economic Impact Evidence Matrix | national placeholder brief", "footer"),
                 Paragraph(
-                    pdf_markup(f"Sources: {context['source_count']} | Evidence rows: {context['evidence_count']}"),
+                    pdf_markup(f"Source slots: {context['source_count']} | Row slots: {context['evidence_count']}"),
                     styles["footer"].clone("FooterRight", alignment=TA_RIGHT),
                 ),
             ]
