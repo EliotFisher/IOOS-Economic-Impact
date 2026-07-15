@@ -980,6 +980,37 @@ def apply_hub_styles() -> None:
                 color: var(--ioos-ink);
             }}
 
+            div[data-testid="stCaptionContainer"],
+            div[data-testid="stCaptionContainer"] p {{
+                color: var(--ioos-muted) !important;
+            }}
+
+            div[data-testid="stTextArea"] label,
+            div[data-testid="stNumberInput"] label,
+            div[data-testid="stFileUploader"] label,
+            div[data-testid="stSelectbox"] label,
+            div[data-testid="stExpander"] summary,
+            div[data-testid="stExpander"] summary p,
+            div[data-testid="stExpander"] p,
+            div[data-testid="stExpander"] li {{
+                color: var(--ioos-ink) !important;
+            }}
+
+            div[data-testid="stTextArea"] textarea,
+            div[data-testid="stTextInput"] input,
+            div[data-testid="stNumberInput"] input {{
+                background: #ffffff !important;
+                border-color: var(--ioos-line) !important;
+                color: var(--ioos-ink) !important;
+                caret-color: var(--ioos-blue);
+            }}
+
+            div[data-testid="stTextArea"] textarea::placeholder,
+            div[data-testid="stTextInput"] input::placeholder {{
+                color: #6d8189 !important;
+                opacity: 1;
+            }}
+
             div[data-testid="stMetric"] {{
                 background: #ffffff;
                 border: 1px solid var(--ioos-line);
