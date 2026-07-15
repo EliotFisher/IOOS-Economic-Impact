@@ -490,7 +490,7 @@ APP_ROLES = {
 APP_NAVIGATION = [
     "Overview",
     "Dashboard",
-    "Evidence Atlas",
+    "Financial Evidence",
     "Evidence Database",
     "Briefs & Outputs",
     "Best Sources",
@@ -4101,6 +4101,154 @@ def atlas_level_cards_html(atlas_df: pd.DataFrame) -> str:
     return f'<div class="atlas-level-grid">{"".join(cards)}</div>'
 
 
+def atlas_rows_for_level(atlas_df: pd.DataFrame, level_key: str) -> pd.DataFrame:
+    """Return rows tagged to one financial evidence level."""
+    return atlas_filtered_by_levels(atlas_df, [level_key])
+
+
+def atlas_category_summary(
+    df: pd.DataFrame,
+    column: str,
+    split_values: bool = False,
+    limit: int = 10,
+) -> pd.DataFrame:
+    """Build count/share data for a financial evidence chart."""
+    if df.empty or column not in df.columns:
+        return pd.DataFrame(columns=["Category", "Rows", "Share"])
+
+    values: list[str] = []
+    for value in df[column]:
+        if split_values:
+            parts = split_semicolon_values(value)
+            values.extend(parts or ["Blank"])
+        else:
+            values.append(normalize_text(value) or "Blank")
+
+    if not values:
+        return pd.DataFrame(columns=["Category", "Rows", "Share"])
+
+    counts = pd.Series(values, dtype="object").value_counts().head(limit).reset_index()
+    counts.columns = ["Category", "Rows"]
+    total = len(values)
+    counts["Share"] = (counts["Rows"] / total * 100) if total else 0
+    return counts
+
+
+def atlas_unique_count(df: pd.DataFrame, column: str, split_values: bool = False) -> int:
+    if df.empty or column not in df.columns:
+        return 0
+    if split_values:
+        values = {
+            part
+            for value in df[column]
+            for part in split_semicolon_values(value)
+            if normalize_text(part)
+        }
+        return len(values)
+    return int(df[column].map(normalize_text).replace("", pd.NA).dropna().nunique())
+
+
+def render_atlas_breakdown_chart(
+    df: pd.DataFrame,
+    column: str,
+    title: str,
+    split_values: bool = False,
+) -> None:
+    st.markdown(f"**{title}**")
+    summary = atlas_category_summary(df, column, split_values=split_values)
+    if summary.empty:
+        st.info("No data available for this chart.")
+        return
+
+    st.bar_chart(summary.set_index("Category"), y="Rows")
+    st.dataframe(
+        summary,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Category": st.column_config.TextColumn(width="large"),
+            "Rows": st.column_config.NumberColumn(width="small"),
+            "Share": st.column_config.ProgressColumn(
+                "Share",
+                format="%.0f%%",
+                min_value=0,
+                max_value=100,
+                width="medium",
+            ),
+        },
+    )
+
+
+def render_financial_evidence_level_tab(atlas_df: pd.DataFrame, level: dict[str, str]) -> None:
+    level_df = atlas_rows_for_level(atlas_df, level["key"])
+    st.markdown(
+        f"""
+        <div class="atlas-method-card">
+            <span class="hub-chip neutral">{hub_escape(level["label"])}</span>
+            <b>{hub_escape(level["title"])}</b>
+            <p>{hub_escape(level["definition"])}</p>
+            <div class="atlas-rule">{hub_escape(level["safe_use"])}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if level_df.empty:
+        st.info("No financial evidence rows are tagged to this level yet.")
+        return
+
+    metric_cols = st.columns(4)
+    metric_cols[0].metric("Rows", f"{len(level_df):,}")
+    metric_cols[1].metric("Sectors", f"{atlas_unique_count(level_df, 'impact_domain'):,}")
+    metric_cols[2].metric("IOOS regions", f"{atlas_unique_count(level_df, 'ioos_region_code', split_values=True):,}")
+    metric_cols[3].metric("Sources", f"{atlas_unique_count(level_df, 'source_id'):,}")
+
+    chart_left, chart_right = st.columns(2)
+    with chart_left:
+        render_atlas_breakdown_chart(level_df, "impact_domain", "Rows by sector")
+        render_atlas_breakdown_chart(level_df, "evidence_strength", "Rows by evidence strength")
+        render_atlas_breakdown_chart(level_df, "atlas_claim_boundary", "Rows by claim boundary")
+    with chart_right:
+        render_atlas_breakdown_chart(level_df, "ioos_region_code", "Rows by IOOS region", split_values=True)
+        render_atlas_breakdown_chart(level_df, "economic_number_type", "Rows by economic number type")
+        render_atlas_breakdown_chart(level_df, "ioos_attribution_strength", "Rows by IOOS attribution")
+
+    st.subheader("Rows Behind This Level")
+    display_columns = [
+        "row_id",
+        "impact_domain",
+        "ioos_region_code",
+        "evidence_strength",
+        "ioos_attribution_strength",
+        "economic_number_type",
+        "atlas_claim_boundary",
+        "metric",
+        "claim_allowed",
+        "source_name",
+        "source_url",
+        "limitations",
+    ]
+    st.dataframe(
+        level_df[[column for column in display_columns if column in level_df.columns]],
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "atlas_claim_boundary": st.column_config.TextColumn("Claim boundary", width="medium"),
+            "metric": st.column_config.TextColumn(width="large"),
+            "claim_allowed": st.column_config.TextColumn("Claim allowed", width="large"),
+            "source_url": st.column_config.LinkColumn("Source URL"),
+            "limitations": st.column_config.TextColumn(width="large"),
+        },
+    )
+    st.download_button(
+        f"Download {level['label']} CSV",
+        level_df.to_csv(index=False).encode("utf-8"),
+        file_name=f"ioos_financial_evidence_{level['key']}.csv",
+        mime="text/csv",
+        key=f"download_{level['key']}_financial_evidence_csv",
+    )
+
+
 def atlas_filtered_by_levels(atlas_df: pd.DataFrame, selected_keys: list[str]) -> pd.DataFrame:
     if not selected_keys or atlas_df.empty or "atlas_level_keys" not in atlas_df.columns:
         return atlas_df
@@ -6900,9 +7048,9 @@ def page_evidence_atlas(
     st.markdown(
         """
         <div class="hub-page-title">
-            <div class="hub-kicker">Evidence Atlas</div>
-            <h1>Economic Evidence Atlas</h1>
-            <p>Classify published IOOS value evidence by confidence, pathway, sector, geography, and claim-use boundary without turning context into a national total.</p>
+            <div class="hub-kicker">Financial Evidence</div>
+            <h1>Financial Evidence</h1>
+            <p>Chart published IOOS value evidence by level, sector, geography, confidence, and claim-use boundary without turning context into a national total.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -6927,36 +7075,21 @@ def page_evidence_atlas(
         "Atlas levels are evidence tags, not additive totals. A row can appear in more than one level when, for example, a published dollar estimate is also an avoided-loss case."
     )
 
-    levels_tab, explorer_tab, sources_tab, method_tab = st.tabs(
-        ["Evidence Levels", "Atlas Explorer", "Source Shelf", "Methodology"]
+    level_tabs = st.tabs(
+        [level["label"] for level in EVIDENCE_ATLAS_LEVELS]
+        + ["Explorer", "Source Shelf", "Methodology"]
     )
 
-    with levels_tab:
-        st.markdown(atlas_level_cards_html(atlas_df), unsafe_allow_html=True)
-        st.subheader("Level Coverage")
-        st.dataframe(
-            level_counts,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Rows": st.column_config.NumberColumn(format="%d", width="small"),
-                "Share of rows": st.column_config.ProgressColumn(
-                    "Share of rows",
-                    format="%.0f%%",
-                    min_value=0,
-                    max_value=100,
-                    width="medium",
-                ),
-                "Safe use": st.column_config.TextColumn(width="large"),
-            },
-        )
+    for tab, level in zip(level_tabs[: len(EVIDENCE_ATLAS_LEVELS)], EVIDENCE_ATLAS_LEVELS):
+        with tab:
+            render_financial_evidence_level_tab(atlas_df, level)
 
-    with explorer_tab:
+    with level_tabs[-3]:
         if atlas_df.empty:
             st.info("No evidence rows are available under the current public display rule.")
         else:
             search_text = st.text_input(
-                "Search atlas evidence",
+                "Search financial evidence",
                 placeholder="Try avoided loss, fuel, port, fisheries, cargo, storm, SAROPS...",
                 key="atlas_search",
             )
@@ -6967,7 +7100,7 @@ def page_evidence_atlas(
                 atlas_level_label(level["key"]): level["key"]
                 for level in EVIDENCE_ATLAS_LEVELS
             }
-            selected_level_labels = filter_cols[0].multiselect("Atlas level", list(level_options))
+            selected_level_labels = filter_cols[0].multiselect("Financial evidence level", list(level_options))
             selected_level_keys = [level_options[label] for label in selected_level_labels]
             selected_domains = filter_cols[1].multiselect(
                 "Sector",
@@ -6990,9 +7123,9 @@ def page_evidence_atlas(
             if selected_number_types and "economic_number_type" in filtered.columns:
                 filtered = filtered[filtered["economic_number_type"].isin(selected_number_types)]
 
-            st.caption(f"Showing {len(filtered):,} of {len(atlas_df):,} atlas evidence rows")
+            st.caption(f"Showing {len(filtered):,} of {len(atlas_df):,} financial evidence rows")
             if filtered.empty:
-                st.info("No rows match the current atlas filters.")
+                st.info("No rows match the current financial evidence filters.")
             else:
                 display_columns = [
                     "row_id",
@@ -7014,7 +7147,7 @@ def page_evidence_atlas(
                     use_container_width=True,
                     hide_index=True,
                     column_config={
-                        "atlas_levels": st.column_config.TextColumn("Atlas levels", width="large"),
+                        "atlas_levels": st.column_config.TextColumn("Financial evidence levels", width="large"),
                         "atlas_claim_boundary": st.column_config.TextColumn("Claim boundary", width="medium"),
                         "metric": st.column_config.TextColumn(width="large"),
                         "claim_allowed": st.column_config.TextColumn("Claim allowed", width="large"),
@@ -7023,13 +7156,13 @@ def page_evidence_atlas(
                     },
                 )
                 st.download_button(
-                    "Download atlas CSV",
+                    "Download financial evidence CSV",
                     filtered.to_csv(index=False).encode("utf-8"),
-                    file_name="ioos_economic_evidence_atlas.csv",
+                    file_name="ioos_financial_evidence.csv",
                     mime="text/csv",
                 )
 
-    with sources_tab:
+    with level_tabs[-2]:
         if best_sources_df.empty:
             st.info("No best-source records are available under the current public display rule.")
         else:
@@ -7059,14 +7192,32 @@ def page_evidence_atlas(
                 hide_index=True,
                 column_config={
                     "source_url": st.column_config.LinkColumn("Source URL"),
-                    "atlas_use": st.column_config.TextColumn("Atlas use", width="medium"),
+                    "atlas_use": st.column_config.TextColumn("Evidence use", width="medium"),
                     "key_metrics": st.column_config.TextColumn(width="large"),
                     "recommended_claim_language": st.column_config.TextColumn(width="large"),
                     "caveats": st.column_config.TextColumn(width="large"),
                 },
             )
 
-    with method_tab:
+    with level_tabs[-1]:
+        st.markdown(atlas_level_cards_html(atlas_df), unsafe_allow_html=True)
+        st.subheader("Level Coverage")
+        st.dataframe(
+            level_counts,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Rows": st.column_config.NumberColumn(format="%d", width="small"),
+                "Share of rows": st.column_config.ProgressColumn(
+                    "Share of rows",
+                    format="%.0f%%",
+                    min_value=0,
+                    max_value=100,
+                    width="medium",
+                ),
+                "Safe use": st.column_config.TextColumn(width="large"),
+            },
+        )
         st.markdown(
             """
             <div class="atlas-method-grid">
@@ -9069,7 +9220,7 @@ def main() -> None:
         page_about_data(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
     elif page == "Dashboard":
         page_dashboard_summary(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
-    elif page == "Evidence Atlas":
+    elif page == "Financial Evidence":
         page_evidence_atlas(public_evidence_df, public_source_df, public_review_df, public_best_sources_df)
     elif page == "Evidence Database":
         page_evidence_matrix(public_evidence_df, public_source_df, public_review_df)
