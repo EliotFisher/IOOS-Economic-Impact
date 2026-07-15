@@ -2059,7 +2059,7 @@ def research_prompt(topic: str) -> str:
     topic_text = topic.strip() or "[INSERT TOPIC]"
     return f"""You are generating candidate evidence rows for the IOOS Economic Evidence App.
 
-Return only CSV rows using this exact schema:
+Produce an actual .csv file as the output, not just comma-separated value text pasted into the chat. The .csv file must include this exact header row as the first line:
 
 {intake_schema_csv_header()}
 
@@ -2081,7 +2081,7 @@ Rules:
 - Use conservative claim language in Claim allowed.
 - Quote every CSV field that contains a comma, quote, or line break.
 - Include limitations for every row.
-- Return CSV only."""
+- Return the .csv file only; do not include Markdown, commentary, or a pasted CSV transcript outside the file."""
 
 
 def source_prompt(source_text: str) -> str:
@@ -2134,7 +2134,7 @@ Research focus:
 Links:
 {link_text}
 
-Return CSV only. Do not wrap the CSV in Markdown. Include this exact header row as the first line:
+Produce an actual .csv file as the output, not just comma-separated value text pasted into the chat. The .csv file must include this exact header row as the first line:
 
 {intake_schema_csv_header()}
 
@@ -2158,7 +2158,7 @@ Rules:
 - Quote every CSV field that contains a comma, quote, or line break.
 - Every row must include Source, Source URL, IOOS region code, Claim allowed, Limitations, Evidence strength, and IOOS attribution strength.
 - Before returning, check that every row has exactly the same number of columns as the header.
-- Return CSV only."""
+- Return the .csv file only; do not include Markdown, commentary, or a pasted CSV transcript outside the file."""
 
 
 def regional_target_label(row: pd.Series) -> str:
@@ -2263,7 +2263,7 @@ Priority source targets, in order:
 Optional source leads from the operator:
 {source_text}
 
-Return CSV only. Include this exact header row as the first line:
+Produce an actual .csv file as the output, not just comma-separated value text pasted into the chat. The .csv file must include this exact header row as the first line:
 
 {intake_schema_csv_header()}
 
@@ -2303,7 +2303,7 @@ Rules:
 - Quote every CSV field that contains a comma, quote, or line break.
 - Every row must include Source, Source URL, IOOS region code, Claim allowed, Limitations, Evidence strength, and IOOS attribution strength.
 - Before returning, check that every row has exactly the same number of columns as the header.
-- Return CSV only."""
+- Return the .csv file only; do not include Markdown, commentary, or a pasted CSV transcript outside the file."""
 
 
 def format_evidence_row_id(number: int) -> str:
