@@ -444,7 +444,7 @@ PROJECT_GOVERNANCE_RULES = [
         "Rule": "Every official evidence row must point to an authoritative source_id with a working source URL.",
     },
     {
-        "Area": "Review queue",
+        "Area": "Reviewer follow-up",
         "Rule": "Validation warnings and errors are treated as operator tasks before report-ready use.",
     },
     {
@@ -5843,39 +5843,6 @@ def page_project_roadmap(
         )
 
 
-def dashboard_queue_table(
-    evidence_df: pd.DataFrame,
-    review_df: pd.DataFrame,
-    staged_df: pd.DataFrame,
-    best_sources_df: pd.DataFrame,
-) -> pd.DataFrame:
-    status_counts = evidence_df["dashboard_status"].value_counts() if "dashboard_status" in evidence_df else {}
-    return pd.DataFrame(
-        [
-            {
-                "Queue": "Rows needing follow-up",
-                "Count": int(status_counts.get("needs-follow-up", 0)),
-                "Next move": "Resolve source verification, attribution, limitations, or risky claim language.",
-            },
-            {
-                "Queue": "Staged candidate rows",
-                "Count": len(staged_df),
-                "Next move": "Review source support before promotion into the official matrix.",
-            },
-            {
-                "Queue": "Validation items",
-                "Count": len(review_df),
-                "Next move": "Run validation after edits and clear errors before report use.",
-            },
-            {
-                "Queue": "Briefing source shortlist",
-                "Count": len(best_sources_df),
-                "Next move": "Verify page-level citation details for final materials.",
-            },
-        ]
-    )
-
-
 def coverage_matrix(evidence_df: pd.DataFrame) -> pd.DataFrame:
     required = {"impact_domain", "ioos_region_code"}
     if evidence_df.empty or not required.issubset(evidence_df.columns):
@@ -6057,33 +6024,11 @@ def page_dashboard_summary(
     st.subheader("Review Pipeline Status")
     render_pipeline_cards(evidence_dashboard_df, review_df, staged_df)
 
-    focus_col, map_col = st.columns([1.1, 0.9], gap="large")
-    with focus_col:
-        st.subheader("Work Queue")
-        st.dataframe(
-            dashboard_queue_table(evidence_dashboard_df, review_df, staged_df, best_sources_df),
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Count": st.column_config.NumberColumn(format="%d", width="small"),
-                "Next move": st.column_config.TextColumn(width="large"),
-            },
-        )
-        st.markdown(
-            """
-            <div class="hub-callout">
-                Treat the dashboard as the morning standup for the evidence base: what changed, what is trusted, and what needs a reviewer.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    if MARACOOS_COVERAGE_MAP_PATH.exists():
+        st.image(str(MARACOOS_COVERAGE_MAP_PATH), caption="MARACOOS regional pilot coverage", use_container_width=True)
 
-    with map_col:
-        if MARACOOS_COVERAGE_MAP_PATH.exists():
-            st.image(str(MARACOOS_COVERAGE_MAP_PATH), caption="MARACOOS regional pilot coverage", use_container_width=True)
-
-    overview_tab, coverage_tab, freshness_tab, review_tab = st.tabs(
-        ["Health Check", "Coverage Matrix", "Freshness", "Review Queue"]
+    overview_tab, coverage_tab, freshness_tab = st.tabs(
+        ["Health Check", "Coverage Matrix", "Freshness"]
     )
     with overview_tab:
         top_left, top_right = st.columns([1.15, 1])
@@ -6102,10 +6047,6 @@ def page_dashboard_summary(
             render_source_type_breakdown(source_df)
     with freshness_tab:
         render_freshness_indicators(evidence_dashboard_df)
-    with review_tab:
-        render_review_workload(review_df)
-        render_best_candidates(evidence_dashboard_df)
-        render_follow_up_rows(evidence_dashboard_df)
 
 
 def render_record_detail(
@@ -7429,100 +7370,6 @@ def render_intake_upload() -> None:
     st.caption("Open Staged Evidence in the sidebar to review, edit, and accept verified rows.")
 
 
-def review_queue_card_html(
-    title: str,
-    status: str,
-    body: str,
-    machine_drafted: bool = False,
-) -> str:
-    machine_label = '<span class="ai-label">Machine-drafted</span>' if machine_drafted else ""
-    return f"""
-    <div class="review-card">
-        {machine_label}
-        {status_pill_html(status)}
-        <b style="margin-top:0.55rem;">{hub_escape(title)}</b>
-        <span>{hub_escape(body)}</span>
-    </div>
-    """
-
-
-def render_review_queue_board(
-    evidence_df: pd.DataFrame,
-    review_df: pd.DataFrame,
-    staged_df: pd.DataFrame,
-) -> None:
-    st.subheader("Review Queue")
-    staged_normalized = normalize_intake_df(staged_df) if not staged_df.empty else staged_df
-    evidence_dashboard_df = add_dashboard_fields(evidence_df, review_df)
-    verified = (
-        evidence_dashboard_df[evidence_dashboard_df["dashboard_status"] == "report-ready"]
-        if "dashboard_status" in evidence_dashboard_df.columns
-        else pd.DataFrame()
-    )
-
-    staged_cards = []
-    if staged_normalized.empty:
-        staged_cards.append(review_queue_card_html("No staged rows", "staged", "Add evidence or run an extraction to populate this lane.", True))
-    else:
-        for _, row in staged_normalized.head(3).iterrows():
-            staged_cards.append(
-                review_queue_card_html(
-                    row_field(row, "row_id", "Candidate row"),
-                    "staged",
-                    truncate_text(row_field(row, "Claim allowed", row_field(row, "Metric")), 120),
-                    True,
-                )
-            )
-
-    review_cards = []
-    if review_df.empty:
-        review_cards.append(review_queue_card_html("No validation warnings", "in-review", "The validation queue is currently clear."))
-    else:
-        grouped = review_df.groupby("row_id", dropna=False).head(1)
-        for _, row in grouped.head(3).iterrows():
-            review_cards.append(
-                review_queue_card_html(
-                    row_field(row, "row_id", "Unassigned row"),
-                    "in-review",
-                    truncate_text(row_field(row, "message", row_field(row, "check")), 120),
-                )
-            )
-
-    verified_cards = []
-    if verified.empty:
-        verified_cards.append(review_queue_card_html("No ready rows", "verified", "Rows appear here after evidence and attribution checks clear."))
-    else:
-        for _, row in verified.head(3).iterrows():
-            verified_cards.append(
-                review_queue_card_html(
-                    row_field(row, "row_id", "Verified row"),
-                    "verified",
-                    truncate_text(row_field(row, "claim_allowed", row_field(row, "metric")), 120),
-                )
-            )
-
-    rejected_cards = [
-        review_queue_card_html(
-            "Rejected lane",
-            "rejected",
-            "Rejected or retired candidates stay out of the official evidence database.",
-        )
-    ]
-
-    lanes = [
-        ("Staged", staged_cards),
-        ("In Review", review_cards),
-        ("Verified", verified_cards),
-        ("Rejected", rejected_cards),
-    ]
-    columns = st.columns(4)
-    for column, (lane_title, cards) in zip(columns, lanes):
-        with column:
-            st.markdown(f'<div class="review-lane-title">{hub_escape(lane_title)}</div>', unsafe_allow_html=True)
-            for card in cards:
-                st.markdown(card, unsafe_allow_html=True)
-
-
 def render_ai_staging_comparison(staged_df: pd.DataFrame, review_df: pd.DataFrame) -> None:
     st.subheader("AI Staging Comparison")
     if staged_df.empty:
@@ -7914,7 +7761,7 @@ def page_staged_evidence(staged_df: pd.DataFrame, evidence_df: pd.DataFrame, sou
         st.info("No staged evidence file exists yet. Use Evidence Intake to stage candidate rows.")
         return
     if staged_df.empty:
-        st.success("No staged rows - add evidence or run an extraction to populate the review queue.")
+        st.success("No staged rows - add evidence or run an extraction to populate source review.")
         return
 
     staged_df = normalize_intake_df(staged_df)
@@ -8071,7 +7918,6 @@ def page_review_admin(
     render_claim_source_review(staged_df, best_sources_df)
 
     with st.expander("Advanced admin tools", expanded=False):
-        render_review_queue_board(evidence_df, review_df, staged_df)
         render_ai_staging_comparison(staged_df, review_df)
         st.divider()
 
