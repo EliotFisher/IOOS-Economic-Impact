@@ -44,6 +44,7 @@ ANIMAL_TAGS_IMAGE_PATH = APP_DIR / "Animal atn-tags.jpg"
 
 INTAKE_SCHEMA = [
     "row_id",
+    "Date record created",
     "Impact domain",
     "IOOS component",
     "Region",
@@ -64,8 +65,13 @@ INTAKE_SCHEMA = [
     "AI extraction notes",
 ]
 
+INTAKE_OPTIONAL_COLUMNS = {
+    "Date record created",
+}
+
 INTAKE_TO_EVIDENCE_COLUMNS = {
     "row_id": "row_id",
+    "Date record created": "date_record_created",
     "Impact domain": "impact_domain",
     "IOOS component": "ioos_component",
     "Region": "region",
@@ -87,6 +93,7 @@ INTAKE_TO_EVIDENCE_COLUMNS = {
 
 STAGED_DB_TO_INTAKE_COLUMNS = {
     "row_id": "row_id",
+    "date_record_created": "Date record created",
     "impact_domain": "Impact domain",
     "ioos_component": "IOOS component",
     "region": "Region",
@@ -214,6 +221,7 @@ BRIEFING_ROW_IDS = {
 MARACOOS_CODE = "MARACOOS"
 MARACOOS_SUPABASE_TABLES = ("MARACOOS", "maracoos")
 MARACOOS_COLUMN_ALIASES = {
+    "Date record created": "date_record_created",
     "Impact domain": "impact_domain",
     "IOOS component": "ioos_component",
     "Region": "region",
@@ -235,6 +243,7 @@ MARACOOS_COLUMN_ALIASES = {
 }
 MARACOOS_DISPLAY_COLUMNS = [
     "row_id",
+    "date_record_created",
     "impact_domain",
     "ioos_component",
     "region",
@@ -453,6 +462,7 @@ REVIEW_ADMIN_NAVIGATION = [
 
 EVIDENCE_DATABASE_COLUMNS = [
     "row_id",
+    "date_record_created",
     "impact_domain",
     "ioos_component",
     "region",
@@ -2078,6 +2088,13 @@ def allowed_ioos_region_codes_text() -> str:
     return ", ".join(sorted(ALLOWED_IOOS_REGION_CODES))
 
 
+def record_created_prompt_rule() -> str:
+    return (
+        "Set Date record created to the date you create the CSV in YYYY-MM-DD format; "
+        f"use {date.today().isoformat()} if creating it today."
+    )
+
+
 def split_ioos_region_codes(value: object) -> list[str]:
     return [part.strip() for part in normalize_text(value).split(";") if part.strip()]
 
@@ -2105,6 +2122,7 @@ Rules:
 - Use National for national-scale evidence and Multiple for evidence that spans several known regional associations.
 - If the evidence is qualitative, say so in the Metric field.
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
+- {record_created_prompt_rule()}
 - Put rating explanations in Limitations or AI extraction notes, not in the rating fields.
 - If the source supports economic context but not IOOS-attributable benefit, set IOOS attribution strength to Contextual.
 - If the claim is modeled, set Evidence strength to Modeled.
@@ -2122,7 +2140,7 @@ def source_prompt(source_text: str) -> str:
 Source:
 {source_body}
 
-Return only rows that fit this exact schema:
+Produce an actual .csv file as the output, not just comma-separated value text pasted into the chat. The .csv file must include this exact header row as the first line:
 
 {intake_schema_csv_header()}
 
@@ -2133,13 +2151,14 @@ Rules:
 - IOOS region code must be one or more exact codes separated by semicolons: {allowed_ioos_region_codes_text()}.
 - Use National for national-scale evidence and Multiple for evidence that spans several known regional associations.
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
+- {record_created_prompt_rule()}
 - Put rating explanations in Limitations or AI extraction notes, not in the rating fields.
 - If the source is not IOOS-specific, mark IOOS attribution strength as Contextual.
 - If the source provides economic exposure but not avoided cost or benefit, say that in Limitations.
 - Set Source verification needed to Yes unless the row has been manually checked.
 - Write Claim allowed as a cautious sentence that COL could safely use.
 - Quote every CSV field that contains a comma, quote, or line break.
-- Return CSV only."""
+- Return the .csv file only; do not include Markdown, commentary, or a pasted CSV transcript outside the file."""
 
 
 def claude_batch_prompt(source_links: str, research_focus: str) -> str:
@@ -2179,6 +2198,7 @@ Rules:
 - IOOS region code must be one or more exact codes separated by semicolons: {allowed_ioos_region_codes_text()}.
 - Use National for national-scale evidence and Multiple for evidence that spans several known regional associations.
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
+- {record_created_prompt_rule()}
 - Set Source verification needed to Yes for every row.
 - Put rating explanations, uncertainty, page/table references, and access problems in Limitations or AI extraction notes, not in the rating fields.
 - If the source supports economic context but not IOOS-attributable benefit, set IOOS attribution strength to Contextual.
@@ -2327,6 +2347,7 @@ Rules:
 - If the value is modeled, prospective, scenario-based, or benefit-transfer, set Evidence strength to Modeled.
 - Do not use a homepage, press release, or broad program page when a more specific report, product page, dataset, article, or case study is available.
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
+- {record_created_prompt_rule()}
 - Set Source verification needed to Yes for every row.
 - Include limitations for every row, including source age, geographic limits, method uncertainty, and attribution caveats.
 - Write Claim allowed as a conservative sentence COL could safely use.
@@ -2416,6 +2437,10 @@ def normalize_intake_df(df: pd.DataFrame) -> pd.DataFrame:
         if column not in normalized.columns:
             normalized[column] = ""
     normalized = normalized[INTAKE_SCHEMA].fillna("").astype(str)
+    today_iso = date.today().isoformat()
+    normalized["Date record created"] = normalized["Date record created"].apply(
+        lambda value: normalize_text(value) or today_iso
+    )
     normalized["Source verification needed"] = normalized["Source verification needed"].apply(
         lambda value: normalize_text(value) or "Yes"
     )
@@ -2455,7 +2480,11 @@ def validate_intake_df(df: pd.DataFrame) -> list[str]:
     """Validate AI candidate rows before they can enter staging or the matrix."""
     errors: list[str] = []
     columns = [str(column).strip().lstrip("\ufeff") for column in df.columns]
-    missing_columns = [column for column in INTAKE_SCHEMA if column not in columns]
+    missing_columns = [
+        column
+        for column in INTAKE_SCHEMA
+        if column not in columns and column not in INTAKE_OPTIONAL_COLUMNS
+    ]
     extra_columns = [column for column in columns if column not in INTAKE_SCHEMA]
 
     if missing_columns:
@@ -2471,6 +2500,12 @@ def validate_intake_df(df: pd.DataFrame) -> list[str]:
         for column in INTAKE_REQUIRED_VALUES:
             if not normalize_text(row.get(column)):
                 errors.append(f"{label} missing required value: {column}")
+        created_date = normalize_text(row.get("Date record created"))
+        if created_date:
+            try:
+                date.fromisoformat(created_date)
+            except ValueError:
+                errors.append(f"{label} Date record created must use YYYY-MM-DD format")
         for column in ["Evidence strength", "IOOS attribution strength"]:
             value = normalize_text(row.get(column))
             if value and value not in ALLOWED_RATINGS:
@@ -2957,6 +2992,7 @@ def evidence_display_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     )
     columns = [
         "row_id",
+        "date_record_created",
         "claim",
         "metric",
         "source",
@@ -5418,6 +5454,7 @@ def render_record_detail(
     verification_status = row_field(source_row, "verification_status", row_field(row, "source_verification_status", "Not recorded"))
     provenance_items = [
         f"Official row: {row_id}",
+        f"Date record created: {row_field(row, 'date_record_created', 'Not recorded')}",
         f"Source verification needed: {row_field(row, 'source_verification_needed', 'Not recorded')}",
         f"Update frequency: {row_field(row, 'update_frequency', 'Not recorded')}",
     ]

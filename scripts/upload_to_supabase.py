@@ -25,6 +25,7 @@ DATA_DIR = REPO_ROOT / "data"
 DEFAULT_SUPABASE_URL = "https://spfyejzxqornsfmoansk.supabase.co"
 
 CANDIDATE_COLUMNS = {
+    "Date record created": "date_record_created",
     "Impact domain": "impact_domain",
     "IOOS component": "ioos_component",
     "Region": "region",
