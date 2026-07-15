@@ -6485,17 +6485,6 @@ def page_dashboard_summary(
     staged_df: pd.DataFrame,
     best_sources_df: pd.DataFrame,
 ) -> None:
-    st.markdown(
-        """
-        <div class="hub-hero">
-            <div class="hub-kicker">Living evidence database</div>
-            <h1>Economic impact dashboard</h1>
-            <p>Track what is trusted, what needs review, and where IOOS evidence can support reports, briefings, and regional conversations.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     evidence_dashboard_df = add_dashboard_fields(evidence_df, review_df)
     status_counts = evidence_dashboard_df["dashboard_status"].value_counts() if "dashboard_status" in evidence_dashboard_df else {}
     unique_sources = (
