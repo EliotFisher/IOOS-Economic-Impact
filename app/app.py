@@ -58,7 +58,11 @@ INTAKE_SCHEMA = [
     "Source URL",
     "Evidence strength",
     "IOOS attribution strength",
+    "Economic number type",
+    "IOOS role type",
     "Source verification needed",
+    "Allowed use",
+    "Not allowed use",
     "Limitations",
     "Claim allowed",
     "Update frequency",
@@ -67,6 +71,10 @@ INTAKE_SCHEMA = [
 
 INTAKE_OPTIONAL_COLUMNS = {
     "Date record created",
+    "Economic number type",
+    "IOOS role type",
+    "Allowed use",
+    "Not allowed use",
 }
 
 INTAKE_TO_EVIDENCE_COLUMNS = {
@@ -84,7 +92,11 @@ INTAKE_TO_EVIDENCE_COLUMNS = {
     "Source": "source_id",
     "Evidence strength": "evidence_strength",
     "IOOS attribution strength": "ioos_attribution_strength",
+    "Economic number type": "economic_number_type",
+    "IOOS role type": "ioos_role_type",
     "Source verification needed": "source_verification_needed",
+    "Allowed use": "allowed_use",
+    "Not allowed use": "not_allowed_use",
     "Limitations": "limitations",
     "Claim allowed": "claim_allowed",
     "Update frequency": "update_frequency",
@@ -107,7 +119,11 @@ STAGED_DB_TO_INTAKE_COLUMNS = {
     "source_url": "Source URL",
     "evidence_strength": "Evidence strength",
     "ioos_attribution_strength": "IOOS attribution strength",
+    "economic_number_type": "Economic number type",
+    "ioos_role_type": "IOOS role type",
     "source_verification_needed": "Source verification needed",
+    "allowed_use": "Allowed use",
+    "not_allowed_use": "Not allowed use",
     "limitations": "Limitations",
     "claim_allowed": "Claim allowed",
     "update_frequency": "Update frequency",
@@ -120,9 +136,6 @@ INTAKE_TO_STAGED_DB_COLUMNS = {
 }
 
 PATH_TABLES = {
-    EVIDENCE_PATH: "evidence_matrix",
-    SOURCE_PATH: "source_registry",
-    REVIEW_PATH: "review_needed",
     STAGED_EVIDENCE_PATH: "staged_evidence",
     BEST_SOURCES_PATH: "best_sources",
 }
@@ -190,6 +203,26 @@ ALLOWED_RATING_VALUES = [
 ]
 ALLOWED_RATINGS = set(ALLOWED_RATING_VALUES)
 
+ECONOMIC_NUMBER_TYPE_VALUES = [
+    "Observed dollar benefit",
+    "Modeled dollar estimate",
+    "Dollar exposure/context",
+    "Operational metric only",
+    "No economic number",
+    "Do not use",
+]
+ALLOWED_ECONOMIC_NUMBER_TYPES = set(ECONOMIC_NUMBER_TYPE_VALUES)
+
+IOOS_ROLE_TYPE_VALUES = [
+    "Direct impact source",
+    "Direct decision-support source",
+    "Backend data source",
+    "Partner/infrastructure source",
+    "Context only",
+    "No IOOS attribution",
+]
+ALLOWED_IOOS_ROLE_TYPES = set(IOOS_ROLE_TYPE_VALUES)
+
 IOOS_REGION_OPTIONS = {
     "AOOS": "Alaska",
     "CARICOOS": "Caribbean",
@@ -220,6 +253,7 @@ BRIEFING_ROW_IDS = {
 }
 MARACOOS_CODE = "MARACOOS"
 MARACOOS_SUPABASE_TABLES = ("MARACOOS", "maracoos")
+APP_DISPLAY_SOURCE_VERIFICATION_NEEDED_VALUE = "Yes"
 MARACOOS_COLUMN_ALIASES = {
     "Date record created": "date_record_created",
     "Impact domain": "impact_domain",
@@ -235,7 +269,11 @@ MARACOOS_COLUMN_ALIASES = {
     "Source URL": "source_url",
     "Evidence strength": "evidence_strength",
     "IOOS attribution strength": "ioos_attribution_strength",
+    "Economic number type": "economic_number_type",
+    "IOOS role type": "ioos_role_type",
     "Source verification needed": "source_verification_needed",
+    "Allowed use": "allowed_use",
+    "Not allowed use": "not_allowed_use",
     "Limitations": "limitations",
     "Claim allowed": "claim_allowed",
     "Update frequency": "update_frequency",
@@ -258,7 +296,11 @@ MARACOOS_DISPLAY_COLUMNS = [
     "source_url",
     "evidence_strength",
     "ioos_attribution_strength",
+    "economic_number_type",
+    "ioos_role_type",
     "source_verification_needed",
+    "allowed_use",
+    "not_allowed_use",
     "claim_allowed",
     "limitations",
     "update_frequency",
@@ -282,6 +324,10 @@ REQUIRED_ADD_FIELDS = [
     "limitations",
     "evidence_strength",
     "ioos_attribution_strength",
+    "economic_number_type",
+    "ioos_role_type",
+    "allowed_use",
+    "not_allowed_use",
 ]
 
 REPORT_STATUS_ORDER = [
@@ -460,6 +506,34 @@ REVIEW_ADMIN_NAVIGATION = [
     "Project Roadmap",
 ]
 
+BEST_SOURCE_SCHEMA = [
+    "source_id",
+    "source_name",
+    "source_url",
+    "source_type",
+    "ioos_region_code",
+    "priority_tier",
+    "briefing_role",
+    "impact_domains",
+    "staged_row_ids",
+    "key_metrics",
+    "evidence_profile",
+    "attribution_profile",
+    "recommended_claim_language",
+    "caveats",
+    "source_verification_needed",
+    "status",
+]
+
+REJECTION_REASON_OPTIONS = [
+    "Bad citation",
+    "Link to document does not work",
+    "Wrong metric",
+    "AI hallucination",
+    "Source does not support the claim",
+    "Other",
+]
+
 EVIDENCE_DATABASE_COLUMNS = [
     "row_id",
     "date_record_created",
@@ -475,7 +549,11 @@ EVIDENCE_DATABASE_COLUMNS = [
     "source_verification_status",
     "evidence_strength",
     "ioos_attribution_strength",
+    "economic_number_type",
+    "ioos_role_type",
     "source_verification_needed",
+    "allowed_use",
+    "not_allowed_use",
     "limitations",
 ]
 
@@ -1514,6 +1592,107 @@ def apply_hub_styles() -> None:
                 margin: 0 0 0.55rem;
             }}
 
+            .claim-review-panel {{
+                background: #ffffff;
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
+                box-shadow: var(--ioos-shadow);
+                margin: 0.85rem 0 1rem;
+                padding: 1rem;
+            }}
+
+            .claim-review-topline,
+            .claim-review-main,
+            .claim-review-meta {{
+                display: grid;
+                gap: 0.75rem;
+            }}
+
+            .claim-review-topline {{
+                align-items: center;
+                grid-template-columns: 1fr auto;
+                margin-bottom: 0.75rem;
+            }}
+
+            .claim-review-main {{
+                grid-template-columns: minmax(0, 1fr) minmax(250px, 0.36fr);
+            }}
+
+            .claim-review-panel h2 {{
+                color: var(--ioos-ink);
+                font-size: 1.25rem;
+                line-height: 1.25;
+                margin: 0;
+            }}
+
+            .claim-review-panel p {{
+                color: #354c55;
+                line-height: 1.48;
+                margin: 0.45rem 0 0;
+            }}
+
+            .claim-review-meta {{
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                margin-top: 0.9rem;
+            }}
+
+            .claim-review-meta div,
+            .source-review-box {{
+                background: #f6fbfc;
+                border: 1px solid #cfe1e8;
+                border-radius: 8px;
+                padding: 0.75rem;
+            }}
+
+            .claim-review-meta b,
+            .source-review-box b {{
+                color: var(--ioos-ink);
+                display: block;
+                font-size: 0.74rem;
+                margin-bottom: 0.25rem;
+                text-transform: uppercase;
+            }}
+
+            .source-review-link {{
+                align-items: center;
+                background: #0a5d8f;
+                border-radius: 8px;
+                color: #ffffff !important;
+                display: inline-flex;
+                font-weight: 820;
+                justify-content: center;
+                margin-top: 0.4rem;
+                min-height: 2.55rem;
+                padding: 0.55rem 0.85rem;
+                text-decoration: none !important;
+                width: 100%;
+            }}
+
+            .source-review-link:hover {{
+                background: #084c75;
+            }}
+
+            .source-review-missing {{
+                color: #8f3528;
+                display: block;
+                font-weight: 760;
+                margin-top: 0.4rem;
+            }}
+
+            div[data-testid="stMarkdownContainer"]:has(.claim-review-actions-marker)
+            + div[data-testid="stHorizontalBlock"] div[data-testid="column"]:nth-child(1) button {{
+                background: #1f7a68;
+                border-color: #1f7a68;
+                color: #ffffff;
+            }}
+
+            div[data-testid="stMarkdownContainer"]:has(.claim-review-actions-marker)
+            + div[data-testid="stHorizontalBlock"] div[data-testid="column"]:nth-child(2) button {{
+                background: #b84d3f;
+                border-color: #b84d3f;
+                color: #ffffff;
+            }}
+
             .brief-preview {{
                 box-shadow: none;
                 min-height: 440px;
@@ -1554,7 +1733,9 @@ def apply_hub_styles() -> None:
                 .sector-grid,
                 .cost-grid,
                 .case-grid,
-                .method-grid {{
+                .method-grid,
+                .claim-review-main,
+                .claim-review-meta {{
                     grid-template-columns: 1fr;
                 }}
 
@@ -2073,6 +2254,9 @@ def render_filtered_table(
         file_name=f"{key_prefix}_filtered.csv",
         mime="text/csv",
     )
+    sort_columns = [column for column in ["impact_domain", "row_id"] if column in filtered.columns]
+    if sort_columns:
+        return filtered.sort_values(sort_columns, kind="stable")
     return filtered
 
 
@@ -2082,6 +2266,14 @@ def intake_schema_csv_header() -> str:
 
 def allowed_ratings_text() -> str:
     return ", ".join(ALLOWED_RATING_VALUES)
+
+
+def allowed_economic_number_types_text() -> str:
+    return ", ".join(ECONOMIC_NUMBER_TYPE_VALUES)
+
+
+def allowed_ioos_role_types_text() -> str:
+    return ", ".join(IOOS_ROLE_TYPE_VALUES)
 
 
 def allowed_ioos_region_codes_text() -> str:
@@ -2103,6 +2295,97 @@ def invalid_ioos_region_codes(value: object) -> list[str]:
     return [code for code in split_ioos_region_codes(value) if code not in ALLOWED_IOOS_REGION_CODES]
 
 
+def has_dollar_signal(text: str) -> bool:
+    return bool(re.search(r"\$|\b(?:dollars?|USD|costs?|benefits?|savings?|revenue|GDP|sales)\b", text, re.I))
+
+
+def has_numeric_signal(text: str) -> bool:
+    return bool(re.search(r"\d|%|percent|million|billion", text, re.I))
+
+
+def infer_economic_number_type(row: pd.Series | dict[str, object]) -> str:
+    metric = normalize_text(row.get("Metric", row.get("metric", "")))
+    claim = normalize_text(row.get("Claim allowed", row.get("claim_allowed", "")))
+    limitations = normalize_text(row.get("Limitations", row.get("limitations", "")))
+    evidence = normalize_text(row.get("Evidence strength", row.get("evidence_strength", "")))
+    combined = f"{metric} {claim} {limitations}"
+
+    if re.search(r"\bdo not use\b|unsupported|invalid", combined, re.I):
+        return "Do not use"
+    if has_dollar_signal(metric):
+        if re.search(r"\b(exposure|context|baseline|sector|GDP|jobs|employment|sales|revenue|cargo|tons?)\b", combined, re.I):
+            return "Dollar exposure/context"
+        if evidence == "Modeled" or re.search(r"\b(modeled|scenario|potential|estimate|estimated|counterfactual|benefit transfer|prospective)\b", combined, re.I):
+            return "Modeled dollar estimate"
+        return "Observed dollar benefit"
+    if has_numeric_signal(metric):
+        return "Operational metric only"
+    if re.search(r"\bqualitative|not quantified|no dollar|not monetized\b", combined, re.I):
+        return "Operational metric only"
+    return "No economic number"
+
+
+def infer_ioos_role_type(row: pd.Series | dict[str, object]) -> str:
+    attribution = normalize_text(row.get("IOOS attribution strength", row.get("ioos_attribution_strength", "")))
+    metric = normalize_text(row.get("Metric", row.get("metric", "")))
+    component = normalize_text(row.get("IOOS component", row.get("ioos_component", "")))
+    decision = normalize_text(row.get("Decision supported", row.get("decision_supported", "")))
+    pathway = normalize_text(row.get("Economic pathway", row.get("economic_pathway", "")))
+    claim = normalize_text(row.get("Claim allowed", row.get("claim_allowed", "")))
+    limitations = normalize_text(row.get("Limitations", row.get("limitations", "")))
+    combined = f"{component} {decision} {pathway} {metric} {claim} {limitations}"
+
+    if attribution in {"", "Needs verification"}:
+        return "Partner/infrastructure source"
+    if attribution == "Contextual":
+        return "Context only"
+    if re.search(r"\b(no IOOS|not IOOS|not IOOS-specific|not an IOOS|no direct IOOS)\b", limitations, re.I):
+        return "No IOOS attribution"
+    if re.search(r"\b(backend|data source|data service|portal|ERDDAP|harvested|delivered|assimilated|feeds?|input|surface current|HF radar|Doppio|SAROPS)\b", combined, re.I):
+        return "Backend data source"
+    if infer_economic_number_type(row) in {"Observed dollar benefit", "Modeled dollar estimate"} and attribution == "Strong":
+        return "Direct impact source"
+    if decision:
+        return "Direct decision-support source"
+    return "Partner/infrastructure source"
+
+
+def default_allowed_use(row: pd.Series | dict[str, object]) -> str:
+    economic_type = normalize_text(row.get("Economic number type", row.get("economic_number_type", ""))) or infer_economic_number_type(row)
+    ioos_role = normalize_text(row.get("IOOS role type", row.get("ioos_role_type", ""))) or infer_ioos_role_type(row)
+    if economic_type == "Observed dollar benefit":
+        return "Can support a dollar benefit claim after source verification and caveats."
+    if economic_type == "Modeled dollar estimate":
+        return "Can support a modeled or potential dollar claim with model language."
+    if economic_type == "Dollar exposure/context":
+        return "Can describe the size of an affected sector or asset base; use as context only."
+    if economic_type == "Operational metric only":
+        return "Can support an operational value claim, not a dollar return claim."
+    if ioos_role == "Backend data source":
+        return "Can document the IOOS data pathway behind a user decision or partner tool."
+    if economic_type == "Do not use":
+        return "Do not use in external materials until corrected and reviewed."
+    return "Can document capability, context, or source leads for follow-up."
+
+
+def default_not_allowed_use(row: pd.Series | dict[str, object]) -> str:
+    economic_type = normalize_text(row.get("Economic number type", row.get("economic_number_type", ""))) or infer_economic_number_type(row)
+    ioos_role = normalize_text(row.get("IOOS role type", row.get("ioos_role_type", ""))) or infer_ioos_role_type(row)
+    if economic_type == "Dollar exposure/context":
+        return "Do not present the dollar figure as an IOOS-caused benefit or ROI."
+    if economic_type == "Operational metric only":
+        return "Do not convert the operational metric into dollars without a separate valuation method."
+    if ioos_role == "Backend data source":
+        return "Do not claim direct economic return from IOOS data alone."
+    if economic_type == "Modeled dollar estimate":
+        return "Do not present modeled or potential values as observed realized benefits."
+    if economic_type == "No economic number":
+        return "Do not use as evidence of economic return."
+    if economic_type == "Do not use":
+        return "Do not cite until reviewed."
+    return "Do not overstate attribution beyond what the source directly supports."
+
+
 def research_prompt(topic: str) -> str:
     topic_text = topic.strip() or "[INSERT TOPIC]"
     return f"""You are generating candidate evidence rows for the IOOS Economic Evidence App.
@@ -2122,10 +2405,16 @@ Rules:
 - Use National for national-scale evidence and Multiple for evidence that spans several known regional associations.
 - If the evidence is qualitative, say so in the Metric field.
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
+- Economic number type must be exactly one of: {allowed_economic_number_types_text()}.
+- IOOS role type must be exactly one of: {allowed_ioos_role_types_text()}.
 - {record_created_prompt_rule()}
 - Put rating explanations in Limitations or AI extraction notes, not in the rating fields.
 - If the source supports economic context but not IOOS-attributable benefit, set IOOS attribution strength to Contextual.
 - If the claim is modeled, set Evidence strength to Modeled.
+- Use Economic number type = Dollar exposure/context when dollars describe sector size, GDP, jobs, cargo value, asset value, or market exposure rather than IOOS benefit.
+- Use Economic number type = Operational metric only when the source documents performance, use, search-area reduction, forecast cadence, or decisions but no dollar return.
+- Use IOOS role type = Backend data source when IOOS data feeds, supports, or is assimilated into another tool or partner decision process but the source does not support an IOOS return estimate.
+- In Allowed use and Not allowed use, explain exactly what the row can and cannot support in a report.
 - If the source has not been manually checked, set Source verification needed to Yes.
 - Use conservative claim language in Claim allowed.
 - Quote every CSV field that contains a comma, quote, or line break.
@@ -2151,10 +2440,16 @@ Rules:
 - IOOS region code must be one or more exact codes separated by semicolons: {allowed_ioos_region_codes_text()}.
 - Use National for national-scale evidence and Multiple for evidence that spans several known regional associations.
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
+- Economic number type must be exactly one of: {allowed_economic_number_types_text()}.
+- IOOS role type must be exactly one of: {allowed_ioos_role_types_text()}.
 - {record_created_prompt_rule()}
 - Put rating explanations in Limitations or AI extraction notes, not in the rating fields.
 - If the source is not IOOS-specific, mark IOOS attribution strength as Contextual.
 - If the source provides economic exposure but not avoided cost or benefit, say that in Limitations.
+- Use Economic number type = Dollar exposure/context for sector size or affected economic activity that should not be framed as IOOS ROI.
+- Use Economic number type = Operational metric only for performance/use metrics such as search-area reduction, forecast skill, request volume, or delivery cadence.
+- Use IOOS role type = Backend data source when IOOS data is a supporting data feed rather than the monetized object of analysis.
+- In Allowed use and Not allowed use, explicitly state whether the row can support a dollar claim, an operational value claim, an attribution chain, or context only.
 - Set Source verification needed to Yes unless the row has been manually checked.
 - Write Claim allowed as a cautious sentence that COL could safely use.
 - Quote every CSV field that contains a comma, quote, or line break.
@@ -2198,12 +2493,20 @@ Rules:
 - IOOS region code must be one or more exact codes separated by semicolons: {allowed_ioos_region_codes_text()}.
 - Use National for national-scale evidence and Multiple for evidence that spans several known regional associations.
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
+- Economic number type must be exactly one of: {allowed_economic_number_types_text()}.
+- IOOS role type must be exactly one of: {allowed_ioos_role_types_text()}.
 - {record_created_prompt_rule()}
 - Set Source verification needed to Yes for every row.
 - Put rating explanations, uncertainty, page/table references, and access problems in Limitations or AI extraction notes, not in the rating fields.
 - If the source supports economic context but not IOOS-attributable benefit, set IOOS attribution strength to Contextual.
 - If the claim is based on a model, scenario, benefit-transfer method, or estimate rather than observed outcomes, set Evidence strength to Modeled unless the source clearly justifies a stronger rating.
 - If the source provides exposure, activity, or use statistics but not avoided cost or benefit, say that in Limitations.
+- Set Economic number type to Observed dollar benefit only when the source directly supports realized dollar benefits, avoided costs, savings, or revenue effects.
+- Set Economic number type to Modeled dollar estimate for scenario, benefit-transfer, forecast-value, potential, or modeled dollar estimates.
+- Set Economic number type to Dollar exposure/context when the source sizes an affected sector but does not estimate IOOS benefits.
+- Set Economic number type to Operational metric only when the source has a quantitative operational metric but no dollar estimate.
+- Set IOOS role type to Backend data source when IOOS data is a data feed, model input, portal service, or infrastructure component behind another decision tool.
+- Fill Allowed use and Not allowed use with report-writing guardrails, especially whether the row can support a hard-dollar claim or only an attribution/context claim.
 - Write Claim allowed as a cautious sentence that COL could safely use.
 - Include limitations for every row.
 - Quote every CSV field that contains a comma, quote, or line break.
@@ -2345,9 +2648,17 @@ Rules:
 - If the source is about regional economic exposure but not {association} or IOOS decision support, set IOOS attribution strength to Contextual.
 - If the source is about a broader NOAA, USCG, state, port, or academic system, do not call attribution Strong unless {association} or IOOS is explicitly part of the pathway.
 - If the value is modeled, prospective, scenario-based, or benefit-transfer, set Evidence strength to Modeled.
+- Economic number type must be exactly one of: {allowed_economic_number_types_text()}.
+- IOOS role type must be exactly one of: {allowed_ioos_role_types_text()}.
+- {record_created_prompt_rule()}
+- Use Economic number type = Observed dollar benefit only for directly supported realized dollar benefits, avoided costs, savings, or revenue effects.
+- Use Economic number type = Modeled dollar estimate for scenario, benefit-transfer, forecast-value, potential, or modeled dollar estimates.
+- Use Economic number type = Dollar exposure/context when the source sizes a sector, market, GDP, jobs, cargo, assets, or exposure without estimating {association} benefits.
+- Use Economic number type = Operational metric only for search-area reduction, forecast skill, dashboard use, data delivery, request volume, sensor coverage, or decision cadence without dollars.
+- Use IOOS role type = Backend data source when {association} or IOOS data feeds, supports, or is assimilated into another tool or partner decision process but the source does not support a return estimate.
+- In Allowed use and Not allowed use, state whether the row can support a hard-dollar claim, a modeled-dollar claim, an operational value claim, a backend attribution chain, or context only.
 - Do not use a homepage, press release, or broad program page when a more specific report, product page, dataset, article, or case study is available.
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
-- {record_created_prompt_rule()}
 - Set Source verification needed to Yes for every row.
 - Include limitations for every row, including source age, geographic limits, method uncertainty, and attribution caveats.
 - Write Claim allowed as a conservative sentence COL could safely use.
@@ -2444,6 +2755,22 @@ def normalize_intake_df(df: pd.DataFrame) -> pd.DataFrame:
     normalized["Source verification needed"] = normalized["Source verification needed"].apply(
         lambda value: normalize_text(value) or "Yes"
     )
+    normalized["Economic number type"] = normalized.apply(
+        lambda row: normalize_text(row.get("Economic number type")) or infer_economic_number_type(row),
+        axis=1,
+    )
+    normalized["IOOS role type"] = normalized.apply(
+        lambda row: normalize_text(row.get("IOOS role type")) or infer_ioos_role_type(row),
+        axis=1,
+    )
+    normalized["Allowed use"] = normalized.apply(
+        lambda row: normalize_text(row.get("Allowed use")) or default_allowed_use(row),
+        axis=1,
+    )
+    normalized["Not allowed use"] = normalized.apply(
+        lambda row: normalize_text(row.get("Not allowed use")) or default_not_allowed_use(row),
+        axis=1,
+    )
     return normalized
 
 
@@ -2510,6 +2837,18 @@ def validate_intake_df(df: pd.DataFrame) -> list[str]:
             value = normalize_text(row.get(column))
             if value and value not in ALLOWED_RATINGS:
                 errors.append(f"{label} has invalid {column}: {value}")
+        economic_type = normalize_text(row.get("Economic number type"))
+        if economic_type and economic_type not in ALLOWED_ECONOMIC_NUMBER_TYPES:
+            errors.append(
+                f"{label} has invalid Economic number type: {economic_type}. "
+                f"Use: {allowed_economic_number_types_text()}"
+            )
+        ioos_role = normalize_text(row.get("IOOS role type"))
+        if ioos_role and ioos_role not in ALLOWED_IOOS_ROLE_TYPES:
+            errors.append(
+                f"{label} has invalid IOOS role type: {ioos_role}. "
+                f"Use: {allowed_ioos_role_types_text()}"
+            )
         invalid_codes = invalid_ioos_region_codes(row.get("IOOS region code"))
         if invalid_codes:
             errors.append(
@@ -2628,6 +2967,179 @@ def accepted_rows_to_official(
     ]
     updated_sources = pd.DataFrame(source_records, columns=source_columns)
     return evidence_rows, updated_sources
+
+
+def best_source_records(best_sources_df: pd.DataFrame) -> list[dict[str, str]]:
+    """Return best_sources rows on the exact schema the app can persist."""
+    if best_sources_df.empty:
+        return []
+    return [
+        {column: normalize_text(row.get(column)) for column in BEST_SOURCE_SCHEMA}
+        for _, row in best_sources_df.iterrows()
+    ]
+
+
+def split_semicolon_values(value: object) -> list[str]:
+    return [part.strip() for part in normalize_text(value).split(";") if part.strip()]
+
+
+def merge_semicolon_values(existing: object, *new_values: object) -> str:
+    values: list[str] = []
+    seen: set[str] = set()
+    for value in [existing, *new_values]:
+        for part in split_semicolon_values(value):
+            key = part.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            values.append(part)
+    return "; ".join(values)
+
+
+def infer_best_source_priority(row: pd.Series) -> str:
+    evidence = normalize_text(row.get("Evidence strength"))
+    attribution = normalize_text(row.get("IOOS attribution strength"))
+    if evidence in {"Strong", "Medium"} and attribution in {"Strong", "Medium"}:
+        return "primary"
+    if evidence == "Contextual" or attribution == "Contextual":
+        return "context"
+    if "Needs verification" in {evidence, attribution}:
+        return "hold"
+    return "supporting"
+
+
+def staged_row_to_best_source_record(row: pd.Series, source_id: str) -> dict[str, str]:
+    evidence = normalize_text(row.get("Evidence strength")) or "Unrated"
+    attribution = normalize_text(row.get("IOOS attribution strength")) or "Unrated"
+    ioos_role = normalize_text(row.get("IOOS role type"))
+    notes = normalize_text(row.get("AI extraction notes"))
+    not_allowed = normalize_text(row.get("Not allowed use"))
+    limitations = normalize_text(row.get("Limitations"))
+    caveats = limitations
+    if not_allowed:
+        caveats = f"{caveats} Not allowed: {not_allowed}".strip()
+    return {
+        "source_id": source_id,
+        "source_name": normalize_text(row.get("Source")) or normalize_text(row.get("Source URL")) or "Verified staged source",
+        "source_url": normalize_text(row.get("Source URL")),
+        "source_type": "verified staged evidence source",
+        "ioos_region_code": normalize_text(row.get("IOOS region code")) or "Unknown",
+        "priority_tier": infer_best_source_priority(row),
+        "briefing_role": normalize_text(row.get("Allowed use")) or normalize_text(row.get("Decision supported")),
+        "impact_domains": normalize_text(row.get("Impact domain")),
+        "staged_row_ids": normalize_text(row.get("row_id")),
+        "key_metrics": normalize_text(row.get("Metric")),
+        "evidence_profile": f"{evidence} evidence. {notes}".strip(),
+        "attribution_profile": f"{attribution} IOOS attribution. {ioos_role}".strip(),
+        "recommended_claim_language": normalize_text(row.get("Claim allowed")),
+        "caveats": caveats,
+        "source_verification_needed": "No",
+        "status": "verified",
+    }
+
+
+def matching_best_source_index(records: list[dict[str, str]], row: pd.Series) -> int | None:
+    row_id = normalize_text(row.get("row_id")).lower()
+    source_url = normalize_text(row.get("Source URL")).lower()
+    source_name = normalize_text(row.get("Source")).lower()
+
+    for index, record in enumerate(records):
+        staged_ids = {value.lower() for value in split_semicolon_values(record.get("staged_row_ids"))}
+        if row_id and row_id in staged_ids:
+            return index
+        if source_url and source_url == normalize_text(record.get("source_url")).lower():
+            return index
+        if source_name and source_name == normalize_text(record.get("source_name")).lower():
+            return index
+    return None
+
+
+def merge_best_source_record(existing: dict[str, str], incoming: dict[str, str]) -> dict[str, str]:
+    merged = {column: normalize_text(existing.get(column)) for column in BEST_SOURCE_SCHEMA}
+    for column in BEST_SOURCE_SCHEMA:
+        if not merged.get(column):
+            merged[column] = normalize_text(incoming.get(column))
+    merged["staged_row_ids"] = merge_semicolon_values(
+        merged.get("staged_row_ids"),
+        incoming.get("staged_row_ids"),
+    )
+    merged["impact_domains"] = merge_semicolon_values(
+        merged.get("impact_domains"),
+        incoming.get("impact_domains"),
+    )
+    merged["key_metrics"] = merge_semicolon_values(
+        merged.get("key_metrics"),
+        incoming.get("key_metrics"),
+    )
+    merged["source_verification_needed"] = "No"
+    merged["status"] = "verified"
+    if merged.get("priority_tier") not in {"primary", "supporting", "context", "hold"}:
+        merged["priority_tier"] = incoming.get("priority_tier", "supporting")
+    return merged
+
+
+def upsert_best_source_from_staged_row(
+    row: pd.Series,
+    best_sources_df: pd.DataFrame,
+) -> tuple[list[dict[str, str]], str]:
+    records = best_source_records(best_sources_df)
+    existing_ids = {normalize_text(record.get("source_id")) for record in records if normalize_text(record.get("source_id"))}
+    match_index = matching_best_source_index(records, row)
+
+    if match_index is None:
+        row_id = normalize_text(row.get("row_id"))
+        source_name = normalize_text(row.get("Source"))
+        source_url = normalize_text(row.get("Source URL"))
+        source_id = slugify_source_id(f"bs {row_id or source_name or source_url}", existing_ids)
+        records.append(staged_row_to_best_source_record(row, source_id))
+        return records, source_id
+
+    source_id = normalize_text(records[match_index].get("source_id"))
+    if not source_id:
+        source_id = slugify_source_id(
+            f"bs {normalize_text(row.get('row_id')) or normalize_text(row.get('Source'))}",
+            existing_ids,
+        )
+    incoming = staged_row_to_best_source_record(row, source_id)
+    records[match_index] = merge_best_source_record(records[match_index], incoming)
+    return records, source_id
+
+
+def append_ai_review_note(existing: object, note: str) -> str:
+    existing_text = normalize_text(existing)
+    if not note:
+        return existing_text
+    if note in existing_text:
+        return existing_text
+    if existing_text:
+        return f"{existing_text} | {note}"
+    return note
+
+
+def update_staged_review_row(
+    staged_df: pd.DataFrame,
+    row_index: int,
+    source_verification_needed: str,
+    review_note: str,
+) -> pd.DataFrame:
+    normalized = normalize_intake_df(staged_df)
+    if row_index not in normalized.index:
+        return normalized
+    normalized.at[row_index, "Source verification needed"] = source_verification_needed
+    normalized.at[row_index, "AI extraction notes"] = append_ai_review_note(
+        normalized.at[row_index, "AI extraction notes"],
+        review_note,
+    )
+    return normalized
+
+
+def pending_source_review_rows(staged_df: pd.DataFrame) -> pd.DataFrame:
+    if staged_df.empty:
+        return pd.DataFrame()
+    normalized = normalize_intake_df(staged_df)
+    return normalized[
+        normalized["Source verification needed"].map(normalize_text).str.lower() != "no"
+    ].copy()
 
 
 def run_validation() -> subprocess.CompletedProcess[str]:
@@ -2895,9 +3407,23 @@ def claim_copy_block(row: pd.Series, source_df: pd.DataFrame) -> str:
     metric = row_field(row, "metric")
     limitations = row_field(row, "limitations")
     citation = source_citation(row, source_df)
+    economic_type = row_field(row, "economic_number_type")
+    ioos_role = row_field(row, "ioos_role_type")
+    allowed_use = row_field(row, "allowed_use")
+    not_allowed_use = row_field(row, "not_allowed_use")
     lines = [claim]
     if metric and metric != claim:
         lines.append(f"Metric: {metric}")
+    if economic_type or ioos_role:
+        lines.append(
+            "Claim use: "
+            f"{economic_type or 'Unclassified economic number'}; "
+            f"{ioos_role or 'Unclassified IOOS role'}."
+        )
+    if allowed_use:
+        lines.append(f"Allowed use: {allowed_use}")
+    if not_allowed_use:
+        lines.append(f"Not allowed use: {not_allowed_use}")
     lines.append(f"Source: {citation}")
     if limitations:
         lines.append(f"Limitations: {limitations}")
@@ -2953,10 +3479,13 @@ def evidence_card_html(row: pd.Series, source_df: pd.DataFrame) -> str:
     if not source_name:
         source_name = row_field(source_for_row(row, source_df), "source_name", row_field(row, "source_id", "Source pending"))
     meta = [
+        row_field(row, "date_record_created"),
         row_field(row, "impact_domain"),
         row_field(row, "region"),
         row_field(row, "ioos_region_code"),
         row_field(row, "metric_year_or_dollar_year"),
+        row_field(row, "economic_number_type"),
+        row_field(row, "ioos_role_type"),
     ]
     meta_html = "".join(f"<span>{hub_escape(item)}</span>" for item in meta if item)
     return f"""
@@ -2999,6 +3528,8 @@ def evidence_display_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         "source_url",
         "impact_domain",
         "ioos_region_code",
+        "economic_number_type",
+        "ioos_role_type",
         "evidence_strength",
         "attribution_signal",
         "review_status",
@@ -4794,6 +5325,145 @@ def add_dashboard_fields(evidence_df: pd.DataFrame, review_df: pd.DataFrame) -> 
     return enriched
 
 
+def display_verification_flag_mask(
+    df: pd.DataFrame,
+    column: str = "source_verification_needed",
+    display_value: str = APP_DISPLAY_SOURCE_VERIFICATION_NEEDED_VALUE,
+) -> pd.Series:
+    """Return rows matching the app-level source_verification_needed display rule."""
+    if df.empty:
+        return pd.Series(dtype=bool)
+    if column not in df.columns:
+        return pd.Series(False, index=df.index)
+    return df[column].map(normalize_text).str.lower().eq(display_value.lower())
+
+
+def staged_rows_for_evidence_display(staged_df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize staged_evidence rows into the evidence-style dataframe used by public pages."""
+    if staged_df.empty:
+        return pd.DataFrame()
+
+    normalized = normalize_intake_df(staged_df)
+    rows: list[dict[str, str]] = []
+    for _, row in normalized.iterrows():
+        source_name = normalize_text(row.get("Source"))
+        rows.append(
+            {
+                "row_id": normalize_text(row.get("row_id")),
+                "date_record_created": normalize_text(row.get("Date record created")),
+                "impact_domain": normalize_text(row.get("Impact domain")),
+                "ioos_component": normalize_text(row.get("IOOS component")),
+                "region": normalize_text(row.get("Region")),
+                "ioos_region_code": normalize_text(row.get("IOOS region code")),
+                "user_group": normalize_text(row.get("User group")),
+                "decision_supported": normalize_text(row.get("Decision supported")),
+                "economic_pathway": normalize_text(row.get("Economic pathway")),
+                "metric": normalize_text(row.get("Metric")),
+                "metric_year_or_dollar_year": normalize_text(row.get("Metric year / dollar year")),
+                "source_id": source_name,
+                "source_name": source_name,
+                "source_url": normalize_text(row.get("Source URL")),
+                "source_type": "staged evidence source",
+                "source_verification_status": f"source_verification_needed={normalize_text(row.get('Source verification needed'))}",
+                "evidence_strength": normalize_text(row.get("Evidence strength")),
+                "ioos_attribution_strength": normalize_text(row.get("IOOS attribution strength")),
+                "economic_number_type": normalize_text(row.get("Economic number type")),
+                "ioos_role_type": normalize_text(row.get("IOOS role type")),
+                "source_verification_needed": normalize_text(row.get("Source verification needed")),
+                "allowed_use": normalize_text(row.get("Allowed use")),
+                "not_allowed_use": normalize_text(row.get("Not allowed use")),
+                "limitations": normalize_text(row.get("Limitations")),
+                "claim_allowed": normalize_text(row.get("Claim allowed")),
+                "update_frequency": normalize_text(row.get("Update frequency")),
+                "ai_extraction_notes": normalize_text(row.get("AI extraction notes")),
+                "data_origin": "staged_evidence",
+            }
+        )
+    return pd.DataFrame(rows).fillna("")
+
+
+def source_registry_from_two_table_model(staged_display_df: pd.DataFrame, best_sources_df: pd.DataFrame) -> pd.DataFrame:
+    """Build source-like records from staged evidence and best_sources for display joins/counts."""
+    records: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+
+    for _, row in staged_display_df.iterrows():
+        source_name = normalize_text(row.get("source_name"))
+        source_url = normalize_text(row.get("source_url"))
+        if not source_name and not source_url:
+            continue
+        key = (source_name.lower(), source_url.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        records.append(
+            {
+                "source_id": source_name or source_url,
+                "source_name": source_name or "Source pending",
+                "source_url": source_url,
+                "source_type": normalize_text(row.get("source_type")) or "staged evidence source",
+                "verification_status": normalize_text(row.get("source_verification_status")),
+                "rows_supported": normalize_text(row.get("row_id")),
+                "notes": normalize_text(row.get("allowed_use")),
+            }
+        )
+
+    if not best_sources_df.empty:
+        for _, row in best_sources_df.iterrows():
+            source_name = normalize_text(row.get("source_name"))
+            source_url = normalize_text(row.get("source_url"))
+            key = (source_name.lower(), source_url.lower())
+            if not source_name and not source_url:
+                continue
+            if key in seen:
+                continue
+            seen.add(key)
+            records.append(
+                {
+                    "source_id": normalize_text(row.get("source_id")) or source_name or source_url,
+                    "source_name": source_name or "Source pending",
+                    "source_url": source_url,
+                    "source_type": normalize_text(row.get("source_type")),
+                    "verification_status": f"source_verification_needed={normalize_text(row.get('source_verification_needed'))}",
+                    "rows_supported": normalize_text(row.get("staged_row_ids")),
+                    "notes": normalize_text(row.get("briefing_role")),
+                }
+            )
+
+    return pd.DataFrame(records, columns=[
+        "source_id",
+        "source_name",
+        "source_url",
+        "source_type",
+        "verification_status",
+        "rows_supported",
+        "notes",
+    ]).fillna("")
+
+
+def filter_review_to_rows(review_df: pd.DataFrame, row_ids: set[str]) -> pd.DataFrame:
+    if review_df.empty or "row_id" not in review_df.columns:
+        return review_df.head(0).copy()
+    return review_df[review_df["row_id"].map(normalize_text).isin(row_ids)].copy()
+
+
+def public_two_table_views(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Build app-facing dataframes from the two retained Supabase tables."""
+    staged_display = staged_rows_for_evidence_display(staged_df)
+    public_evidence = staged_display[display_verification_flag_mask(staged_display)].copy()
+    public_review = review_df.head(0).copy()
+    public_staged = staged_df[display_verification_flag_mask(staged_df, "Source verification needed")].copy()
+    public_best_sources = best_sources_df[display_verification_flag_mask(best_sources_df)].copy()
+    public_sources = source_registry_from_two_table_model(public_evidence, public_best_sources)
+    return public_evidence, public_sources, public_review, public_staged, public_best_sources
+
+
 def status_counts_table(evidence_df: pd.DataFrame) -> pd.DataFrame:
     counts = evidence_df["dashboard_status"].value_counts().rename_axis("Status").reset_index(name="Rows")
     order = {status: index for index, status in enumerate(REPORT_STATUS_ORDER)}
@@ -5448,6 +6118,10 @@ def render_record_detail(
     claim = row_field(row, "claim_allowed", row_field(row, "metric", "No claim recorded."))
     metric = row_field(row, "metric", "Metric not recorded.")
     limitations = row_field(row, "limitations", "No limitations recorded.")
+    economic_type = row_field(row, "economic_number_type", "Unclassified")
+    ioos_role = row_field(row, "ioos_role_type", "Unclassified")
+    allowed_use = row_field(row, "allowed_use", "Not classified.")
+    not_allowed_use = row_field(row, "not_allowed_use", "Not classified.")
     source_name = row_field(source_row, "source_name", row_field(row, "source_name", row_field(row, "source_id", "Source pending")))
     source_url = row_field(source_row, "source_url", row_field(row, "source_url"))
     source_type = row_field(source_row, "source_type", row_field(row, "source_type", "Source type pending"))
@@ -5482,6 +6156,12 @@ def render_record_detail(
                 <b>Metric Details</b>
                 <p>{hub_escape(metric)}</p>
                 <p class="row-meta"><span>{hub_escape(row_field(row, "metric_year_or_dollar_year", "Year pending"))}</span><span>{hub_escape(row_field(row, "user_group", "Users pending"))}</span></p>
+            </div>
+            <div class="detail-section">
+                <b>Claim Use Classification</b>
+                <p class="row-meta"><span>{hub_escape(economic_type)}</span><span>{hub_escape(ioos_role)}</span></p>
+                <p><b>Allowed:</b> {hub_escape(allowed_use)}</p>
+                <p><b>Not allowed:</b> {hub_escape(not_allowed_use)}</p>
             </div>
             <div class="detail-section">
                 <b>Source</b>
@@ -5658,6 +6338,8 @@ def page_evidence_matrix(
                     "claim": st.column_config.TextColumn("Claim", width="large"),
                     "metric": st.column_config.TextColumn("Metric", width="large"),
                     "source_url": st.column_config.LinkColumn("Source URL"),
+                    "economic_number_type": st.column_config.TextColumn("Economic number", width="medium"),
+                    "ioos_role_type": st.column_config.TextColumn("IOOS role", width="medium"),
                     "external_use_ready": st.column_config.TextColumn("External use", width="small"),
                 },
                 on_select="rerun",
@@ -5698,6 +6380,10 @@ NARRATIVE_TEXT_COLUMNS = [
     "decision_supported",
     "economic_pathway",
     "metric",
+    "economic_number_type",
+    "ioos_role_type",
+    "allowed_use",
+    "not_allowed_use",
     "claim_allowed",
     "limitations",
     "ai_extraction_notes",
@@ -6889,6 +7575,149 @@ def render_ai_staging_comparison(staged_df: pd.DataFrame, review_df: pd.DataFram
     )
 
 
+def review_claim_label(row: pd.Series, index: int) -> str:
+    row_id = row_field(row, "row_id", f"Candidate {index + 1}")
+    claim = row_field(row, "Claim allowed", row_field(row, "Metric", "Claim pending"))
+    return f"{row_id} - {truncate_text(claim, 86)}"
+
+
+def render_claim_source_review(staged_df: pd.DataFrame, best_sources_df: pd.DataFrame) -> None:
+    st.subheader("Source Review")
+
+    if not STAGED_EVIDENCE_PATH.exists() and staged_df.empty:
+        st.info("No staged evidence file exists yet. Use Evidence Intake to stage candidate rows.")
+        return
+
+    pending = pending_source_review_rows(staged_df)
+    if pending.empty:
+        st.success("No generated claims are waiting for source verification.")
+        if not best_sources_df.empty:
+            st.caption(f"{len(best_sources_df):,} rows are already available in best_sources.")
+        return
+
+    total_staged = len(normalize_intake_df(staged_df))
+    verified_sources = (
+        int((best_sources_df["source_verification_needed"].map(normalize_text) == "No").sum())
+        if not best_sources_df.empty and "source_verification_needed" in best_sources_df.columns
+        else 0
+    )
+    metric_columns = st.columns(3)
+    metric_columns[0].metric("Generated claims waiting", f"{len(pending):,}")
+    metric_columns[1].metric("Total staged claims", f"{total_staged:,}")
+    metric_columns[2].metric("Verified best sources", f"{verified_sources:,}")
+
+    options = [int(index) for index in pending.index.tolist()]
+    current_index = st.session_state.get("review_claim_row_index", options[0])
+    if current_index not in options:
+        current_index = options[0]
+        st.session_state["review_claim_row_index"] = current_index
+
+    selected_index = st.selectbox(
+        "Generated claim",
+        options,
+        index=options.index(current_index),
+        format_func=lambda index: review_claim_label(pending.loc[index], index),
+        key="review_claim_row_index",
+    )
+    row = pending.loc[selected_index]
+
+    claim = row_field(row, "Claim allowed", row_field(row, "Metric", "Claim pending."))
+    source_name = row_field(row, "Source", "Source pending")
+    source_url = row_field(row, "Source URL")
+    source_link = (
+        f'<a class="source-review-link" href="{hub_escape(source_url)}" target="_blank" rel="noopener">Open source link</a>'
+        if source_url
+        else '<span class="source-review-missing">No source link is recorded.</span>'
+    )
+    row_id = row_field(row, "row_id", "Candidate row")
+
+    st.markdown(
+        f"""
+        <div class="claim-review-panel">
+            <div class="claim-review-topline">
+                <span class="ai-label">Generated claim</span>
+                <span class="hub-chip warning">{hub_escape(row_id)}</span>
+            </div>
+            <div class="claim-review-main">
+                <div>
+                    <h2>{hub_escape(claim)}</h2>
+                    <p><b>Metric:</b> {hub_escape(row_field(row, "Metric", "Metric pending."))}</p>
+                    <p><b>Source:</b> {hub_escape(source_name)}</p>
+                </div>
+                <div class="source-review-box">
+                    <b>Verify this source</b>
+                    {source_link}
+                </div>
+            </div>
+            <div class="claim-review-meta">
+                <div><b>Evidence</b>{hub_escape(row_field(row, "Evidence strength", "Unrated"))}</div>
+                <div><b>IOOS attribution</b>{hub_escape(row_field(row, "IOOS attribution strength", "Unrated"))}</div>
+                <div><b>Region</b>{hub_escape(row_field(row, "IOOS region code", "Unknown"))}</div>
+            </div>
+            <p><b>Limitations:</b> {hub_escape(row_field(row, "Limitations", "No limitations recorded."))}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('<div class="claim-review-actions-marker"></div>', unsafe_allow_html=True)
+    verify_column, reject_column = st.columns(2)
+    with verify_column:
+        if st.button("Yes - verified source", type="primary", use_container_width=True, key=f"verify_source_{selected_index}"):
+            try:
+                records, source_id = upsert_best_source_from_staged_row(row, best_sources_df)
+                write_csv(BEST_SOURCES_PATH, records, BEST_SOURCE_SCHEMA)
+                review_note = f"Source verified on {date.today().isoformat()}; copied to best_sources as {source_id}."
+                updated_staged = update_staged_review_row(staged_df, selected_index, "No", review_note)
+                write_csv(STAGED_EVIDENCE_PATH, updated_staged.to_dict("records"), INTAKE_SCHEMA)
+            except Exception as exc:
+                st.error(f"Could not save verification: {exc}")
+            else:
+                st.session_state.pop("review_rejection_row_index", None)
+                clear_data_cache()
+                st.success(f"Verified {row_id} and copied the source record to best_sources.")
+                st.rerun()
+
+    with reject_column:
+        if st.button("No - not verified", use_container_width=True, key=f"reject_source_{selected_index}"):
+            st.session_state["review_rejection_row_index"] = selected_index
+            st.rerun()
+
+    if st.session_state.get("review_rejection_row_index") == selected_index:
+        with st.form(f"reject_source_reason_{selected_index}"):
+            st.warning("Tell future reviewers why this source should not be trusted for the claim.")
+            reason = st.selectbox("Reason", REJECTION_REASON_OPTIONS)
+            details = st.text_area(
+                "Reviewer note",
+                placeholder="Add page numbers, missing evidence, broken-link detail, or the corrected metric if you found one.",
+                height=120,
+            )
+            save_rejection = st.form_submit_button("Save rejection reason", type="primary")
+            cancel_rejection = st.form_submit_button("Cancel")
+
+        if cancel_rejection:
+            st.session_state.pop("review_rejection_row_index", None)
+            st.rerun()
+
+        if save_rejection:
+            if reason == "Other" and not normalize_text(details):
+                st.error("Add a short note when the reason is Other.")
+                return
+            review_note = f"Source rejected on {date.today().isoformat()}: {reason}."
+            if normalize_text(details):
+                review_note = f"{review_note} {normalize_text(details)}"
+            try:
+                updated_staged = update_staged_review_row(staged_df, selected_index, "Yes", review_note)
+                write_csv(STAGED_EVIDENCE_PATH, updated_staged.to_dict("records"), INTAKE_SCHEMA)
+            except Exception as exc:
+                st.error(f"Could not save rejection: {exc}")
+            else:
+                st.session_state.pop("review_rejection_row_index", None)
+                clear_data_cache()
+                st.success(f"Saved rejection reason for {row_id}.")
+                st.rerun()
+
+
 def page_regional_builds(regional_targets_df: pd.DataFrame, evidence_df: pd.DataFrame) -> None:
     st.title("Regional Builds")
     st.caption("Work one IOOS region at a time, starting with MARACOOS, before promoting verified rows into the master matrix.")
@@ -6973,6 +7802,18 @@ def page_regional_builds(regional_targets_df: pd.DataFrame, evidence_df: pd.Data
 def page_evidence_intake(regional_targets_df: pd.DataFrame) -> None:
     st.title("Evidence Intake")
     st.caption("Generate copy-ready prompts, then stage AI candidate rows before they become official evidence.")
+    with st.expander("Claim-use classification guide", expanded=False):
+        st.write("Use these fields to separate hard-dollar evidence from context, operations, and backend data-source attribution.")
+        st.markdown(
+            "\n".join(
+                [
+                    f"- **Economic number type:** {allowed_economic_number_types_text()}",
+                    f"- **IOOS role type:** {allowed_ioos_role_types_text()}",
+                    "- **Allowed use:** the strongest claim the row can safely support.",
+                    "- **Not allowed use:** the overclaim the row should prevent.",
+                ]
+            )
+        )
 
     research_tab, regional_tab, source_tab, claude_tab, import_tab = st.tabs(
         ["Research Topic", "Regional Build Prompt", "Add Source", "Claude Batch Prompt", "Import CSV"]
@@ -7153,13 +7994,21 @@ def page_add_evidence_row(evidence_df: pd.DataFrame) -> None:
         new_row: dict[str, str] = {}
         for column in evidence_df.columns:
             default_value = next_row_id(evidence_df) if column == "row_id" else ""
-            if column in {
+            if column in {"evidence_strength", "ioos_attribution_strength"}:
+                new_row[column] = st.selectbox(column, ALLOWED_RATING_VALUES, index=1)
+            elif column == "economic_number_type":
+                new_row[column] = st.selectbox(column, ECONOMIC_NUMBER_TYPE_VALUES, index=3)
+            elif column == "ioos_role_type":
+                new_row[column] = st.selectbox(column, IOOS_ROLE_TYPE_VALUES, index=1)
+            elif column in {
                 "limitations",
                 "claim_allowed",
                 "ai_extraction_notes",
                 "metric",
                 "decision_supported",
                 "economic_pathway",
+                "allowed_use",
+                "not_allowed_use",
             }:
                 new_row[column] = st.text_area(column, value=default_value)
             else:
@@ -7213,44 +8062,47 @@ def page_review_admin(
         <div class="hub-page-title">
             <div class="hub-kicker">Maintainer workspace</div>
             <h1>Review / Admin</h1>
-            <p>Stage candidate evidence, compare AI extraction against source support, resolve validation warnings, and deliberately promote verified rows into the official database.</p>
+            <p>Review each generated staged claim against its source, then send verified source records to the best_sources table.</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    render_review_queue_board(evidence_df, review_df, staged_df)
-    render_ai_staging_comparison(staged_df, review_df)
-    st.divider()
+    render_claim_source_review(staged_df, best_sources_df)
 
-    current_section = st.session_state.get("review_admin_navigation", REVIEW_ADMIN_NAVIGATION[0])
-    if current_section not in REVIEW_ADMIN_NAVIGATION:
-        current_section = REVIEW_ADMIN_NAVIGATION[0]
-        st.session_state["review_admin_navigation"] = current_section
+    with st.expander("Advanced admin tools", expanded=False):
+        render_review_queue_board(evidence_df, review_df, staged_df)
+        render_ai_staging_comparison(staged_df, review_df)
+        st.divider()
 
-    section = st.radio(
-        "Review/Admin section",
-        REVIEW_ADMIN_NAVIGATION,
-        index=REVIEW_ADMIN_NAVIGATION.index(current_section),
-        horizontal=True,
-        label_visibility="collapsed",
-        key="review_admin_navigation",
-    )
+        current_section = st.session_state.get("review_admin_navigation", REVIEW_ADMIN_NAVIGATION[0])
+        if current_section not in REVIEW_ADMIN_NAVIGATION:
+            current_section = REVIEW_ADMIN_NAVIGATION[0]
+            st.session_state["review_admin_navigation"] = current_section
 
-    if section == "Evidence Intake":
-        page_evidence_intake(regional_targets_df)
-    elif section == "Review Evidence":
-        page_staged_evidence(staged_df, evidence_df, source_df)
-    elif section == "Validation Queue":
-        page_review_needed(review_df)
-    elif section == "Add Evidence Row":
-        page_add_evidence_row(evidence_df)
-    elif section == "Run Validation":
-        page_run_validation()
-    elif section == "Regional Builds":
-        page_regional_builds(regional_targets_df, evidence_df)
-    elif section == "Project Roadmap":
-        page_project_roadmap(evidence_df, source_df, review_df, staged_df, best_sources_df)
+        section = st.radio(
+            "Review/Admin section",
+            REVIEW_ADMIN_NAVIGATION,
+            index=REVIEW_ADMIN_NAVIGATION.index(current_section),
+            horizontal=True,
+            label_visibility="collapsed",
+            key="review_admin_navigation",
+        )
+
+        if section == "Evidence Intake":
+            page_evidence_intake(regional_targets_df)
+        elif section == "Review Evidence":
+            page_staged_evidence(staged_df, evidence_df, source_df)
+        elif section == "Validation Queue":
+            page_review_needed(review_df)
+        elif section == "Add Evidence Row":
+            page_add_evidence_row(evidence_df)
+        elif section == "Run Validation":
+            page_run_validation()
+        elif section == "Regional Builds":
+            page_regional_builds(regional_targets_df, evidence_df)
+        elif section == "Project Roadmap":
+            page_project_roadmap(evidence_df, source_df, review_df, staged_df, best_sources_df)
 
 
 def main() -> None:
@@ -7267,20 +8119,33 @@ def main() -> None:
     staged_df = load_csv(STAGED_EVIDENCE_PATH)
     best_sources_df = load_csv(BEST_SOURCES_PATH)
     regional_targets_df = load_csv(REGIONAL_TARGETS_PATH)
+    (
+        public_evidence_df,
+        public_source_df,
+        public_review_df,
+        public_staged_df,
+        public_best_sources_df,
+    ) = public_two_table_views(evidence_df, source_df, review_df, staged_df, best_sources_df)
 
     render_app_hero()
     page = render_top_navigation()
+    if page != "Review / Admin":
+        st.caption(
+            "App display rule: showing rows from `staged_evidence` and `best_sources` where "
+            f"`source_verification_needed = {APP_DISPLAY_SOURCE_VERIFICATION_NEEDED_VALUE}`. "
+            "Rows are organized by impact domain."
+        )
 
     if page == "Overview":
-        page_about_data(evidence_df, source_df, review_df, staged_df, best_sources_df)
+        page_about_data(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
     elif page == "Dashboard":
-        page_dashboard_summary(evidence_df, source_df, review_df, staged_df, best_sources_df)
+        page_dashboard_summary(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
     elif page == "Evidence Database":
-        page_evidence_matrix(evidence_df, source_df, review_df)
+        page_evidence_matrix(public_evidence_df, public_source_df, public_review_df)
     elif page == "Briefs & Outputs":
-        page_congressional_briefing(evidence_df, source_df, staged_df)
+        page_congressional_briefing(public_evidence_df, public_source_df, public_staged_df)
     elif page == "Best Sources":
-        page_best_sources(best_sources_df)
+        page_best_sources(public_best_sources_df)
     elif page == "Review / Admin":
         page_review_admin(regional_targets_df, evidence_df, source_df, review_df, staged_df, best_sources_df)
 
