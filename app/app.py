@@ -490,6 +490,7 @@ APP_ROLES = {
 APP_NAVIGATION = [
     "Overview",
     "Dashboard",
+    "Evidence Atlas",
     "Evidence Database",
     "Briefs & Outputs",
     "Best Sources",
@@ -591,6 +592,125 @@ NARRATIVE_TAB_LABELS = [
     "System cost",
     "Return case studies",
     "How we work",
+]
+
+EVIDENCE_ATLAS_LEVELS = [
+    {
+        "key": "level_1",
+        "label": "Level 1",
+        "title": "Direct Reported Dollar Values",
+        "definition": "A source reports a dollar value for benefits, savings, avoided costs, or other monetized outcomes.",
+        "safe_use": "Record the published value, dollar year, source, and caveat; do not recalculate unless an explicit adjustment method is stored.",
+    },
+    {
+        "key": "level_2",
+        "label": "Level 2",
+        "title": "Operational Cost Savings",
+        "definition": "A source documents operational efficiency such as reduced hours, fuel, delay, sampling, inspection, or closure time.",
+        "safe_use": "Use the operational metric directly unless the source also provides the dollar conversion.",
+    },
+    {
+        "key": "level_3",
+        "label": "Level 3",
+        "title": "Avoided Losses",
+        "definition": "A source estimates or documents avoided damage, search costs, response costs, closures, vessel losses, or hazard impacts.",
+        "safe_use": "Keep the counterfactual and uncertainty language attached to the claim.",
+    },
+    {
+        "key": "level_4",
+        "label": "Level 4",
+        "title": "Economic Activity Supported",
+        "definition": "A source sizes the sector, port, fishery, tourism economy, cargo activity, or other exposure supported by IOOS information.",
+        "safe_use": "Use as context only; never add these values to documented benefit totals.",
+    },
+]
+
+EVIDENCE_ATLAS_LEVEL_BY_KEY = {
+    level["key"]: level
+    for level in EVIDENCE_ATLAS_LEVELS
+}
+
+EVIDENCE_ATLAS_UNCLASSIFIED = {
+    "key": "unclassified",
+    "label": "Needs Classification",
+    "title": "Needs Classification",
+    "definition": "The current row does not yet carry enough claim-use metadata for an atlas level.",
+    "safe_use": "Review the metric, economic number type, allowed use, and limitations before using externally.",
+}
+
+EVIDENCE_ATLAS_TEXT_COLUMNS = [
+    "impact_domain",
+    "ioos_component",
+    "region",
+    "ioos_region_code",
+    "user_group",
+    "decision_supported",
+    "economic_pathway",
+    "metric",
+    "economic_number_type",
+    "ioos_role_type",
+    "allowed_use",
+    "not_allowed_use",
+    "claim_allowed",
+    "limitations",
+    "ai_extraction_notes",
+    "source_id",
+    "source_name",
+    "source_type",
+]
+
+ATLAS_OPERATIONAL_PATTERNS = [
+    r"\btransit\b",
+    r"\bfuel\b",
+    r"\bwaiting\b",
+    r"\bdelay",
+    r"\bhours?\b",
+    r"\bflight hours?\b",
+    r"\bvessel hours?\b",
+    r"\bsampling trips?\b",
+    r"\binspection",
+    r"\bclosure",
+    r"\bdredg",
+    r"\bpilot",
+    r"\bthroughput\b",
+    r"\befficien",
+]
+
+ATLAS_AVOIDED_LOSS_PATTERNS = [
+    r"\bavoid",
+    r"\bprevent",
+    r"\breduc",
+    r"\bdamage",
+    r"\bloss",
+    r"\bstorm",
+    r"\bsurge",
+    r"\bflood",
+    r"\boil spill",
+    r"\bspill response",
+    r"\bsearch\b",
+    r"\brescue\b",
+    r"\bsarops\b",
+    r"\bhf radar\b",
+    r"\brip current",
+    r"\bevacu",
+    r"\bemergency response",
+]
+
+ATLAS_ECONOMIC_ACTIVITY_PATTERNS = [
+    r"\bcargo\b",
+    r"\btonnage\b",
+    r"\bship calls?\b",
+    r"\bpassengers?\b",
+    r"\blandings?\b",
+    r"\bharvest\b",
+    r"\bbeach visitors?\b",
+    r"\btourism\b",
+    r"\bGDP\b",
+    r"\bjobs?\b",
+    r"\beconomic activity\b",
+    r"\bmarket footprint\b",
+    r"\bsector size\b",
+    r"\bexposure\b",
 ]
 
 SECTOR_STORYLINES = [
@@ -942,7 +1062,9 @@ def apply_hub_styles() -> None:
             .sector-card,
             .cost-card,
             .case-card,
-            .method-card {{
+            .method-card,
+            .atlas-level-card,
+            .atlas-method-card {{
                 background: var(--ioos-paper);
                 border: 1px solid var(--ioos-line);
                 border-radius: 8px;
@@ -953,7 +1075,9 @@ def apply_hub_styles() -> None:
             .sector-card b,
             .cost-card b,
             .case-card b,
-            .method-card b {{
+            .method-card b,
+            .atlas-level-card b,
+            .atlas-method-card b {{
                 color: var(--ioos-ink);
                 display: block;
                 font-size: 0.98rem;
@@ -965,7 +1089,9 @@ def apply_hub_styles() -> None:
             .sector-card p,
             .cost-card p,
             .case-card p,
-            .method-card p {{
+            .method-card p,
+            .atlas-level-card p,
+            .atlas-method-card p {{
                 color: var(--ioos-muted);
                 font-size: 0.86rem;
                 line-height: 1.52;
@@ -976,17 +1102,21 @@ def apply_hub_styles() -> None:
             .sector-grid,
             .cost-grid,
             .case-grid,
-            .method-grid {{
+            .method-grid,
+            .atlas-level-grid,
+            .atlas-method-grid {{
                 display: grid;
                 gap: 0.85rem;
             }}
 
-            .overview-grid {{
+            .overview-grid,
+            .atlas-level-grid {{
                 grid-template-columns: repeat(4, minmax(150px, 1fr));
             }}
 
             .sector-grid,
-            .cost-grid {{
+            .cost-grid,
+            .atlas-method-grid {{
                 grid-template-columns: repeat(2, minmax(240px, 1fr));
             }}
 
@@ -1005,6 +1135,36 @@ def apply_hub_styles() -> None:
                 font-weight: 860;
                 line-height: 1.05;
                 margin-top: 0.45rem;
+            }}
+
+            .atlas-count {{
+                color: var(--ioos-blue);
+                display: block;
+                font-size: 1.72rem;
+                font-weight: 860;
+                line-height: 1.05;
+                margin: 0.55rem 0 0.35rem;
+            }}
+
+            .atlas-rule {{
+                border-top: 1px solid var(--ioos-line);
+                color: #405760;
+                font-size: 0.8rem;
+                line-height: 1.45;
+                margin-top: 0.75rem;
+                padding-top: 0.7rem;
+            }}
+
+            .atlas-boundary-list {{
+                margin: 0.3rem 0 0;
+                padding-left: 1.1rem;
+            }}
+
+            .atlas-boundary-list li {{
+                color: var(--ioos-muted);
+                font-size: 0.88rem;
+                line-height: 1.5;
+                margin-bottom: 0.28rem;
             }}
 
             .overview-link {{
@@ -1915,6 +2075,8 @@ def apply_hub_styles() -> None:
                 .cost-grid,
                 .case-grid,
                 .method-grid,
+                .atlas-level-grid,
+                .atlas-method-grid,
                 .claim-review-main,
                 .claim-review-meta {{
                     grid-template-columns: 1fr;
@@ -3807,6 +3969,167 @@ def row_field(row: pd.Series | None, column: str, fallback: str = "") -> str:
         return fallback
     value = normalize_text(row.get(column))
     return value or fallback
+
+
+def atlas_row_text(row: pd.Series) -> str:
+    """Collect the text used for atlas-level classification."""
+    return " ".join(
+        normalize_text(row.get(column))
+        for column in EVIDENCE_ATLAS_TEXT_COLUMNS
+        if column in row.index
+    )
+
+
+def atlas_text_matches(text: str, patterns: list[str]) -> bool:
+    return any(re.search(pattern, text, re.I) for pattern in patterns)
+
+
+def atlas_level_keys_for_row(row: pd.Series) -> list[str]:
+    """Return all atlas levels a row supports; levels intentionally overlap."""
+    economic_type = row_field(row, "economic_number_type")
+    row_text = atlas_row_text(row)
+    keys: list[str] = []
+
+    if economic_type in {"Observed dollar benefit", "Modeled dollar estimate"} or (
+        has_dollar_signal(row_text) and economic_type != "Dollar exposure/context"
+    ):
+        keys.append("level_1")
+    if economic_type == "Operational metric only" or atlas_text_matches(row_text, ATLAS_OPERATIONAL_PATTERNS):
+        keys.append("level_2")
+    if atlas_text_matches(row_text, ATLAS_AVOIDED_LOSS_PATTERNS):
+        keys.append("level_3")
+    if economic_type == "Dollar exposure/context" or atlas_text_matches(row_text, ATLAS_ECONOMIC_ACTIVITY_PATTERNS):
+        keys.append("level_4")
+
+    ordered_keys = [level["key"] for level in EVIDENCE_ATLAS_LEVELS if level["key"] in set(keys)]
+    return ordered_keys or ["unclassified"]
+
+
+def atlas_level_label(key: str) -> str:
+    level = EVIDENCE_ATLAS_LEVEL_BY_KEY.get(key, EVIDENCE_ATLAS_UNCLASSIFIED)
+    if key == "unclassified":
+        return level["label"]
+    return f"{level['label']} - {level['title']}"
+
+
+def atlas_level_labels_for_row(row: pd.Series) -> str:
+    return "; ".join(atlas_level_label(key) for key in atlas_level_keys_for_row(row))
+
+
+def atlas_pathway_for_row(row: pd.Series) -> str:
+    keys = atlas_level_keys_for_row(row)
+    if "level_3" in keys:
+        return "Avoided losses"
+    if "level_2" in keys:
+        return "Operational savings"
+    if "level_4" in keys:
+        return "Economic activity supported"
+    if "level_1" in keys:
+        return "Reported dollar benefit"
+    return "Needs classification"
+
+
+def atlas_claim_boundary_for_row(row: pd.Series) -> str:
+    keys = atlas_level_keys_for_row(row)
+    economic_type = row_field(row, "economic_number_type")
+    if keys == ["unclassified"]:
+        return "Review before external use"
+    if "level_4" in keys and "level_1" not in keys:
+        return "Context only - do not add to benefit totals"
+    if economic_type == "Modeled dollar estimate":
+        return "Use as published estimate with model caveats"
+    if economic_type == "Operational metric only":
+        return "Use metric directly; do not convert to dollars here"
+    return "Use with source, year, and limitations"
+
+
+def add_evidence_atlas_fields(df: pd.DataFrame) -> pd.DataFrame:
+    """Add derived atlas tags without changing the underlying evidence records."""
+    if df.empty:
+        return df.copy()
+    atlas_df = df.copy()
+    atlas_df["atlas_level_keys"] = atlas_df.apply(
+        lambda row: ";".join(atlas_level_keys_for_row(row)),
+        axis=1,
+    )
+    atlas_df["atlas_levels"] = atlas_df.apply(atlas_level_labels_for_row, axis=1)
+    atlas_df["atlas_pathway"] = atlas_df.apply(atlas_pathway_for_row, axis=1)
+    atlas_df["atlas_claim_boundary"] = atlas_df.apply(atlas_claim_boundary_for_row, axis=1)
+    return atlas_df
+
+
+def atlas_level_count_table(atlas_df: pd.DataFrame) -> pd.DataFrame:
+    """Count rows by overlapping atlas level."""
+    rows: list[dict[str, object]] = []
+    total = len(atlas_df)
+    for level in EVIDENCE_ATLAS_LEVELS + [EVIDENCE_ATLAS_UNCLASSIFIED]:
+        key = level["key"]
+        if atlas_df.empty or "atlas_level_keys" not in atlas_df.columns:
+            count = 0
+        else:
+            count = int(atlas_df["atlas_level_keys"].map(lambda value: key in split_semicolon_values(value)).sum())
+        rows.append(
+            {
+                "Level": atlas_level_label(key),
+                "Rows": count,
+                "Share of rows": (count / total * 100) if total else 0,
+                "Safe use": level["safe_use"],
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def atlas_level_cards_html(atlas_df: pd.DataFrame) -> str:
+    count_lookup = {
+        row["Level"]: int(row["Rows"])
+        for _, row in atlas_level_count_table(atlas_df).iterrows()
+    }
+    cards = []
+    for level in EVIDENCE_ATLAS_LEVELS:
+        label = atlas_level_label(level["key"])
+        cards.append(
+            f"""
+            <div class="atlas-level-card">
+                <span class="hub-chip neutral">{hub_escape(level["label"])}</span>
+                <b>{hub_escape(level["title"])}</b>
+                <span class="atlas-count">{count_lookup.get(label, 0):,}</span>
+                <p>{hub_escape(level["definition"])}</p>
+                <div class="atlas-rule">{hub_escape(level["safe_use"])}</div>
+            </div>
+            """
+        )
+    return f'<div class="atlas-level-grid">{"".join(cards)}</div>'
+
+
+def atlas_filtered_by_levels(atlas_df: pd.DataFrame, selected_keys: list[str]) -> pd.DataFrame:
+    if not selected_keys or atlas_df.empty or "atlas_level_keys" not in atlas_df.columns:
+        return atlas_df
+    selected = set(selected_keys)
+    return atlas_df[
+        atlas_df["atlas_level_keys"].map(
+            lambda value: bool(selected.intersection(split_semicolon_values(value)))
+        )
+    ].copy()
+
+
+def atlas_option_values(df: pd.DataFrame, column: str) -> list[str]:
+    if df.empty or column not in df.columns:
+        return []
+    return sorted(value for value in df[column].dropna().unique() if normalize_text(value))
+
+
+def best_source_atlas_use(row: pd.Series) -> str:
+    verification_needed = row_field(row, "source_verification_needed")
+    key_metrics = row_field(row, "key_metrics")
+    if verification_needed.lower() == "yes":
+        prefix = "Verify before use"
+    else:
+        prefix = "Source-ready"
+    if has_dollar_signal(key_metrics):
+        return f"{prefix}; contains reported dollar metrics"
+    if atlas_text_matches(key_metrics, ATLAS_ECONOMIC_ACTIVITY_PATTERNS):
+        return f"{prefix}; economic activity context"
+    return f"{prefix}; qualitative or operational source"
 
 
 def normalize_maracoos_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -6568,6 +6891,243 @@ def page_dashboard_summary(
         render_freshness_indicators(evidence_dashboard_df)
 
 
+def page_evidence_atlas(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> None:
+    st.markdown(
+        """
+        <div class="hub-page-title">
+            <div class="hub-kicker">Evidence Atlas</div>
+            <h1>Economic Evidence Atlas</h1>
+            <p>Classify published IOOS value evidence by confidence, pathway, sector, geography, and claim-use boundary without turning context into a national total.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    explorer_df = enrich_evidence_with_source_fields(evidence_df, source_df)
+    explorer_df = add_dashboard_fields(explorer_df, review_df)
+    explorer_df = add_metric_year_column(explorer_df)
+    atlas_df = add_evidence_atlas_fields(explorer_df)
+    level_counts = atlas_level_count_table(atlas_df)
+    count_by_level = {
+        row["Level"]: int(row["Rows"])
+        for _, row in level_counts.iterrows()
+    }
+
+    metric_cols = st.columns(4)
+    for index, level in enumerate(EVIDENCE_ATLAS_LEVELS):
+        label = atlas_level_label(level["key"])
+        metric_cols[index].metric(level["title"], f"{count_by_level.get(label, 0):,}")
+
+    st.caption(
+        "Atlas levels are evidence tags, not additive totals. A row can appear in more than one level when, for example, a published dollar estimate is also an avoided-loss case."
+    )
+
+    levels_tab, explorer_tab, sources_tab, method_tab = st.tabs(
+        ["Evidence Levels", "Atlas Explorer", "Source Shelf", "Methodology"]
+    )
+
+    with levels_tab:
+        st.markdown(atlas_level_cards_html(atlas_df), unsafe_allow_html=True)
+        st.subheader("Level Coverage")
+        st.dataframe(
+            level_counts,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Rows": st.column_config.NumberColumn(format="%d", width="small"),
+                "Share of rows": st.column_config.ProgressColumn(
+                    "Share of rows",
+                    format="%.0f%%",
+                    min_value=0,
+                    max_value=100,
+                    width="medium",
+                ),
+                "Safe use": st.column_config.TextColumn(width="large"),
+            },
+        )
+
+    with explorer_tab:
+        if atlas_df.empty:
+            st.info("No evidence rows are available under the current public display rule.")
+        else:
+            search_text = st.text_input(
+                "Search atlas evidence",
+                placeholder="Try avoided loss, fuel, port, fisheries, cargo, storm, SAROPS...",
+                key="atlas_search",
+            )
+            filtered = search_dataframe(atlas_df, search_text)
+
+            filter_cols = st.columns(4)
+            level_options = {
+                atlas_level_label(level["key"]): level["key"]
+                for level in EVIDENCE_ATLAS_LEVELS
+            }
+            selected_level_labels = filter_cols[0].multiselect("Atlas level", list(level_options))
+            selected_level_keys = [level_options[label] for label in selected_level_labels]
+            selected_domains = filter_cols[1].multiselect(
+                "Sector",
+                atlas_option_values(filtered, "impact_domain"),
+            )
+            selected_regions = filter_cols[2].multiselect(
+                "IOOS region",
+                atlas_option_values(filtered, "ioos_region_code"),
+            )
+            selected_number_types = filter_cols[3].multiselect(
+                "Economic number",
+                atlas_option_values(filtered, "economic_number_type"),
+            )
+
+            filtered = atlas_filtered_by_levels(filtered, selected_level_keys)
+            if selected_domains and "impact_domain" in filtered.columns:
+                filtered = filtered[filtered["impact_domain"].isin(selected_domains)]
+            if selected_regions and "ioos_region_code" in filtered.columns:
+                filtered = filtered[filtered["ioos_region_code"].isin(selected_regions)]
+            if selected_number_types and "economic_number_type" in filtered.columns:
+                filtered = filtered[filtered["economic_number_type"].isin(selected_number_types)]
+
+            st.caption(f"Showing {len(filtered):,} of {len(atlas_df):,} atlas evidence rows")
+            if filtered.empty:
+                st.info("No rows match the current atlas filters.")
+            else:
+                display_columns = [
+                    "row_id",
+                    "atlas_levels",
+                    "atlas_pathway",
+                    "atlas_claim_boundary",
+                    "economic_number_type",
+                    "impact_domain",
+                    "ioos_region_code",
+                    "metric",
+                    "metric_year_or_dollar_year",
+                    "claim_allowed",
+                    "source_name",
+                    "source_url",
+                    "limitations",
+                ]
+                st.dataframe(
+                    filtered[[column for column in display_columns if column in filtered.columns]],
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "atlas_levels": st.column_config.TextColumn("Atlas levels", width="large"),
+                        "atlas_claim_boundary": st.column_config.TextColumn("Claim boundary", width="medium"),
+                        "metric": st.column_config.TextColumn(width="large"),
+                        "claim_allowed": st.column_config.TextColumn("Claim allowed", width="large"),
+                        "source_url": st.column_config.LinkColumn("Source URL"),
+                        "limitations": st.column_config.TextColumn(width="large"),
+                    },
+                )
+                st.download_button(
+                    "Download atlas CSV",
+                    filtered.to_csv(index=False).encode("utf-8"),
+                    file_name="ioos_economic_evidence_atlas.csv",
+                    mime="text/csv",
+                )
+
+    with sources_tab:
+        if best_sources_df.empty:
+            st.info("No best-source records are available under the current public display rule.")
+        else:
+            source_view = best_sources_df.copy()
+            source_view["atlas_use"] = source_view.apply(best_source_atlas_use, axis=1)
+            source_search = st.text_input("Search source shelf", key="atlas_source_search")
+            source_view = search_dataframe(source_view, source_search)
+            source_view = add_multiselect_filter(source_view, "ioos_region_code", "IOOS Region Code")
+            source_view = add_multiselect_filter(source_view, "priority_tier", "Priority Tier")
+            source_view = add_multiselect_filter(source_view, "source_type", "Source Type")
+            st.caption(f"Showing {len(source_view):,} of {len(best_sources_df):,} source records")
+            source_columns = [
+                "source_name",
+                "atlas_use",
+                "source_type",
+                "ioos_region_code",
+                "priority_tier",
+                "impact_domains",
+                "key_metrics",
+                "recommended_claim_language",
+                "caveats",
+                "source_url",
+            ]
+            st.dataframe(
+                source_view[[column for column in source_columns if column in source_view.columns]],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "source_url": st.column_config.LinkColumn("Source URL"),
+                    "atlas_use": st.column_config.TextColumn("Atlas use", width="medium"),
+                    "key_metrics": st.column_config.TextColumn(width="large"),
+                    "recommended_claim_language": st.column_config.TextColumn(width="large"),
+                    "caveats": st.column_config.TextColumn(width="large"),
+                },
+            )
+
+    with method_tab:
+        st.markdown(
+            """
+            <div class="atlas-method-grid">
+                <div class="atlas-method-card">
+                    <b>What The Atlas Can Say</b>
+                    <ul class="atlas-boundary-list">
+                        <li>Documented reported benefits from published sources.</li>
+                        <li>Operational metrics such as hours saved, closures avoided, or search areas reduced.</li>
+                        <li>Economic activity supported by IOOS information, clearly labeled as context.</li>
+                        <li>Inflation-adjusted values only when original value, dollar year, and method are stored.</li>
+                    </ul>
+                </div>
+                <div class="atlas-method-card">
+                    <b>What The Atlas Should Not Say</b>
+                    <ul class="atlas-boundary-list">
+                        <li>Total national value of IOOS.</li>
+                        <li>IOOS contributes a single dollar total annually.</li>
+                        <li>Return on investment created by aggregating unrelated studies.</li>
+                        <li>Economic activity supported is the same thing as IOOS-created benefit.</li>
+                    </ul>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.subheader("Inflation-Adjustment Fields To Add")
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Field": "original_dollar_value",
+                        "Purpose": "The published dollar value exactly as reported by the source.",
+                    },
+                    {
+                        "Field": "dollar_year",
+                        "Purpose": "The source year or dollar year needed for comparison.",
+                    },
+                    {
+                        "Field": "annual_or_one_time",
+                        "Purpose": "Separates recurring annual values from event or one-time benefits.",
+                    },
+                    {
+                        "Field": "adjusted_2026_value",
+                        "Purpose": "A CPI-adjusted comparison value, calculated only from stored source fields.",
+                    },
+                    {
+                        "Field": "adjustment_method",
+                        "Purpose": "The inflation method and index used so the calculation is auditable.",
+                    },
+                    {
+                        "Field": "confidence",
+                        "Purpose": "A reviewer-facing confidence label for the value, source, and IOOS attribution.",
+                    },
+                ]
+            ),
+            use_container_width=True,
+            hide_index=True,
+            column_config={"Purpose": st.column_config.TextColumn(width="large")},
+        )
+
+
 def render_record_detail(
     row: pd.Series,
     source_df: pd.DataFrame,
@@ -8509,6 +9069,8 @@ def main() -> None:
         page_about_data(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
     elif page == "Dashboard":
         page_dashboard_summary(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
+    elif page == "Evidence Atlas":
+        page_evidence_atlas(public_evidence_df, public_source_df, public_review_df, public_best_sources_df)
     elif page == "Evidence Database":
         page_evidence_matrix(public_evidence_df, public_source_df, public_review_df)
     elif page == "Briefs & Outputs":
