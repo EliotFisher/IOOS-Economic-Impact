@@ -4105,6 +4105,10 @@ def build_maracoos_congressional_briefing_html(
     </div>"""
         for item in items
     )
+    metric_strip = "\n".join(
+        f"""    <div class="metric"><div class="value">{brief_escape(card['value'])}</div><div class="label">{brief_escape(card['label'])}</div></div>"""
+        for card in congressional_brief_metric_cards(maracoos_df, pd.DataFrame())
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -4207,7 +4211,7 @@ def build_maracoos_congressional_briefing_html(
     padding: 8px 9px;
     min-height: 58px;
   }}
-  .metric .value {{ color: var(--teal-dark); font-weight: 800; font-size: 18pt; line-height: 1; }}
+  .metric .value {{ color: var(--teal-dark); font-weight: 800; font-size: 16.5pt; line-height: 1.06; overflow-wrap: anywhere; }}
   .metric .label {{ color: var(--gray); font-size: 8.5pt; margin-top: 4px; }}
   h2.section {{
     font-size: 10.8pt;
@@ -4354,10 +4358,7 @@ def build_maracoos_congressional_briefing_html(
   </div>
 
   <div class="metric-strip">
-    <div class="metric"><div class="value">5x</div><div class="label">Return on investment</div></div>
-    <div class="metric"><div class="value">$400B</div><div class="label">U.S. ocean economy enabled</div></div>
-    <div class="metric"><div class="value">325K</div><div class="label">Ocean Enterprise jobs supported</div></div>
-    <div class="metric"><div class="value">$280M</div><div class="label">Requested over 5 years</div></div>
+{metric_strip}
   </div>
 
   <div class="bottom-line">Bottom line: MARACOOS gives staff a concrete Mid-Atlantic example of IOOS regional infrastructure turning ocean observations into safety, navigation, coastal hazard, and water-quality decision support.</div>
@@ -4415,7 +4416,7 @@ def build_maracoos_congressional_briefing_html(
     Support Senate floor action on S. 2126 &nbsp; | &nbsp; Defend IOOS funding in CJS appropriations at or above current levels &nbsp; | &nbsp; Request a MARACOOS-specific briefing on how IOOS serves Mid-Atlantic coastal, port, fisheries, or emergency management stakeholders.
   </div>
 
-  <div class="footnote">Source note: The four-card authorization metric strip matches the main congressional brief. MARACOOS-specific evidence examples, caveats, source counts, and regional claims are built only from the MARACOOS rows currently displayed above this briefing preview.</div>
+  <div class="footnote">Source note: The metric strip uses verified use and benefit evidence signals calculated from the MARACOOS rows. MARACOOS-specific evidence examples, caveats, source counts, and regional claims are built only from the MARACOOS rows currently displayed above this briefing preview.</div>
 
   <div class="footer">
     <span>IOOS Economic Impact Evidence Matrix | MARACOOS regional brief</span>
@@ -4653,11 +4654,38 @@ def congressional_brief_item(
     }
 
 
+def congressional_brief_metric_cards(evidence_df: pd.DataFrame, benefit_sources_df: pd.DataFrame) -> list[dict[str, str]]:
+    """Use the dashboard evidence-signal data for the brief's top metric strip."""
+    verified_use_count, _ = decision_use_counts(evidence_df)
+    benefit_count = quantified_benefit_study_count(benefit_sources_df, evidence_df)
+    safety_value, safety_unit, _, _ = operational_safety_signal(evidence_df, benefit_sources_df)
+    ocean_value, _ = ocean_enterprise_signal(benefit_sources_df, evidence_df)
+    return [
+        {
+            "value": f"{verified_use_count:,}",
+            "label": pluralized_label(verified_use_count, "verified decision use"),
+        },
+        {
+            "value": f"{benefit_count:,}",
+            "label": pluralized_label(benefit_count, "quantified benefit study", "quantified benefit studies"),
+        },
+        {
+            "value": safety_value,
+            "label": safety_unit,
+        },
+        {
+            "value": ocean_value,
+            "label": "Ocean Enterprise footprint",
+        },
+    ]
+
+
 def build_congressional_briefing_html(
     evidence_df: pd.DataFrame,
     source_df: pd.DataFrame,
     prepared_for: str,
     prepared_date: date,
+    benefit_sources_df: pd.DataFrame | None = None,
 ) -> str:
     """Build a two-page print-friendly congressional brief from the current matrix rows."""
     context = congressional_briefing_context(evidence_df, source_df, prepared_for, prepared_date)
@@ -4729,6 +4757,11 @@ def build_congressional_briefing_html(
       <p>{brief_escape(item['caveat'] or "Keep row-specific caveats attached before external distribution.")}</p>
     </div>"""
         for item in [disaster, ports, communities, economy]
+    )
+    metric_source_df = benefit_sources_df if benefit_sources_df is not None else source_df
+    metric_strip = "\n".join(
+        f"""    <div class="metric"><div class="value">{brief_escape(card['value'])}</div><div class="label">{brief_escape(card['label'])}</div></div>"""
+        for card in congressional_brief_metric_cards(evidence_df, metric_source_df)
     )
 
     ucar_logo_uri = asset_data_uri(UCAR_LOGO_PATH, "image/avif")
@@ -4838,7 +4871,7 @@ def build_congressional_briefing_html(
     padding: 8px 9px;
     min-height: 58px;
   }}
-  .metric .value {{ color: var(--teal-dark); font-weight: 800; font-size: 18pt; line-height: 1; }}
+  .metric .value {{ color: var(--teal-dark); font-weight: 800; font-size: 16.5pt; line-height: 1.06; overflow-wrap: anywhere; }}
   .metric .label {{ color: var(--gray); font-size: 8.5pt; margin-top: 4px; }}
   h2.section {{
     font-size: 10.8pt;
@@ -4982,10 +5015,7 @@ def build_congressional_briefing_html(
   </div>
 
   <div class="metric-strip">
-    <div class="metric"><div class="value">5x</div><div class="label">Return on investment</div></div>
-    <div class="metric"><div class="value">$400B</div><div class="label">U.S. ocean economy enabled</div></div>
-    <div class="metric"><div class="value">325K</div><div class="label">Ocean Enterprise jobs supported</div></div>
-    <div class="metric"><div class="value">$280M</div><div class="label">Requested over 5 years</div></div>
+{metric_strip}
   </div>
 
   <div class="bottom-line">Bottom line: IOOS is proven national infrastructure. It turns ocean observations into safer ports, better storm decisions, stronger coastal economies, and private-sector growth.</div>
@@ -5102,6 +5132,7 @@ def build_congressional_briefing_pdf(
     source_df: pd.DataFrame,
     prepared_for: str,
     prepared_date: date,
+    benefit_sources_df: pd.DataFrame | None = None,
 ) -> bytes:
     """Build a two-page PDF version of the congressional brief."""
     from reportlab.lib import colors
@@ -5120,6 +5151,7 @@ def build_congressional_briefing_pdf(
     )
 
     context = congressional_briefing_context(evidence_df, source_df, prepared_for, prepared_date)
+    metric_source_df = benefit_sources_df if benefit_sources_df is not None else source_df
     content_width = 7.26 * inch
     teal = colors.HexColor("#00A3B4")
     teal_dark = colors.HexColor("#007785")
@@ -5172,8 +5204,8 @@ def build_congressional_briefing_pdf(
         "metric_value": ParagraphStyle(
             "MetricValue",
             fontName="Helvetica-Bold",
-            fontSize=18,
-            leading=18,
+            fontSize=15,
+            leading=16,
             textColor=teal_dark,
             alignment=TA_CENTER,
         ),
@@ -5359,13 +5391,13 @@ def build_congressional_briefing_pdf(
     story.extend([meta, Spacer(1, 7)])
 
     metric_cells = []
-    for value, label in [
-        ("5x", "Return on investment"),
-        ("$400B", "U.S. ocean economy enabled"),
-        ("325K", "Ocean Enterprise jobs supported"),
-        ("$280M", "Requested over 5 years"),
-    ]:
-        metric_cells.append([rich_paragraph(value, "metric_value"), paragraph(label, "metric_label")])
+    for card in congressional_brief_metric_cards(evidence_df, metric_source_df):
+        metric_cells.append(
+            [
+                rich_paragraph(pdf_markup(card["value"]), "metric_value"),
+                paragraph(card["label"], "metric_label"),
+            ]
+        )
 
     metric_table = Table([metric_cells], colWidths=[content_width / 4] * 4)
     metric_table.setStyle(
@@ -7589,6 +7621,7 @@ def page_congressional_briefing(
     evidence_df: pd.DataFrame,
     source_df: pd.DataFrame,
     staged_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame | None = None,
 ) -> None:
     st.markdown(
         """
@@ -7604,6 +7637,7 @@ def page_congressional_briefing(
     if evidence_df.empty:
         st.warning("No evidence matrix rows are available for the national brief preview.")
 
+    brief_metric_sources_df = best_sources_df if best_sources_df is not None else source_df
     export_df = enrich_evidence_with_source_fields(evidence_df, source_df)
     export_df = add_dashboard_fields(export_df, pd.DataFrame())
     ready_df = export_df[export_df.apply(is_external_ready_row, axis=1)].copy()
@@ -7755,6 +7789,7 @@ def page_congressional_briefing(
             source_df,
             prepared_for,
             prepared_date,
+            brief_metric_sources_df,
         )
         components.html(briefing_html, height=1700, scrolling=True)
         st.download_button(
@@ -7770,6 +7805,7 @@ def page_congressional_briefing(
                     source_df,
                     prepared_for,
                     prepared_date,
+                    brief_metric_sources_df,
                 )
             except Exception as exc:
                 st.warning(f"PDF export is unavailable: {exc}")
@@ -8476,7 +8512,7 @@ def main() -> None:
     elif page == "Evidence Database":
         page_evidence_matrix(public_evidence_df, public_source_df, public_review_df)
     elif page == "Briefs & Outputs":
-        page_congressional_briefing(public_evidence_df, public_source_df, public_staged_df)
+        page_congressional_briefing(public_evidence_df, public_source_df, public_staged_df, public_best_sources_df)
     elif page == "Best Sources":
         page_best_sources(public_best_sources_df)
     elif page == "Review / Admin":

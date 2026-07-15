@@ -70,11 +70,12 @@ def supabase_get(table: str, query: dict[str, str]) -> list[dict[str, object]]:
     return rows
 
 
-def load_live_data() -> tuple[list[dict[str, object]], dict[str, dict[str, object]]]:
+def load_live_data() -> tuple[list[dict[str, object]], dict[str, dict[str, object]], list[dict[str, object]]]:
     evidence = supabase_get("evidence_matrix", {"select": "*", "order": "row_id.asc"})
     sources = supabase_get("source_registry", {"select": "*", "order": "source_id.asc"})
+    best_sources = supabase_get("best_sources", {"select": "*", "order": "source_id.asc"})
     source_lookup = {str(row.get("source_id", "")): row for row in sources}
-    return evidence, source_lookup
+    return evidence, source_lookup, best_sources
 
 
 def read_csv_count(path: Path) -> int:
@@ -84,7 +85,11 @@ def read_csv_count(path: Path) -> int:
         return sum(1 for _ in csv.DictReader(handle))
 
 
-def build_brief(evidence: list[dict[str, object]], sources: dict[str, dict[str, object]]) -> str:
+def build_brief(
+    evidence: list[dict[str, object]],
+    sources: dict[str, dict[str, object]],
+    best_sources: list[dict[str, object]],
+) -> str:
     """Use the Streamlit brief builder so script output matches the live app."""
     app_path = REPO_ROOT / "app" / "app.py"
     spec = importlib.util.spec_from_file_location("ioos_streamlit_app_for_brief", app_path)
@@ -96,11 +101,13 @@ def build_brief(evidence: list[dict[str, object]], sources: dict[str, dict[str, 
 
     evidence_df = module.pd.DataFrame(evidence)
     source_df = module.pd.DataFrame(list(sources.values()))
+    best_source_df = module.pd.DataFrame(best_sources)
     return module.build_congressional_briefing_html(
         evidence_df,
         source_df,
         "Congressional Staff",
         date.today(),
+        best_source_df,
     )
 
 
@@ -110,14 +117,17 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
-    evidence, sources = load_live_data()
-    filled = build_brief(evidence, sources)
+    evidence, sources, best_sources = load_live_data()
+    filled = build_brief(evidence, sources, best_sources)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(filled, encoding="utf-8")
 
     local_rows = read_csv_count(REPO_ROOT / "data" / "evidence_matrix.csv")
     print(f"Wrote {args.output}")
-    print(f"Supabase evidence rows: {len(evidence)}; source rows: {len(sources)}; local mirror rows: {local_rows}")
+    print(
+        f"Supabase evidence rows: {len(evidence)}; source rows: {len(sources)}; "
+        f"best source rows: {len(best_sources)}; local mirror rows: {local_rows}"
+    )
 
 
 if __name__ == "__main__":
