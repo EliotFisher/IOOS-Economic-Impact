@@ -672,6 +672,63 @@ CASE_STUDY_THEMES = [
     },
 ]
 
+DECISION_USE_CATEGORY_KEYWORDS = {
+    "Ports": [
+        "ports",
+        "port efficiency",
+        "maritime transportation",
+        "navigation",
+        "vessel",
+        "commercial marine transportation",
+    ],
+    "SAR": ["search and rescue", "sarops", "hf radar", "hfr", "surface current"],
+    "HABs": ["hab", "harmful algal", "algal bloom", "sea nettle", "vibrio"],
+    "Flooding": ["flood", "storm surge", "water level sensor", "coastal flood"],
+    "Offshore wind": ["offshore wind", "wind farm", "blade inspection", "lease"],
+    "Fisheries": ["fisher", "fisheries", "seafood", "shellfish", "aquaculture", "scallop", "crab"],
+    "Coastal hazards": ["coastal hazard", "resilience", "rip current", "beach safety", "storm", "erosion"],
+}
+
+DECISION_USE_TEXT_COLUMNS = [
+    "impact_domain",
+    "ioos_component",
+    "user_group",
+    "decision_supported",
+    "economic_pathway",
+    "metric",
+    "claim_allowed",
+]
+
+BENEFIT_STUDY_SOURCE_TYPES = [
+    "case study",
+    "valuation study",
+    "modeled national scenario",
+    "regional benefits study",
+    "peer-reviewed regional benefits study",
+    "peer-reviewed article",
+]
+
+BENEFIT_STUDY_EXCLUDED_SOURCE_TYPES = [
+    "survey",
+    "technical paper",
+    "project report",
+    "official annual report",
+    "official report to congress",
+    "official economic report",
+]
+
+BENEFIT_STUDY_TEXT_COLUMNS = [
+    "source_id",
+    "source_name",
+    "source_type",
+    "briefing_role",
+    "impact_domains",
+    "key_metrics",
+    "evidence_profile",
+    "recommended_claim_language",
+    "caveats",
+]
+
 
 st.set_page_config(
     page_title="IOOS Economic Impact Hub",
@@ -1120,6 +1177,130 @@ def apply_hub_styles() -> None:
 
             div[data-testid="stMetric"] [data-testid="stMetricValue"] {{
                 font-weight: 820;
+            }}
+
+            .evidence-signal-chart {{
+                background: linear-gradient(135deg, #ffffff 0%, #f7fbfc 100%);
+                border: 1px solid var(--ioos-line);
+                border-radius: 8px;
+                box-shadow: var(--ioos-shadow);
+                margin: 1rem 0 1.25rem;
+                padding: 1rem;
+            }}
+
+            .evidence-signal-header {{
+                align-items: flex-end;
+                border-bottom: 1px solid var(--ioos-line);
+                display: flex;
+                gap: 1rem;
+                justify-content: space-between;
+                padding-bottom: 0.85rem;
+            }}
+
+            .evidence-signal-header h2 {{
+                color: var(--ioos-ink);
+                font-size: 1.2rem;
+                line-height: 1.2;
+                margin: 0;
+            }}
+
+            .evidence-signal-header p {{
+                color: var(--ioos-muted);
+                font-size: 0.86rem;
+                line-height: 1.45;
+                margin: 0;
+                max-width: 520px;
+            }}
+
+            .evidence-signal-grid {{
+                display: grid;
+                gap: 0.8rem;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                margin-top: 0.9rem;
+            }}
+
+            .evidence-signal-card {{
+                background: rgba(255, 255, 255, 0.74);
+                border-left: 4px solid var(--ioos-green);
+                border-radius: 8px;
+                min-height: 210px;
+                padding: 0.9rem;
+            }}
+
+            .evidence-signal-card.signal-benefits {{
+                border-left-color: var(--ioos-blue);
+            }}
+
+            .evidence-signal-card.signal-safety {{
+                border-left-color: var(--ioos-gold);
+            }}
+
+            .evidence-signal-card.signal-market {{
+                border-left-color: var(--ioos-violet);
+            }}
+
+            .evidence-signal-title {{
+                color: var(--ioos-muted);
+                font-size: 0.74rem;
+                font-weight: 820;
+                line-height: 1.2;
+                margin-bottom: 0.42rem;
+                text-transform: uppercase;
+            }}
+
+            .evidence-signal-value {{
+                color: var(--ioos-ink);
+                font-size: 1.48rem;
+                font-weight: 820;
+                line-height: 1.08;
+                overflow-wrap: anywhere;
+            }}
+
+            .evidence-signal-unit {{
+                color: var(--ioos-muted);
+                font-size: 0.84rem;
+                line-height: 1.36;
+                margin-top: 0.25rem;
+            }}
+
+            .evidence-signal-note {{
+                color: #405760;
+                font-size: 0.82rem;
+                line-height: 1.43;
+                margin: 0.68rem 0 0;
+            }}
+
+            .evidence-signal-tags {{
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.35rem;
+                margin-top: 0.7rem;
+            }}
+
+            .evidence-signal-tags span {{
+                background: #eef6f7;
+                border: 1px solid var(--ioos-line);
+                border-radius: 999px;
+                color: #405760;
+                font-size: 0.72rem;
+                font-weight: 760;
+                line-height: 1;
+                padding: 0.28rem 0.48rem;
+            }}
+
+            .evidence-signal-meter {{
+                background: #e7eff2;
+                border-radius: 999px;
+                height: 0.52rem;
+                margin-top: 0.78rem;
+                overflow: hidden;
+            }}
+
+            .evidence-signal-meter span {{
+                background: linear-gradient(90deg, var(--ioos-blue), var(--ioos-green));
+                border-radius: inherit;
+                display: block;
+                height: 100%;
             }}
 
             header[data-testid="stHeader"],
@@ -1737,6 +1918,11 @@ def apply_hub_styles() -> None:
                 .claim-review-main,
                 .claim-review-meta {{
                     grid-template-columns: 1fr;
+                }}
+
+                .evidence-signal-header {{
+                    align-items: flex-start;
+                    flex-direction: column;
                 }}
 
                 .detail-panel {{
@@ -6050,30 +6236,204 @@ def render_coverage_matrix(evidence_df: pd.DataFrame) -> None:
     )
 
 
-def render_pipeline_cards(
-    evidence_df: pd.DataFrame,
-    review_df: pd.DataFrame,
-    staged_df: pd.DataFrame,
-) -> None:
-    status_counts = evidence_df["dashboard_status"].value_counts() if "dashboard_status" in evidence_df else {}
-    in_review_count = len(review_df)
-    cards = [
-        ("Staged", len(staged_df), "AI-extracted or newly imported rows held outside the official database."),
-        ("In review", in_review_count, "Rows with validation warnings or source checks waiting for a reviewer."),
-        ("Verified", int(status_counts.get("report-ready", 0)), "Rows with enough evidence and attribution for external reuse."),
-        ("Flagged", int(status_counts.get("needs-follow-up", 0)), "Rows needing source, attribution, language, or limitation work."),
-    ]
-    card_html = "".join(
-        f"""
-        <div class="metric-panel">
-            <b>{hub_escape(label)}</b>
-            <span>{count:,} rows</span>
-            <p style="color:#5e6f79;font-size:0.82rem;line-height:1.42;margin:0.45rem 0 0;">{hub_escape(description)}</p>
-        </div>
-        """
-        for label, count, description in cards
+def lower_text_series(df: pd.DataFrame, columns: list[str]) -> pd.Series:
+    """Return lower-cased row text from the columns that exist in a dataframe."""
+    if df.empty:
+        return pd.Series(dtype=str)
+    available_columns = [column for column in columns if column in df.columns]
+    if not available_columns:
+        return pd.Series("", index=df.index)
+    return df[available_columns].apply(
+        lambda row: " ".join(normalize_text(value) for value in row),
+        axis=1,
+    ).str.lower()
+
+
+def keyword_mask(df: pd.DataFrame, columns: list[str], keywords: list[str]) -> pd.Series:
+    text = lower_text_series(df, columns)
+    if text.empty:
+        return pd.Series(False, index=df.index)
+    normalized_keywords = [keyword.lower() for keyword in keywords]
+    return text.map(lambda value: any(keyword in value for keyword in normalized_keywords))
+
+
+def unique_row_count(df: pd.DataFrame) -> int:
+    if df.empty:
+        return 0
+    if "row_id" not in df.columns:
+        return len(df)
+    row_ids = df["row_id"].map(normalize_text)
+    nonblank_ids = row_ids[row_ids != ""]
+    return int(nonblank_ids.nunique() + (row_ids == "").sum())
+
+
+def source_backed_rows(evidence_df: pd.DataFrame) -> pd.DataFrame:
+    if evidence_df.empty:
+        return evidence_df.copy()
+    source_columns = [column for column in ["source_url", "source_id", "source_name"] if column in evidence_df.columns]
+    if not source_columns:
+        return evidence_df.copy()
+    source_mask = pd.Series(False, index=evidence_df.index)
+    for column in source_columns:
+        source_mask = source_mask | (evidence_df[column].map(normalize_text) != "")
+    return evidence_df[source_mask].copy()
+
+
+def decision_use_counts(evidence_df: pd.DataFrame) -> tuple[int, dict[str, int]]:
+    source_checked = source_backed_rows(evidence_df)
+    if source_checked.empty:
+        return 0, {category: 0 for category in DECISION_USE_CATEGORY_KEYWORDS}
+
+    category_counts: dict[str, int] = {}
+    any_category_mask = pd.Series(False, index=source_checked.index)
+    for category, keywords in DECISION_USE_CATEGORY_KEYWORDS.items():
+        mask = keyword_mask(source_checked, DECISION_USE_TEXT_COLUMNS, keywords)
+        category_counts[category] = unique_row_count(source_checked[mask])
+        any_category_mask = any_category_mask | mask
+
+    return unique_row_count(source_checked[any_category_mask]), category_counts
+
+
+def quantified_benefit_study_count(best_sources_df: pd.DataFrame, evidence_df: pd.DataFrame) -> int:
+    if not best_sources_df.empty:
+        source_type = (
+            best_sources_df["source_type"].map(normalize_text).str.lower()
+            if "source_type" in best_sources_df.columns
+            else pd.Series("", index=best_sources_df.index)
+        )
+        text = lower_text_series(best_sources_df, BENEFIT_STUDY_TEXT_COLUMNS)
+        included_type = source_type.map(lambda value: any(keyword in value for keyword in BENEFIT_STUDY_SOURCE_TYPES))
+        excluded_type = source_type.map(lambda value: any(keyword in value for keyword in BENEFIT_STUDY_EXCLUDED_SOURCE_TYPES))
+        quantified_text = text.str.contains(
+            r"\$|million|billion|dollar|cost|savings?|avoided|benefits?|value",
+            regex=True,
+        )
+        benefit_framed = text.str.contains(
+            r"benefit|valuation|value-of-information|user value|avoided|savings?|scenario|modeled",
+            regex=True,
+        )
+        return int((included_type & quantified_text & benefit_framed & ~excluded_type).sum())
+
+    text = lower_text_series(evidence_df, DECISION_USE_TEXT_COLUMNS + ["source_id", "source_url"])
+    if text.empty:
+        return 0
+    quantified_rows = text.str.contains(
+        r"\$|million|billion|dollar|cost|savings?|avoided|benefits?|value",
+        regex=True,
     )
-    st.markdown(f'<div class="queue-grid">{card_html}</div>', unsafe_allow_html=True)
+    context_only = text.str.contains(r"sector baseline|sector context|marine economy|ocean enterprise", regex=True)
+    return unique_row_count(evidence_df[quantified_rows & ~context_only])
+
+
+def operational_safety_signal(evidence_df: pd.DataFrame, best_sources_df: pd.DataFrame) -> tuple[str, str, str, int]:
+    safety_df = pd.concat(
+        [
+            evidence_df[[column for column in DECISION_USE_TEXT_COLUMNS if column in evidence_df.columns]],
+            best_sources_df[[column for column in BENEFIT_STUDY_TEXT_COLUMNS if column in best_sources_df.columns]],
+        ],
+        ignore_index=True,
+    )
+    text = " ".join(lower_text_series(safety_df, list(safety_df.columns)).tolist())
+
+    if re.search(r"\b66\s*%|66 percent|two[- ]thirds", text):
+        return "~66%", "smaller SAR search areas", "HF radar / SAROPS performance metric from source-checked rows.", 66
+    if "three times smaller" in text:
+        return "~67%", "smaller SAR search areas", "HF radar / SAROPS performance metric from source-checked rows.", 67
+    if re.search(r"\b59\s*%|59 percent", text) and "ground" in text:
+        return "59%", "lower vessel-grounding risk", "PORTS safety evidence documents reduced vessel-risk outcomes.", 59
+    if re.search(r"\b50\s*%|50 percent", text) and "ground" in text:
+        return "50%", "lower vessel-grounding risk", "PORTS safety evidence documents reduced vessel-risk outcomes.", 50
+    return "Documented", "vessel-risk reductions", "HF radar / SAR and PORTS safety rows are tracked without monetizing every outcome.", 45
+
+
+def ocean_enterprise_signal(best_sources_df: pd.DataFrame, evidence_df: pd.DataFrame) -> tuple[str, str]:
+    ocean_sources = best_sources_df[keyword_mask(best_sources_df, BENEFIT_STUDY_TEXT_COLUMNS, ["ocean enterprise"])]
+    ocean_rows = evidence_df[keyword_mask(evidence_df, DECISION_USE_TEXT_COLUMNS + ["source_id"], ["ocean enterprise"])]
+    text_parts = []
+    if not ocean_sources.empty:
+        text_parts.extend(lower_text_series(ocean_sources, BENEFIT_STUDY_TEXT_COLUMNS).tolist())
+    if not ocean_rows.empty:
+        text_parts.extend(lower_text_series(ocean_rows, DECISION_USE_TEXT_COLUMNS).tolist())
+    text = " ".join(text_parts)
+
+    has_businesses = bool(re.search(r"\b814\b", text))
+    has_revenue = bool(re.search(r"\$8\s*b|\$8\s+billion|8 billion", text))
+    if has_businesses and has_revenue:
+        return "814 businesses / $8B revenue", "Ocean Enterprise market footprint; sector context only, not attribution."
+    if has_businesses:
+        return "814 businesses", "Ocean Enterprise market footprint; sector context only, not attribution."
+    if has_revenue:
+        return "$8B revenue", "Ocean Enterprise market footprint; sector context only, not attribution."
+    return "Sector context", "Ocean Enterprise market footprint; use as context rather than attribution."
+
+
+def evidence_signal_tags_html(category_counts: dict[str, int]) -> str:
+    tags = [
+        f"<span>{hub_escape(category)} {count:,}</span>"
+        for category, count in category_counts.items()
+        if count
+    ]
+    return "".join(tags) or "<span>Coverage pending</span>"
+
+
+def pluralized_label(count: int, singular: str, plural: str | None = None) -> str:
+    return singular if count == 1 else (plural or f"{singular}s")
+
+
+def render_evidence_signal_chart(evidence_df: pd.DataFrame, best_sources_df: pd.DataFrame) -> None:
+    verified_use_count, category_counts = decision_use_counts(evidence_df)
+    benefit_count = quantified_benefit_study_count(best_sources_df, evidence_df)
+    safety_value, safety_unit, safety_note, safety_width = operational_safety_signal(evidence_df, best_sources_df)
+    ocean_value, ocean_note = ocean_enterprise_signal(best_sources_df, evidence_df)
+    category_tags = evidence_signal_tags_html(category_counts)
+    chart_label = (
+        f"{verified_use_count} verified decision use cases; "
+        f"{benefit_count} quantified benefit studies; "
+        f"{safety_value} {safety_unit}; "
+        f"{ocean_value} Ocean Enterprise market footprint."
+    )
+
+    st.markdown(
+        f"""
+        <div class="evidence-signal-chart" role="img" aria-label="{hub_escape(chart_label)}">
+            <div class="evidence-signal-header">
+                <div>
+                    <div class="hub-kicker">Evidence signals</div>
+                    <h2>Verified use and benefit evidence</h2>
+                </div>
+                <p>Decision-use counts, quantified studies, safety performance, and market footprint are kept as separate signals.</p>
+            </div>
+            <div class="evidence-signal-grid">
+                <div class="evidence-signal-card signal-uses">
+                    <div class="evidence-signal-title">Verified Decision Uses</div>
+                    <div class="evidence-signal-value">{verified_use_count:,}</div>
+                    <div class="evidence-signal-unit">{hub_escape(pluralized_label(verified_use_count, "verified use case"))}</div>
+                    <div class="evidence-signal-tags">{category_tags}</div>
+                </div>
+                <div class="evidence-signal-card signal-benefits">
+                    <div class="evidence-signal-title">Economic Benefit Evidence</div>
+                    <div class="evidence-signal-value">{benefit_count:,}</div>
+                    <div class="evidence-signal-unit">{hub_escape(pluralized_label(benefit_count, "quantified benefit study", "quantified benefit studies"))}</div>
+                    <p class="evidence-signal-note">Monetized case studies and modeled benefit studies are counted, not combined into one ROI.</p>
+                </div>
+                <div class="evidence-signal-card signal-safety">
+                    <div class="evidence-signal-title">Operational Safety Improvement</div>
+                    <div class="evidence-signal-value">{hub_escape(safety_value)}</div>
+                    <div class="evidence-signal-unit">{hub_escape(safety_unit)}</div>
+                    <div class="evidence-signal-meter" aria-hidden="true"><span style="width:{safety_width}%;"></span></div>
+                    <p class="evidence-signal-note">{hub_escape(safety_note)}</p>
+                </div>
+                <div class="evidence-signal-card signal-market">
+                    <div class="evidence-signal-title">Ocean Enterprise Market Footprint</div>
+                    <div class="evidence-signal-value">{hub_escape(ocean_value)}</div>
+                    <div class="evidence-signal-unit">sector context</div>
+                    <p class="evidence-signal-note">{hub_escape(ocean_note)}</p>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_strength_distribution(evidence_df: pd.DataFrame) -> None:
@@ -6158,13 +6518,12 @@ def page_dashboard_summary(
     metric_columns[2].metric("Briefing sources", f"{len(best_sources_df):,}")
     metric_columns[3].metric("Current phase", active_phase_label())
 
+    render_evidence_signal_chart(evidence_dashboard_df, best_sources_df)
+
     if review_df.empty:
         st.success("No validation review items are currently listed.")
     else:
         st.warning(f"Validation review shows {review_errors} errors and {review_warnings} warnings.")
-
-    st.subheader("Review Pipeline Status")
-    render_pipeline_cards(evidence_dashboard_df, review_df, staged_df)
 
     if MARACOOS_COVERAGE_MAP_PATH.exists():
         st.image(str(MARACOOS_COVERAGE_MAP_PATH), caption="MARACOOS regional pilot coverage", use_container_width=True)
