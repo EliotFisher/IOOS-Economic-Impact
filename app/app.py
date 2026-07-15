@@ -6514,9 +6514,6 @@ def page_dashboard_summary(
     else:
         st.warning(f"Validation review shows {review_errors} errors and {review_warnings} warnings.")
 
-    if MARACOOS_COVERAGE_MAP_PATH.exists():
-        st.image(str(MARACOOS_COVERAGE_MAP_PATH), caption="MARACOOS regional pilot coverage", use_container_width=True)
-
     overview_tab, coverage_tab, freshness_tab = st.tabs(
         ["Health Check", "Coverage Matrix", "Freshness"]
     )
