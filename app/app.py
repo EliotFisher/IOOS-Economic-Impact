@@ -8079,17 +8079,24 @@ def render_region_section(
     region_evidence = add_dashboard_fields(region_evidence, pd.DataFrame())
     ready_count = int(region_evidence.apply(is_external_ready_row, axis=1).sum()) if not region_evidence.empty else 0
     status_label, status_class = regional_section_status(target, len(region_evidence), len(region_sources))
-
+    title_map_html = ""
     if code == MARACOOS_CODE and MARACOOS_COVERAGE_MAP_PATH.exists():
-        _, map_col, _ = st.columns([0.16, 0.68, 0.16])
-        with map_col:
-            st.image(str(MARACOOS_COVERAGE_MAP_PATH), caption="MARACOOS coverage map", use_container_width=True)
+        map_uri = asset_data_uri(MARACOOS_COVERAGE_MAP_PATH, "image/png")
+        if map_uri:
+            title_map_html = (
+                f'<img src="{map_uri}" alt="MARACOOS coverage map" '
+                'style="width:min(180px, 32vw); max-height:96px; object-fit:contain; '
+                'border:1px solid #dbe7ea; border-radius:8px; background:#ffffff; padding:0.25rem;">'
+            )
 
     st.markdown(
         f"""
         <div class="hub-page-title">
             <div class="hub-kicker">{hub_escape(association)}</div>
-            <h1>{hub_escape(region_name)}</h1>
+            <div style="align-items:center; display:flex; gap:1rem; justify-content:space-between; flex-wrap:wrap;">
+                <h1>{hub_escape(region_name)}</h1>
+                {title_map_html}
+            </div>
             <p>
                 <span class="hub-chip {hub_escape(status_class)}">{hub_escape(status_label)}</span>
                 <span style="margin-left:0.45rem;">{hub_escape(row_field(target, "phase", "Regional build queue"))}</span>
