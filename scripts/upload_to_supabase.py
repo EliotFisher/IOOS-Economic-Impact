@@ -4,6 +4,11 @@ Before running this script, create the tables with supabase/schema.sql and set:
 
   SUPABASE_URL=https://spfyejzxqornsfmoansk.supabase.co
   SUPABASE_SERVICE_ROLE_KEY=...
+
+By default this replaces the shared live tables. Use the Streamlit Evidence
+Intake uploader for append-style MARACOOS pilot uploads. If you explicitly pass
+--tables MARACOOS, this script replaces the MARACOOS pilot table from
+outputs/MARACOOS_staged_evidence_ready_to_upload.csv.
 """
 
 from __future__ import annotations
@@ -22,6 +27,7 @@ from urllib.request import Request, urlopen
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO_ROOT / "data"
+OUTPUTS_DIR = REPO_ROOT / "outputs"
 DEFAULT_SUPABASE_URL = "https://spfyejzxqornsfmoansk.supabase.co"
 
 CANDIDATE_COLUMNS = {
@@ -39,7 +45,11 @@ CANDIDATE_COLUMNS = {
     "Source URL": "source_url",
     "Evidence strength": "evidence_strength",
     "IOOS attribution strength": "ioos_attribution_strength",
+    "Economic number type": "economic_number_type",
+    "IOOS role type": "ioos_role_type",
     "Source verification needed": "source_verification_needed",
+    "Allowed use": "allowed_use",
+    "Not allowed use": "not_allowed_use",
     "Limitations": "limitations",
     "Claim allowed": "claim_allowed",
     "Update frequency": "update_frequency",
@@ -48,29 +58,15 @@ CANDIDATE_COLUMNS = {
 }
 
 CSV_TABLES = {
-    "source_registry": {
-        "path": DATA_DIR / "source_registry.csv",
-        "delete_filter": ("source_id", "not.is.null"),
-        "conflict": "source_id",
-        "columns": None,
-    },
-    "evidence_matrix": {
-        "path": DATA_DIR / "evidence_matrix.csv",
-        "delete_filter": ("row_id", "not.is.null"),
-        "conflict": "row_id",
-        "columns": None,
-    },
-    "review_needed": {
-        "path": DATA_DIR / "review_needed.csv",
-        "delete_filter": ("id", "not.is.null"),
-        "conflict": None,
-        "columns": {
-            "check": "check_name",
-        },
-    },
     "staged_evidence": {
         "path": DATA_DIR / "staged_evidence.csv",
         "delete_filter": ("id", "not.is.null"),
+        "conflict": None,
+        "columns": CANDIDATE_COLUMNS,
+    },
+    "MARACOOS": {
+        "path": OUTPUTS_DIR / "MARACOOS_staged_evidence_ready_to_upload.csv",
+        "delete_filter": ("row_id", "not.is.null"),
         "conflict": None,
         "columns": CANDIDATE_COLUMNS,
     },
@@ -82,8 +78,9 @@ CSV_TABLES = {
     },
 }
 
-DELETE_ORDER = ["review_needed", "staged_evidence", "best_sources", "evidence_matrix", "source_registry"]
-INSERT_ORDER = ["source_registry", "evidence_matrix", "review_needed", "staged_evidence", "best_sources"]
+DEFAULT_TABLES = ["staged_evidence", "best_sources"]
+DELETE_ORDER = ["staged_evidence", "MARACOOS", "best_sources"]
+INSERT_ORDER = ["staged_evidence", "MARACOOS", "best_sources"]
 
 
 def load_dotenv(path: Path) -> None:
@@ -214,7 +211,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Upload IOOS CSV data to Supabase.")
     parser.add_argument("--url", default=os.environ.get("SUPABASE_URL", DEFAULT_SUPABASE_URL))
     parser.add_argument("--service-key", default=os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
-    parser.add_argument("--tables", nargs="+", choices=CSV_TABLES.keys(), default=list(CSV_TABLES.keys()))
+    parser.add_argument("--tables", nargs="+", choices=CSV_TABLES.keys(), default=DEFAULT_TABLES)
     parser.add_argument("--chunk-size", type=int, default=500)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--skip-validation", action="store_true")
@@ -227,7 +224,7 @@ def main() -> int:
         raise SystemExit("Set SUPABASE_SERVICE_ROLE_KEY in .env or pass --service-key.")
 
     if not args.skip_validation:
-        run_validation()
+        print("Skipping legacy matrix validation; Supabase upload targets shared tables by default.")
 
     selected_tables = set(args.tables)
     for table in DELETE_ORDER:

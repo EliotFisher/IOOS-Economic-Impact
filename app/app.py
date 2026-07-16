@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import base64
+import hashlib
 import html as html_lib
 import io
 import json
@@ -149,6 +150,7 @@ TABLE_DELETE_FILTERS = {
     "evidence_matrix": ("row_id", "not.is.null"),
     "review_needed": ("id", "not.is.null"),
     "staged_evidence": ("id", "not.is.null"),
+    "MARACOOS": ("row_id", "not.is.null"),
     "best_sources": ("source_id", "not.is.null"),
 }
 
@@ -163,6 +165,7 @@ TABLE_ORDER_COLUMNS = {
     "evidence_matrix": "row_id",
     "review_needed": "id",
     "staged_evidence": "id",
+    "MARACOOS": "row_id",
     "best_sources": "source_id",
 }
 
@@ -258,6 +261,21 @@ BRIEFING_ROW_IDS = {
 MARACOOS_CODE = "MARACOOS"
 MARACOOS_SUPABASE_TABLES = ("MARACOOS", "maracoos")
 APP_DISPLAY_SOURCE_VERIFICATION_NEEDED_VALUE = "Yes"
+REGIONAL_INTAKE_TARGET_TABLES = {
+    code: f"staging_{code.lower()}_evidence"
+    for code in IOOS_REGION_OPTIONS
+}
+INTAKE_TARGET_TABLE_LABELS = {
+    "Shared staged_evidence": "staged_evidence",
+    "Existing MARACOOS table": "MARACOOS",
+    **{
+        f"{code} staging": table
+        for code, table in REGIONAL_INTAKE_TARGET_TABLES.items()
+    },
+}
+CUSTOM_INTAKE_TARGET_LABEL = "Custom table"
+STAGED_EVIDENCE_SCHEMA_TABLES = {"staged_evidence", "MARACOOS", "maracoos"} | set(REGIONAL_INTAKE_TARGET_TABLES.values())
+SUPABASE_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 MARACOOS_COLUMN_ALIASES = {
     "Date record created": "date_record_created",
     "Impact domain": "impact_domain",
@@ -282,7 +300,6 @@ MARACOOS_COLUMN_ALIASES = {
     "Claim allowed": "claim_allowed",
     "Update frequency": "update_frequency",
     "AI extraction notes": "ai_extraction_notes",
-    "Prompt used": "prompt_used",
 }
 MARACOOS_DISPLAY_COLUMNS = [
     "row_id",
@@ -2384,6 +2401,18 @@ def supabase_missing_settings() -> list[str]:
     return missing
 
 
+def uses_staged_evidence_schema(table: str, force_staged_schema: bool = False) -> bool:
+    return force_staged_schema or table in STAGED_EVIDENCE_SCHEMA_TABLES
+
+
+def validate_supabase_table_name(table: str) -> str:
+    if not table:
+        return "Choose a Supabase destination table."
+    if not SUPABASE_TABLE_NAME_RE.fullmatch(table):
+        return "Table names can only contain letters, numbers, and underscores, and must start with a letter or underscore."
+    return ""
+
+
 def supabase_request(
     method: str,
     table: str,
@@ -2425,9 +2454,13 @@ def supabase_request(
     return json.loads(text)
 
 
-def map_supabase_rows_for_app(table: str, rows: list[dict[str, object]]) -> pd.DataFrame:
+def map_supabase_rows_for_app(
+    table: str,
+    rows: list[dict[str, object]],
+    force_staged_schema: bool = False,
+) -> pd.DataFrame:
     """Convert Supabase rows back to the app's CSV-facing column names."""
-    if table == "staged_evidence":
+    if uses_staged_evidence_schema(table, force_staged_schema):
         mapped = [
             {
                 intake_column: str(row.get(db_column, "") or "")
@@ -2463,11 +2496,15 @@ def map_supabase_rows_for_app(table: str, rows: list[dict[str, object]]) -> pd.D
     return pd.DataFrame(records)
 
 
-def map_rows_for_supabase(table: str, rows: list[dict[str, str]]) -> list[dict[str, str]]:
+def map_rows_for_supabase(
+    table: str,
+    rows: list[dict[str, str]],
+    force_staged_schema: bool = False,
+) -> list[dict[str, str]]:
     """Convert app/CSV rows to Supabase table columns."""
     mapped_rows: list[dict[str, str]] = []
     for row in rows:
-        if table == "staged_evidence":
+        if uses_staged_evidence_schema(table, force_staged_schema):
             mapped_rows.append(
                 {
                     db_column: normalize_text(row.get(intake_column))
@@ -2509,10 +2546,14 @@ def replace_supabase_table(table: str, rows: list[dict[str, str]]) -> None:
     append_supabase_rows(table, rows)
 
 
-def append_supabase_rows(table: str, rows: list[dict[str, str]]) -> None:
+def append_supabase_rows(
+    table: str,
+    rows: list[dict[str, str]],
+    force_staged_schema: bool = False,
+) -> None:
     if not rows:
         return
-    mapped_rows = map_rows_for_supabase(table, rows)
+    mapped_rows = map_rows_for_supabase(table, rows, force_staged_schema)
     conflict = TABLE_CONFLICT_KEYS.get(table)
     query = {"on_conflict": conflict} if conflict else None
     prefer = "resolution=merge-duplicates,return=minimal" if conflict else "return=minimal"
@@ -2688,6 +2729,23 @@ def prompt_used_header_note() -> str:
     )
 
 
+def csv_file_output_instruction(file_name: str) -> str:
+    return f"""Output requirement:
+- Do the research silently, then create and attach a downloadable CSV file named `{file_name}`.
+- In ChatGPT, use the file creation/download capability when available.
+- In Claude, create a downloadable file or Artifact when available.
+- If you have a code, analysis, or file-writing tool, use it to write the CSV file before replying.
+- Do not stop after research notes, a source list, or a table preview; the final deliverable is the CSV file.
+- If your chat surface truly cannot attach files, output only raw CSV text with the header as the first line. Do not wrap it in Markdown."""
+
+
+def csv_final_delivery_rule(file_name: str) -> str:
+    return (
+        f"Final response must be the downloadable `{file_name}` CSV file. If file attachment is impossible, "
+        "return only raw CSV text; do not include research notes, Markdown, commentary, or a table preview."
+    )
+
+
 def split_ioos_region_codes(value: object) -> list[str]:
     return [part.strip() for part in normalize_text(value).split(";") if part.strip()]
 
@@ -2789,9 +2847,12 @@ def default_not_allowed_use(row: pd.Series | dict[str, object]) -> str:
 
 def research_prompt(topic: str) -> str:
     topic_text = topic.strip() or "[INSERT TOPIC]"
+    csv_file_name = "ioos_research_candidate_rows.csv"
     return f"""You are generating candidate evidence rows for the IOOS Economic Evidence App.
 
-Produce an actual .csv file as the output, not just comma-separated value text pasted into the chat. The .csv file must include this exact header row as the first line:
+{csv_file_output_instruction(csv_file_name)}
+
+The CSV file must include this exact header row as the first line:
 
 {intake_schema_csv_header()}
 
@@ -2823,17 +2884,20 @@ Rules:
 - Use conservative claim language in Claim allowed.
 - Quote every CSV field that contains a comma, quote, or line break.
 - Include limitations for every row.
-- Return the .csv file only; do not include Markdown, commentary, or a pasted CSV transcript outside the file."""
+- {csv_final_delivery_rule(csv_file_name)}"""
 
 
 def source_prompt(source_text: str) -> str:
     source_body = source_text.strip() or "[PASTE SOURCE URL, TITLE, TEXT, ABSTRACT, OR REPORT EXCERPT]"
+    csv_file_name = "ioos_source_candidate_rows.csv"
     return f"""You are extracting candidate rows for the IOOS Economic Evidence App.
 
 Source:
 {source_body}
 
-Produce an actual .csv file as the output, not just comma-separated value text pasted into the chat. The .csv file must include this exact header row as the first line:
+{csv_file_output_instruction(csv_file_name)}
+
+The CSV file must include this exact header row as the first line:
 
 {intake_schema_csv_header()}
 
@@ -2860,10 +2924,11 @@ Rules:
 - Set Source verification needed to Yes unless the row has been manually checked.
 - Write Claim allowed as a cautious sentence that COL could safely use.
 - Quote every CSV field that contains a comma, quote, or line break.
-- Return the .csv file only; do not include Markdown, commentary, or a pasted CSV transcript outside the file."""
+- {csv_final_delivery_rule(csv_file_name)}"""
 
 
 def claude_batch_prompt(source_links: str, research_focus: str) -> str:
+    csv_file_name = "ioos_claude_batch_candidate_rows.csv"
     links = [line.strip() for line in source_links.splitlines() if line.strip()]
     if links:
         link_text = "\n".join(f"{index}. {link}" for index, link in enumerate(links, start=1))
@@ -2886,7 +2951,9 @@ Research focus:
 Links:
 {link_text}
 
-Produce an actual .csv file as the output, not just comma-separated value text pasted into the chat. The .csv file must include this exact header row as the first line:
+{csv_file_output_instruction(csv_file_name)}
+
+The CSV file must include this exact header row as the first line:
 
 {intake_schema_csv_header()}
 
@@ -2922,7 +2989,7 @@ Rules:
 - Quote every CSV field that contains a comma, quote, or line break.
 - Every row must include Source, Source URL, IOOS region code, Claim allowed, Limitations, Evidence strength, and IOOS attribution strength.
 - Before returning, check that every row has exactly the same number of columns as the header.
-- Return the .csv file only; do not include Markdown, commentary, or a pasted CSV transcript outside the file."""
+- {csv_final_delivery_rule(csv_file_name)}"""
 
 
 def regional_target_label(row: pd.Series) -> str:
@@ -2943,6 +3010,21 @@ def selected_regional_target(regional_targets_df: pd.DataFrame, key: str) -> pd.
     }
     selected = st.selectbox("Regional focus", list(labels), key=key)
     return regional_targets_df.loc[labels[selected]]
+
+
+def regional_target_state_key(target: pd.Series, fallback: str = "regional") -> str:
+    """Build a stable Streamlit key suffix for target-specific prompt inputs."""
+    for field in ["region_id", "ioos_region_code", "ioos_association", "region_name"]:
+        value = normalize_text(target.get(field))
+        if value:
+            slug = re.sub(r"[^A-Za-z0-9]+", "_", value).strip("_").lower()
+            if slug:
+                return slug
+    return fallback
+
+
+def prompt_state_digest(prompt: str) -> str:
+    return hashlib.sha1(prompt.encode("utf-8")).hexdigest()[:12]
 
 
 def evidence_rows_for_regional_target(evidence_df: pd.DataFrame, target: pd.Series | None) -> pd.DataFrame:
@@ -3122,6 +3204,8 @@ def regional_research_prompt(
 ) -> str:
     association = normalize_text(target.get("ioos_association")) or "[IOOS REGIONAL ASSOCIATION]"
     association_code = normalize_text(target.get("ioos_region_code")) or association
+    association_slug = re.sub(r"[^A-Za-z0-9]+", "_", association_code).strip("_").lower() or "regional"
+    csv_file_name = f"ioos_{association_slug}_candidate_rows.csv"
     region = normalize_text(target.get("region_name")) or "[REGION]"
     phase = normalize_text(target.get("phase")) or "regional evidence build"
     priority_domains = normalize_text(target.get("priority_domains")) or "[PRIORITY DOMAINS]"
@@ -3157,7 +3241,9 @@ Priority source targets, in order:
 Optional source leads from the operator:
 {source_text}
 
-Produce an actual .csv file as the output, not just comma-separated value text pasted into the chat. The .csv file must include this exact header row as the first line:
+{csv_file_output_instruction(csv_file_name)}
+
+The CSV file must include this exact header row as the first line:
 
 {intake_schema_csv_header()}
 
@@ -3209,7 +3295,7 @@ Rules:
 - Quote every CSV field that contains a comma, quote, or line break.
 - Every row must include Source, Source URL, IOOS region code, Claim allowed, Limitations, Evidence strength, and IOOS attribution strength.
 - Before returning, check that every row has exactly the same number of columns as the header.
-- Return the .csv file only; do not include Markdown, commentary, or a pasted CSV transcript outside the file."""
+- {csv_final_delivery_rule(csv_file_name)}"""
 
 
 def format_evidence_row_id(number: int) -> str:
@@ -3683,6 +3769,20 @@ def pending_source_review_rows(staged_df: pd.DataFrame) -> pd.DataFrame:
     return normalized[
         normalized["Source verification needed"].map(normalize_text).str.lower() != "no"
     ].copy()
+
+
+def save_review_candidate_rows(table_name: str, rows: list[dict[str, str]]) -> None:
+    """Persist reviewed candidate rows back to their intake table."""
+    if table_name == "staged_evidence":
+        write_csv(STAGED_EVIDENCE_PATH, rows, INTAKE_SCHEMA)
+        return
+    replace_supabase_table(table_name, rows)
+
+
+def load_maracoos_review_table() -> tuple[pd.DataFrame, str, tuple[str, ...]]:
+    if not supabase_enabled():
+        return pd.DataFrame(), "", ("Supabase is not configured in this runtime.",)
+    return load_optional_supabase_table(MARACOOS_SUPABASE_TABLES)
 
 
 def run_validation() -> subprocess.CompletedProcess[str]:
@@ -9054,15 +9154,47 @@ def render_intake_upload() -> None:
     st.dataframe(normalized, use_container_width=True, hide_index=True)
 
     if supabase_enabled():
-        if st.button(f"Upload {len(normalized):,} rows to Supabase staged_evidence", type="primary"):
+        target_options = list(INTAKE_TARGET_TABLE_LABELS) + [CUSTOM_INTAKE_TARGET_LABEL]
+        all_maracoos_rows = normalized["IOOS region code"].apply(
+            lambda value: MARACOOS_CODE in split_ioos_region_codes(value)
+        ).all()
+        default_target_label = "Existing MARACOOS table" if all_maracoos_rows else "Shared staged_evidence"
+        target_label = st.selectbox(
+            "Supabase destination table",
+            target_options,
+            index=target_options.index(default_target_label),
+            key="intake_upload_target_table",
+        )
+        if target_label == CUSTOM_INTAKE_TARGET_LABEL:
+            target_table = st.text_input(
+                "Custom Supabase table",
+                placeholder="staging_maracoos_evidence",
+                key="intake_upload_custom_target_table",
+            ).strip()
+        else:
+            target_table = INTAKE_TARGET_TABLE_LABELS[target_label]
+
+        target_error = validate_supabase_table_name(target_table)
+        if target_error:
+            st.error(target_error)
+
+        if st.button(
+            f"Upload {len(normalized):,} rows to Supabase {target_table or 'selected table'}",
+            type="primary",
+            disabled=bool(target_error),
+        ):
             try:
-                append_rows(STAGED_EVIDENCE_PATH, normalized.to_dict("records"), INTAKE_SCHEMA)
+                records = normalized.to_dict("records")
+                if target_table == "staged_evidence":
+                    append_rows(STAGED_EVIDENCE_PATH, records, INTAKE_SCHEMA)
+                else:
+                    append_supabase_rows(target_table, records, force_staged_schema=True)
             except Exception as exc:
-                st.error(f"Supabase upload failed: {exc}")
+                st.error(f"Supabase upload to {target_table} failed: {exc}")
                 return
             else:
                 clear_data_cache()
-                st.success(f"Uploaded {len(normalized):,} candidate rows to Supabase staged_evidence.")
+                st.success(f"Uploaded {len(normalized):,} candidate rows to Supabase {target_table}.")
     else:
         st.button("Upload rows to Supabase staged_evidence", disabled=True, type="primary")
         if st.button(f"Save {len(normalized):,} rows to local staged_evidence.csv only"):
@@ -9136,16 +9268,25 @@ def review_claim_label(row: pd.Series, index: int) -> str:
     return f"{row_id} - {truncate_text(claim, 86)}"
 
 
-def render_claim_source_review(staged_df: pd.DataFrame, best_sources_df: pd.DataFrame) -> None:
-    st.subheader("Source Review")
+def render_claim_source_review(
+    staged_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+    table_name: str = "staged_evidence",
+    title: str = "Source Review",
+    state_prefix: str = "staged",
+) -> None:
+    st.subheader(title)
 
-    if not STAGED_EVIDENCE_PATH.exists() and staged_df.empty:
+    if table_name == "staged_evidence" and not STAGED_EVIDENCE_PATH.exists() and staged_df.empty:
         st.info("No staged evidence file exists yet. Use Evidence Intake to stage candidate rows.")
+        return
+    if table_name != "staged_evidence" and staged_df.empty:
+        st.info(f"No rows were loaded from `{table_name}`.")
         return
 
     pending = pending_source_review_rows(staged_df)
     if pending.empty:
-        st.success("No generated claims are waiting for source verification.")
+        st.success(f"No generated claims are waiting for source verification in `{table_name}`.")
         if not best_sources_df.empty:
             st.caption(f"{len(best_sources_df):,} rows are already available in best_sources.")
         return
@@ -9162,17 +9303,19 @@ def render_claim_source_review(staged_df: pd.DataFrame, best_sources_df: pd.Data
     metric_columns[2].metric("Verified best sources", f"{verified_sources:,}")
 
     options = [int(index) for index in pending.index.tolist()]
-    current_index = st.session_state.get("review_claim_row_index", options[0])
+    row_index_key = f"{state_prefix}_review_claim_row_index"
+    rejection_index_key = f"{state_prefix}_review_rejection_row_index"
+    current_index = st.session_state.get(row_index_key, options[0])
     if current_index not in options:
         current_index = options[0]
-        st.session_state["review_claim_row_index"] = current_index
+        st.session_state[row_index_key] = current_index
 
     selected_index = st.selectbox(
         "Generated claim",
         options,
         index=options.index(current_index),
         format_func=lambda index: review_claim_label(pending.loc[index], index),
-        key="review_claim_row_index",
+        key=row_index_key,
     )
     row = pending.loc[selected_index]
 
@@ -9218,28 +9361,28 @@ def render_claim_source_review(staged_df: pd.DataFrame, best_sources_df: pd.Data
     st.markdown('<div class="claim-review-actions-marker"></div>', unsafe_allow_html=True)
     verify_column, reject_column = st.columns(2)
     with verify_column:
-        if st.button("Yes - verified source", type="primary", use_container_width=True, key=f"verify_source_{selected_index}"):
+        if st.button("Yes - verified source", type="primary", use_container_width=True, key=f"{state_prefix}_verify_source_{selected_index}"):
             try:
                 records, source_id = upsert_best_source_from_staged_row(row, best_sources_df)
                 write_csv(BEST_SOURCES_PATH, records, BEST_SOURCE_SCHEMA)
                 review_note = f"Source verified on {date.today().isoformat()}; copied to best_sources as {source_id}."
                 updated_staged = update_staged_review_row(staged_df, selected_index, "No", review_note)
-                write_csv(STAGED_EVIDENCE_PATH, updated_staged.to_dict("records"), INTAKE_SCHEMA)
+                save_review_candidate_rows(table_name, updated_staged.to_dict("records"))
             except Exception as exc:
                 st.error(f"Could not save verification: {exc}")
             else:
-                st.session_state.pop("review_rejection_row_index", None)
+                st.session_state.pop(rejection_index_key, None)
                 clear_data_cache()
-                st.success(f"Verified {row_id} and copied the source record to best_sources.")
+                st.success(f"Verified {row_id} in `{table_name}` and copied the source record to best_sources.")
                 st.rerun()
 
     with reject_column:
-        if st.button("No - not verified", use_container_width=True, key=f"reject_source_{selected_index}"):
-            st.session_state["review_rejection_row_index"] = selected_index
+        if st.button("No - not verified", use_container_width=True, key=f"{state_prefix}_reject_source_{selected_index}"):
+            st.session_state[rejection_index_key] = selected_index
             st.rerun()
 
-    if st.session_state.get("review_rejection_row_index") == selected_index:
-        with st.form(f"reject_source_reason_{selected_index}"):
+    if st.session_state.get(rejection_index_key) == selected_index:
+        with st.form(f"{state_prefix}_reject_source_reason_{selected_index}"):
             st.warning("Tell future reviewers why this source should not be trusted for the claim.")
             reason = st.selectbox("Reason", REJECTION_REASON_OPTIONS)
             details = st.text_area(
@@ -9251,7 +9394,7 @@ def render_claim_source_review(staged_df: pd.DataFrame, best_sources_df: pd.Data
             cancel_rejection = st.form_submit_button("Cancel")
 
         if cancel_rejection:
-            st.session_state.pop("review_rejection_row_index", None)
+            st.session_state.pop(rejection_index_key, None)
             st.rerun()
 
         if save_rejection:
@@ -9263,14 +9406,43 @@ def render_claim_source_review(staged_df: pd.DataFrame, best_sources_df: pd.Data
                 review_note = f"{review_note} {normalize_text(details)}"
             try:
                 updated_staged = update_staged_review_row(staged_df, selected_index, "Yes", review_note)
-                write_csv(STAGED_EVIDENCE_PATH, updated_staged.to_dict("records"), INTAKE_SCHEMA)
+                save_review_candidate_rows(table_name, updated_staged.to_dict("records"))
             except Exception as exc:
                 st.error(f"Could not save rejection: {exc}")
             else:
-                st.session_state.pop("review_rejection_row_index", None)
+                st.session_state.pop(rejection_index_key, None)
                 clear_data_cache()
-                st.success(f"Saved rejection reason for {row_id}.")
+                st.success(f"Saved rejection reason for {row_id} in `{table_name}`.")
                 st.rerun()
+
+
+def render_maracoos_source_review(best_sources_df: pd.DataFrame) -> None:
+    maracoos_df, table_name, errors = load_maracoos_review_table()
+    if not table_name:
+        st.warning("The MARACOOS Supabase table is not readable yet.")
+        st.write("Run the Supabase schema or migration that creates/upgrades `public.\"MARACOOS\"`, then reload this page.")
+        if errors:
+            with st.expander("Connection details", expanded=False):
+                for error in errors:
+                    st.write(f"- {error}")
+        return
+
+    render_claim_source_review(
+        maracoos_df,
+        best_sources_df,
+        table_name=table_name,
+        title=f"MARACOOS Source Review ({table_name})",
+        state_prefix="maracoos",
+    )
+
+    if not maracoos_df.empty:
+        with st.expander("MARACOOS table preview", expanded=False):
+            st.dataframe(
+                normalize_intake_df(maracoos_df),
+                use_container_width=True,
+                hide_index=True,
+                column_config=link_column_config(maracoos_df),
+            )
 
 
 def page_regional_builds(regional_targets_df: pd.DataFrame, evidence_df: pd.DataFrame) -> None:
@@ -9284,6 +9456,7 @@ def page_regional_builds(regional_targets_df: pd.DataFrame, evidence_df: pd.Data
     target = selected_regional_target(regional_targets_df, "regional_build_target")
     if target is None:
         return
+    target_key = regional_target_state_key(target, "regional_build")
 
     st.info(
         "Use the regional target table to plan research. Add new master evidence rows only after "
@@ -9326,24 +9499,33 @@ def page_regional_builds(regional_targets_df: pd.DataFrame, evidence_df: pd.Data
         max_value=20,
         value=8,
         step=1,
+        key=f"regional_build_rows_{target_key}",
     )
     research_focus = st.text_area(
         "Research focus",
         value=normalize_text(target.get("starter_research_question")),
         height=110,
+        key=f"regional_build_focus_{target_key}",
     )
     source_leads = st.text_area(
         "Optional source leads",
         placeholder="Paste regional association, NOAA, USCG, state agency, port, academic, or economic baseline links here.",
         height=150,
+        key=f"regional_build_sources_{target_key}",
     )
     prompt = regional_research_prompt(target, research_focus, source_leads, int(rows_requested))
-    st.text_area("Copy-ready regional prompt", value=prompt, height=760)
+    st.text_area(
+        "Copy-ready regional prompt",
+        value=prompt,
+        height=760,
+        key=f"regional_build_prompt_{target_key}_{prompt_state_digest(prompt)}",
+    )
     st.download_button(
         "Download regional prompt",
         prompt.encode("utf-8"),
         file_name=f"ioos_{normalize_text(target.get('region_id')) or 'regional'}_research_prompt.txt",
         mime="text/plain",
+        key=f"regional_build_download_{target_key}_{prompt_state_digest(prompt)}",
     )
 
     st.download_button(
@@ -9391,33 +9573,40 @@ def page_evidence_intake(regional_targets_df: pd.DataFrame) -> None:
         else:
             target = selected_regional_target(regional_targets_df, "intake_regional_target")
             if target is not None:
+                target_key = regional_target_state_key(target, "intake_regional")
                 rows_requested = st.number_input(
                     "Candidate rows to request",
                     min_value=3,
                     max_value=20,
                     value=8,
                     step=1,
-                    key="intake_regional_rows",
+                    key=f"intake_regional_rows_{target_key}",
                 )
                 research_focus = st.text_area(
                     "Research focus",
                     value=normalize_text(target.get("starter_research_question")),
                     height=110,
-                    key="intake_regional_focus",
+                    key=f"intake_regional_focus_{target_key}",
                 )
                 source_leads = st.text_area(
                     "Optional source leads",
                     placeholder="Paste regional association, NOAA, USCG, state agency, port, academic, or economic baseline links here.",
                     height=140,
-                    key="intake_regional_sources",
+                    key=f"intake_regional_sources_{target_key}",
                 )
                 prompt = regional_research_prompt(target, research_focus, source_leads, int(rows_requested))
-                st.text_area("Copy-ready regional prompt", value=prompt, height=620)
+                st.text_area(
+                    "Copy-ready regional prompt",
+                    value=prompt,
+                    height=620,
+                    key=f"intake_regional_prompt_{target_key}_{prompt_state_digest(prompt)}",
+                )
                 st.download_button(
                     "Download regional prompt",
                     prompt.encode("utf-8"),
                     file_name=f"ioos_{normalize_text(target.get('region_id')) or 'regional'}_research_prompt.txt",
                     mime="text/plain",
+                    key=f"intake_regional_download_{target_key}_{prompt_state_digest(prompt)}",
                 )
 
     with source_tab:
@@ -9623,7 +9812,16 @@ def page_review_admin(
         unsafe_allow_html=True,
     )
 
-    render_claim_source_review(staged_df, best_sources_df)
+    review_table = st.segmented_control(
+        "Source review table",
+        ["Shared staged_evidence", "MARACOOS table"],
+        default=st.session_state.get("review_admin_source_table", "Shared staged_evidence"),
+        key="review_admin_source_table",
+    )
+    if review_table == "MARACOOS table":
+        render_maracoos_source_review(best_sources_df)
+    else:
+        render_claim_source_review(staged_df, best_sources_df)
 
     with st.expander("Advanced admin tools", expanded=False):
         render_ai_staging_comparison(staged_df, review_df)
