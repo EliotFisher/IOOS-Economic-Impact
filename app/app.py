@@ -8085,7 +8085,7 @@ def render_region_section(
         if map_uri:
             title_map_html = (
                 f'<img src="{map_uri}" alt="MARACOOS coverage map" '
-                'style="width:min(180px, 32vw); max-height:96px; object-fit:contain; '
+                'style="width:min(260px, 42vw); max-height:132px; object-fit:contain; '
                 'border:1px solid #dbe7ea; border-radius:8px; background:#ffffff; padding:0.25rem;">'
             )
 
@@ -8093,7 +8093,7 @@ def render_region_section(
         f"""
         <div class="hub-page-title">
             <div class="hub-kicker">{hub_escape(association)}</div>
-            <div style="align-items:center; display:flex; gap:1rem; justify-content:space-between; flex-wrap:wrap;">
+            <div style="align-items:center; display:flex; gap:1.25rem; justify-content:flex-start; flex-wrap:wrap;">
                 <h1>{hub_escape(region_name)}</h1>
                 {title_map_html}
             </div>
