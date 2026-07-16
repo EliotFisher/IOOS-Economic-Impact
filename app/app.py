@@ -8080,6 +8080,11 @@ def render_region_section(
     ready_count = int(region_evidence.apply(is_external_ready_row, axis=1).sum()) if not region_evidence.empty else 0
     status_label, status_class = regional_section_status(target, len(region_evidence), len(region_sources))
 
+    if code == MARACOOS_CODE and MARACOOS_COVERAGE_MAP_PATH.exists():
+        _, map_col, _ = st.columns([0.08, 0.84, 0.08])
+        with map_col:
+            st.image(str(MARACOOS_COVERAGE_MAP_PATH), caption="MARACOOS coverage map", use_container_width=True)
+
     st.markdown(
         f"""
         <div class="hub-page-title">
@@ -8099,9 +8104,6 @@ def render_region_section(
     metric_cols[1].metric("Ready claims", f"{ready_count:,}")
     metric_cols[2].metric("Best sources", f"{len(region_sources):,}")
     metric_cols[3].metric("Priority areas", f"{len(split_semicolon_items(target.get('priority_domains'))):,}")
-
-    if code == MARACOOS_CODE and MARACOOS_COVERAGE_MAP_PATH.exists():
-        st.image(str(MARACOOS_COVERAGE_MAP_PATH), caption="MARACOOS coverage map", use_container_width=True)
 
     st.markdown(region_detail_card_html(target), unsafe_allow_html=True)
 
