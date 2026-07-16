@@ -640,28 +640,28 @@ NARRATIVE_TAB_LABELS = [
 EVIDENCE_ATLAS_LEVELS = [
     {
         "key": "level_1",
-        "label": "Level 1",
+        "label": "Direct Reported Dollar Values",
         "title": "Direct Reported Dollar Values",
         "definition": "A source reports a dollar value for benefits, savings, avoided costs, or other monetized outcomes.",
         "safe_use": "Record the published value, dollar year, source, and caveat; do not recalculate unless an explicit adjustment method is stored.",
     },
     {
         "key": "level_2",
-        "label": "Level 2",
+        "label": "Operational Cost Savings",
         "title": "Operational Cost Savings",
         "definition": "A source documents operational efficiency such as reduced hours, fuel, delay, sampling, inspection, or closure time.",
         "safe_use": "Use the operational metric directly unless the source also provides the dollar conversion.",
     },
     {
         "key": "level_3",
-        "label": "Level 3",
+        "label": "Avoided Losses",
         "title": "Avoided Losses",
         "definition": "A source estimates or documents avoided damage, search costs, response costs, closures, vessel losses, or hazard impacts.",
         "safe_use": "Keep the counterfactual and uncertainty language attached to the claim.",
     },
     {
         "key": "level_4",
-        "label": "Level 4",
+        "label": "Economic Activity Supported",
         "title": "Economic Activity Supported",
         "definition": "A source sizes the sector, port, fishery, tourism economy, cargo activity, or other exposure supported by IOOS information.",
         "safe_use": "Use as context only; never add these values to documented benefit totals.",
@@ -677,7 +677,7 @@ EVIDENCE_ATLAS_UNCLASSIFIED = {
     "key": "unclassified",
     "label": "Needs Classification",
     "title": "Needs Classification",
-    "definition": "The current row does not yet carry enough claim-use metadata for an atlas level.",
+    "definition": "The current row does not yet carry enough claim-use metadata for a financial evidence category.",
     "safe_use": "Review the metric, economic number type, allowed use, and limitations before using externally.",
 }
 
@@ -3956,9 +3956,7 @@ def atlas_level_keys_for_row(row: pd.Series) -> list[str]:
 
 def atlas_level_label(key: str) -> str:
     level = EVIDENCE_ATLAS_LEVEL_BY_KEY.get(key, EVIDENCE_ATLAS_UNCLASSIFIED)
-    if key == "unclassified":
-        return level["label"]
-    return f"{level['label']} - {level['title']}"
+    return level["label"]
 
 
 def atlas_level_labels_for_row(row: pd.Series) -> str:
@@ -4019,7 +4017,7 @@ def atlas_level_count_table(atlas_df: pd.DataFrame) -> pd.DataFrame:
             count = int(atlas_df["atlas_level_keys"].map(lambda value: key in split_semicolon_values(value)).sum())
         rows.append(
             {
-                "Level": atlas_level_label(key),
+                "Category": atlas_level_label(key),
                 "Rows": count,
                 "Share of rows": (count / total * 100) if total else 0,
                 "Safe use": level["safe_use"],
@@ -4030,7 +4028,7 @@ def atlas_level_count_table(atlas_df: pd.DataFrame) -> pd.DataFrame:
 
 def atlas_level_cards_html(atlas_df: pd.DataFrame) -> str:
     count_lookup = {
-        row["Level"]: int(row["Rows"])
+        row["Category"]: int(row["Rows"])
         for _, row in atlas_level_count_table(atlas_df).iterrows()
     }
     cards = []
@@ -4039,7 +4037,7 @@ def atlas_level_cards_html(atlas_df: pd.DataFrame) -> str:
         cards.append(
             f"""
             <div class="atlas-level-card">
-                <span class="hub-chip neutral">{hub_escape(level["label"])}</span>
+                <span class="hub-chip neutral">Evidence category</span>
                 <b>{hub_escape(level["title"])}</b>
                 <span class="atlas-count">{count_lookup.get(label, 0):,}</span>
                 <p>{hub_escape(level["definition"])}</p>
@@ -4051,7 +4049,7 @@ def atlas_level_cards_html(atlas_df: pd.DataFrame) -> str:
 
 
 def atlas_rows_for_level(atlas_df: pd.DataFrame, level_key: str) -> pd.DataFrame:
-    """Return rows tagged to one financial evidence level."""
+    """Return rows tagged to one financial evidence category."""
     return atlas_filtered_by_levels(atlas_df, [level_key])
 
 
@@ -4133,7 +4131,7 @@ def render_financial_evidence_level_tab(atlas_df: pd.DataFrame, level: dict[str,
     st.markdown(
         f"""
         <div class="atlas-method-card">
-            <span class="hub-chip neutral">{hub_escape(level["label"])}</span>
+            <span class="hub-chip neutral">Evidence category</span>
             <b>{hub_escape(level["title"])}</b>
             <p>{hub_escape(level["definition"])}</p>
             <div class="atlas-rule">{hub_escape(level["safe_use"])}</div>
@@ -4143,7 +4141,7 @@ def render_financial_evidence_level_tab(atlas_df: pd.DataFrame, level: dict[str,
     )
 
     if level_df.empty:
-        st.info("No financial evidence rows are tagged to this level yet.")
+        st.info("No financial evidence rows are tagged to this category yet.")
         return
 
     metric_cols = st.columns(4)
@@ -4162,7 +4160,7 @@ def render_financial_evidence_level_tab(atlas_df: pd.DataFrame, level: dict[str,
         render_atlas_breakdown_chart(level_df, "economic_number_type", "Rows by economic number type")
         render_atlas_breakdown_chart(level_df, "ioos_attribution_strength", "Rows by IOOS attribution")
 
-    st.subheader("Rows Behind This Level")
+    st.subheader("Rows Behind This Category")
     display_columns = [
         "row_id",
         "impact_domain",
@@ -7256,7 +7254,7 @@ def page_evidence_atlas(
         <div class="hub-page-title">
             <div class="hub-kicker">Financial Evidence</div>
             <h1>Financial Evidence</h1>
-            <p>Chart published IOOS value evidence by level, sector, geography, confidence, and claim-use boundary without turning context into a national total.</p>
+            <p>Chart published IOOS value evidence by category, sector, geography, confidence, and claim-use boundary without turning context into a national total.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -7268,7 +7266,7 @@ def page_evidence_atlas(
     atlas_df = add_evidence_atlas_fields(explorer_df)
     level_counts = atlas_level_count_table(atlas_df)
     count_by_level = {
-        row["Level"]: int(row["Rows"])
+        row["Category"]: int(row["Rows"])
         for _, row in level_counts.iterrows()
     }
 
@@ -7278,7 +7276,7 @@ def page_evidence_atlas(
         metric_cols[index].metric(level["title"], f"{count_by_level.get(label, 0):,}")
 
     st.caption(
-        "Atlas levels are evidence tags, not additive totals. A row can appear in more than one level when, for example, a published dollar estimate is also an avoided-loss case."
+        "Financial evidence categories are evidence tags, not additive totals. A row can appear in more than one category when, for example, a published dollar estimate is also an avoided-loss case."
     )
 
     level_tabs = st.tabs(
@@ -7306,7 +7304,7 @@ def page_evidence_atlas(
                 atlas_level_label(level["key"]): level["key"]
                 for level in EVIDENCE_ATLAS_LEVELS
             }
-            selected_level_labels = filter_cols[0].multiselect("Financial evidence level", list(level_options))
+            selected_level_labels = filter_cols[0].multiselect("Financial evidence category", list(level_options))
             selected_level_keys = [level_options[label] for label in selected_level_labels]
             selected_domains = filter_cols[1].multiselect(
                 "Sector",
@@ -7353,7 +7351,7 @@ def page_evidence_atlas(
                     use_container_width=True,
                     hide_index=True,
                     column_config={
-                        "atlas_levels": st.column_config.TextColumn("Financial evidence levels", width="large"),
+                        "atlas_levels": st.column_config.TextColumn("Financial evidence categories", width="large"),
                         "atlas_claim_boundary": st.column_config.TextColumn("Claim boundary", width="medium"),
                         "metric": st.column_config.TextColumn(width="large"),
                         "claim_allowed": st.column_config.TextColumn("Claim allowed", width="large"),
@@ -7407,7 +7405,7 @@ def page_evidence_atlas(
 
     with level_tabs[-1]:
         st.markdown(atlas_level_cards_html(atlas_df), unsafe_allow_html=True)
-        st.subheader("Level Coverage")
+        st.subheader("Category Coverage")
         st.dataframe(
             level_counts,
             use_container_width=True,
