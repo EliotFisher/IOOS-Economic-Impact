@@ -8211,43 +8211,42 @@ def page_regions(
         st.warning(f"No IOOS Regional Association targets found at {REGIONAL_TARGETS_PATH}")
         return
 
+    st.subheader("Regional Sections")
+    tabs = st.tabs(regions_df["ioos_region_code"].map(normalize_text).tolist())
+    for tab, (_, target) in zip(tabs, regions_df.iterrows()):
+        with tab:
+            render_region_section(target, evidence_df, source_df, best_sources_df)
+
     regions_with_rows = sum(
         1
         for code in regions_df["ioos_region_code"].map(normalize_text)
         if len(rows_for_region_code(evidence_df, code)) > 0
     )
     maracoos_rows = len(rows_for_region_code(evidence_df, MARACOOS_CODE))
-    metric_cols = st.columns(4)
-    metric_cols[0].metric("Regional sections", f"{len(regions_df):,}")
-    metric_cols[1].metric("Regions with rows", f"{regions_with_rows:,}")
-    metric_cols[2].metric("MARACOOS rows", f"{maracoos_rows:,}")
-    metric_cols[3].metric("Best-source records", f"{len(best_sources_df):,}")
-
-    st.markdown(regional_overview_cards_html(regions_df, evidence_df, best_sources_df), unsafe_allow_html=True)
-
-    st.subheader("Handoff Coverage Table")
     handoff_df = regional_handoff_table(regions_df, evidence_df, best_sources_df)
-    st.dataframe(
-        handoff_df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Priority domains": st.column_config.TextColumn(width="large"),
-            "Evidence gap": st.column_config.TextColumn(width="large"),
-        },
-    )
-    st.download_button(
-        "Download regional handoff table",
-        handoff_df.to_csv(index=False).encode("utf-8"),
-        file_name="ioos_regional_handoff_table.csv",
-        mime="text/csv",
-    )
+    with st.expander("Regional summary", expanded=False):
+        metric_cols = st.columns(4)
+        metric_cols[0].metric("Regional sections", f"{len(regions_df):,}")
+        metric_cols[1].metric("Regions with rows", f"{regions_with_rows:,}")
+        metric_cols[2].metric("MARACOOS rows", f"{maracoos_rows:,}")
+        metric_cols[3].metric("Best-source records", f"{len(best_sources_df):,}")
 
-    st.subheader("Regional Sections")
-    tabs = st.tabs(regions_df["ioos_region_code"].map(normalize_text).tolist())
-    for tab, (_, target) in zip(tabs, regions_df.iterrows()):
-        with tab:
-            render_region_section(target, evidence_df, source_df, best_sources_df)
+    with st.expander("Regional handoff table", expanded=False):
+        st.dataframe(
+            handoff_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Priority domains": st.column_config.TextColumn(width="large"),
+                "Evidence gap": st.column_config.TextColumn(width="large"),
+            },
+        )
+        st.download_button(
+            "Download regional handoff table",
+            handoff_df.to_csv(index=False).encode("utf-8"),
+            file_name="ioos_regional_handoff_table.csv",
+            mime="text/csv",
+        )
 
 
 def sector_story_table(evidence_df: pd.DataFrame, review_df: pd.DataFrame) -> pd.DataFrame:
@@ -9848,12 +9847,6 @@ def main() -> None:
 
     render_app_hero()
     page = render_top_navigation()
-    if page != "Review / Admin":
-        st.caption(
-            "App display rule: showing rows from `staged_evidence` and `best_sources` where "
-            f"`source_verification_needed = {APP_DISPLAY_SOURCE_VERIFICATION_NEEDED_VALUE}`. "
-            "Rows are organized by impact domain."
-        )
 
     if page == "Overview":
         page_about_data(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
