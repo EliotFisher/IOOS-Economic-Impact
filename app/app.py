@@ -5164,28 +5164,6 @@ def build_maracoos_congressional_briefing_html(
 </html>"""
 
 
-def filter_maracoos_briefing_rows(df: pd.DataFrame) -> pd.DataFrame:
-    search_text = st.text_input("Search MARACOOS rows", key="maracoos_brief_search")
-    filtered = search_dataframe(df, search_text)
-
-    filter_columns = [
-        ("impact_domain", "Impact Domain"),
-        ("evidence_strength", "Evidence Strength"),
-        ("ioos_attribution_strength", "Attribution Strength"),
-        ("source_verification_needed", "Verification Needed"),
-    ]
-    filter_layout = st.columns(len(filter_columns))
-    for container, (column, label) in zip(filter_layout, filter_columns):
-        if column not in filtered.columns:
-            continue
-        options = sorted(value for value in filtered[column].dropna().unique() if normalize_text(value))
-        selected = container.multiselect(label, options, key=f"maracoos_brief_{column}")
-        if selected:
-            filtered = filtered[filtered[column].isin(selected)]
-
-    return filtered
-
-
 def render_maracoos_congressional_tab(
     evidence_df: pd.DataFrame,
     staged_df: pd.DataFrame,
@@ -5203,88 +5181,24 @@ def render_maracoos_congressional_tab(
         st.warning("No MARACOOS rows are available for this briefing tab.")
         return
 
-    source_count = count_distinct_row_values(maracoos_df, ["source", "source_id", "source_url"])
-    verified_count = (
-        int((maracoos_df["source_verification_needed"].map(normalize_text) == "No").sum())
-        if "source_verification_needed" in maracoos_df.columns
-        else 0
+    maracoos_briefing_html = build_maracoos_congressional_briefing_html(
+        maracoos_df,
+        prepared_for,
+        prepared_date,
     )
-    strong_or_medium_count = (
-        int(maracoos_df["evidence_strength"].map(normalize_text).isin({"Strong", "Medium"}).sum())
-        if "evidence_strength" in maracoos_df.columns
-        else 0
+    components.html(maracoos_briefing_html, height=1700, scrolling=True)
+    st.download_button(
+        "Download MARACOOS congressional brief HTML",
+        maracoos_briefing_html.encode("utf-8"),
+        file_name="maracoos_congressional_brief_live.html",
+        mime="text/html",
     )
-    strong_attribution_count = (
-        int((maracoos_df["ioos_attribution_strength"].map(normalize_text) == "Strong").sum())
-        if "ioos_attribution_strength" in maracoos_df.columns
-        else 0
-    )
-
-    metric_columns = st.columns(4)
-    metric_columns[0].metric("MARACOOS rows", f"{len(maracoos_df):,}")
-    metric_columns[1].metric("Sources", f"{source_count:,}")
-    metric_columns[2].metric("Strong/medium evidence", f"{strong_or_medium_count:,}")
-    metric_columns[3].metric("Strong attribution", f"{strong_attribution_count:,}")
-
-    st.write(
-        "Use this tab as the Mid-Atlantic briefing workspace: it pulls MARACOOS-tagged evidence "
-        "into one place, highlights cautious claim language, and keeps caveats visible for staff review."
-    )
-
-    summary_col, claims_col = st.columns([0.9, 1.1])
-    with summary_col:
-        st.subheader("Briefing Focus")
-        if "impact_domain" in maracoos_df.columns:
-            domain_summary = count_summary(maracoos_df, "impact_domain")
-            st.dataframe(
-                domain_summary,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Rows": st.column_config.NumberColumn(format="%d", width="small"),
-                    "Share": st.column_config.ProgressColumn(
-                        "Share",
-                        format="%.0f%%",
-                        min_value=0,
-                        max_value=100,
-                    ),
-                },
-            )
-        else:
-            st.info("No impact-domain column is available.")
-
-        if verified_count == 0:
-            st.warning("All rows still need source verification before external use.")
-
-    with claims_col:
-        st.subheader("Cautious Claims")
-        if "claim_allowed" not in maracoos_df.columns:
-            st.info("No claim_allowed column is available.")
-        else:
-            claim_rows = maracoos_df[maracoos_df["claim_allowed"].map(normalize_text) != ""].head(5)
-            if claim_rows.empty:
-                st.info("No usable claim language is available yet.")
-            for _, row in claim_rows.iterrows():
-                label = first_row_value(row, ["impact_domain", "row_id"]) or "MARACOOS row"
-                st.markdown(f"**{label}**")
-                st.write(normalize_text(row.get("claim_allowed")))
-                details = []
-                source_value = first_row_value(row, ["source", "source_id"])
-                metric_value = normalize_text(row.get("metric"))
-                if source_value:
-                    details.append(source_value)
-                if metric_value:
-                    details.append(metric_value)
-                if details:
-                    st.caption(" | ".join(details))
 
     st.subheader("MARACOOS Rows")
-    filtered = filter_maracoos_briefing_rows(maracoos_df)
-    st.caption(f"Showing {len(filtered):,} of {len(maracoos_df):,} rows")
-
-    display_columns = [column for column in MARACOOS_DISPLAY_COLUMNS if column in filtered.columns]
-    remaining_columns = [column for column in filtered.columns if column not in display_columns]
-    display_df = filtered[display_columns + remaining_columns]
+    st.caption(f"Showing {len(maracoos_df):,} rows")
+    display_columns = [column for column in MARACOOS_DISPLAY_COLUMNS if column in maracoos_df.columns]
+    remaining_columns = [column for column in maracoos_df.columns if column not in display_columns]
+    display_df = maracoos_df[display_columns + remaining_columns]
     column_config = {}
     if "source_url" in display_df.columns:
         column_config["source_url"] = st.column_config.LinkColumn("Source URL")
@@ -5296,28 +5210,9 @@ def render_maracoos_congressional_tab(
     )
     st.download_button(
         "Download MARACOOS briefing rows",
-        filtered.to_csv(index=False).encode("utf-8"),
+        maracoos_df.to_csv(index=False).encode("utf-8"),
         file_name="maracoos_congressional_briefing_rows.csv",
         mime="text/csv",
-    )
-
-    st.subheader("MARACOOS Briefing Preview")
-    st.caption("Generated only from the MARACOOS evidence rows shown above.")
-    if filtered.empty:
-        st.info("No filtered MARACOOS rows are available for the briefing preview.")
-        return
-
-    maracoos_briefing_html = build_maracoos_congressional_briefing_html(
-        filtered,
-        prepared_for,
-        prepared_date,
-    )
-    components.html(maracoos_briefing_html, height=1700, scrolling=True)
-    st.download_button(
-        "Download MARACOOS congressional brief HTML",
-        maracoos_briefing_html.encode("utf-8"),
-        file_name="maracoos_congressional_brief_live.html",
-        mime="text/html",
     )
 
 
