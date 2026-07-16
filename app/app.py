@@ -2227,32 +2227,11 @@ def apply_hub_styles() -> None:
     )
 
 
-def current_primary_page() -> str:
-    for key in ["primary_navigation_picker", "primary_navigation"]:
-        value = st.session_state.get(key)
-        if value in APP_NAVIGATION:
-            return value
-    return APP_NAVIGATION[0]
-
-
-def current_regional_section_code() -> str:
-    value = normalize_text(st.session_state.get("regional_section_code"))
-    return value if value in IOOS_REGION_OPTIONS else ""
-
-
-def render_app_hero(page: str | None = None) -> None:
+def render_app_hero() -> None:
     """Render the app hero above the primary navigation."""
-    hero_path = IOOS_HERO_IMAGE_PATH
-    selected_region = current_regional_section_code()
-    active_page = page or current_primary_page()
-    if active_page == "Regions" and selected_region in {"", MARACOOS_CODE}:
-        hero_path = MARACOOS_COVERAGE_MAP_PATH
-    hero_uri = asset_data_uri(hero_path, "image/png")
     st.markdown(
-        f"""
-        <div class="hub-hero hub-about-hero" style='background:
-            linear-gradient(90deg, rgba(9, 33, 45, 0.88), rgba(9, 33, 45, 0.50), rgba(9, 33, 45, 0.10)),
-            url("{hero_uri}"); background-position: center; background-size: cover;'>
+        """
+        <div class="hub-hero hub-about-hero">
             <div class="hub-kicker">Start here</div>
             <h1>IOOS Economic Impact Hub</h1>
             <p>A guided evidence app for explaining what IOOS is, who it serves, what it costs to maintain, and where the database already supports return-on-investment case studies.</p>
@@ -8101,6 +8080,11 @@ def render_region_section(
     ready_count = int(region_evidence.apply(is_external_ready_row, axis=1).sum()) if not region_evidence.empty else 0
     status_label, status_class = regional_section_status(target, len(region_evidence), len(region_sources))
 
+    if code == MARACOOS_CODE and MARACOOS_COVERAGE_MAP_PATH.exists():
+        _, map_col, _ = st.columns([0.16, 0.68, 0.16])
+        with map_col:
+            st.image(str(MARACOOS_COVERAGE_MAP_PATH), caption="MARACOOS coverage map", use_container_width=True)
+
     st.markdown(
         f"""
         <div class="hub-page-title">
@@ -8230,21 +8214,10 @@ def page_regions(
         return
 
     st.subheader("Regional Sections")
-    region_codes = regions_df["ioos_region_code"].map(normalize_text).tolist()
-    default_code = current_regional_section_code()
-    if default_code not in region_codes:
-        default_code = MARACOOS_CODE if MARACOOS_CODE in region_codes else region_codes[0]
-    selected_code = st.segmented_control(
-        "Regional section",
-        region_codes,
-        default=default_code,
-        label_visibility="collapsed",
-        key="regional_section_code",
-    )
-    selected_code = selected_code or default_code
-    selected_target = regions_df[regions_df["ioos_region_code"].map(normalize_text) == selected_code]
-    if not selected_target.empty:
-        render_region_section(selected_target.iloc[0], evidence_df, source_df, best_sources_df)
+    tabs = st.tabs(regions_df["ioos_region_code"].map(normalize_text).tolist())
+    for tab, (_, target) in zip(tabs, regions_df.iterrows()):
+        with tab:
+            render_region_section(target, evidence_df, source_df, best_sources_df)
 
     regions_with_rows = sum(
         1
@@ -9874,8 +9847,8 @@ def main() -> None:
         public_best_sources_df,
     ) = public_two_table_views(evidence_df, source_df, review_df, staged_df, best_sources_df)
 
+    render_app_hero()
     page = render_top_navigation()
-    render_app_hero(page)
 
     if page == "Overview":
         page_about_data(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
