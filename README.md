@@ -169,7 +169,7 @@ Use the Streamlit dashboard page named `Evidence Intake` for AI-assisted workflo
 The prompt builders require AI to return an actual `.csv` file using this exact candidate schema:
 
 ```text
-row_id,Date record created,Impact domain,IOOS component,Region,IOOS region code,User group,Decision supported,Economic pathway,Metric,Metric year / dollar year,Source,Source URL,Evidence strength,IOOS attribution strength,Source verification needed,Limitations,Claim allowed,Update frequency,AI extraction notes
+row_id,Date record created,Impact domain,IOOS component,Region,IOOS region code,User group,Decision supported,Economic pathway,Metric,Metric year / dollar year,Source,Source URL,Evidence strength,IOOS attribution strength,Source verification needed,Limitations,Claim allowed,Update frequency,AI extraction notes,Prompt used
 ```
 
 Upload the AI-generated CSV on the `Evidence Intake` page. The app rejects candidate rows unless all required columns are present and these fields are populated:
@@ -184,7 +184,7 @@ Upload the AI-generated CSV on the `Evidence Intake` page. The app rejects candi
 
 `Evidence strength` and `IOOS attribution strength` must be exactly one of `Strong`, `Medium`, `Contextual`, `Modeled`, or `Needs verification`. Put any explanation for the rating in `Limitations` or `AI extraction notes`, not in the rating field. `IOOS region code` should use one or more semicolon-separated codes from `AOOS`, `CARICOOS`, `CeNCOOS`, `GCOOS`, `GLOS`, `MARACOOS`, `NANOOS`, `NERACOOS`, `PacIOOS`, `SCCOOS`, `SECOORA`, plus `National`, `Multiple`, or `Unknown` when needed. CSV fields that contain commas, quotes, or line breaks must be quoted.
 
-Blank `Date record created` values are defaulted to the upload date in `YYYY-MM-DD` format. Blank `Source verification needed` values are defaulted to `Yes`. Candidate rows appear on the `Staged Evidence` page, where reviewers can edit staged rows. Rows can only be accepted into the official matrix after `Source verification needed` is set to `No`; accepted rows are mapped into the existing `evidence_matrix.csv` and `source_registry.csv` structure.
+Blank `Date record created` values are defaulted to the upload date in `YYYY-MM-DD` format. Blank `Source verification needed` values are defaulted to `Yes`. `Prompt used` stores the prompt that generated the candidate row; when importing older CSVs, paste the prompt into the upload form to fill blank prompt provenance for every row. Candidate rows appear on the `Staged Evidence` page, where reviewers can edit staged rows. Rows can only be accepted into the official matrix after `Source verification needed` is set to `No`; accepted rows are mapped into the existing `evidence_matrix.csv` and `source_registry.csv` structure.
 
 Official evidence row IDs use the durable master-list format `EVID-####`.
 Regional scope belongs in `ioos_region_code`, so a region such as MARACOOS is

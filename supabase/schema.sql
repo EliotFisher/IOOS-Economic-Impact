@@ -32,6 +32,7 @@ create table if not exists public.evidence_matrix (
   claim_allowed text not null,
   update_frequency text not null,
   ai_extraction_notes text not null,
+  prompt_used text not null default '',
   updated_at timestamptz not null default now()
 );
 
@@ -76,7 +77,8 @@ alter table public.evidence_matrix
 
 alter table public.staged_evidence
   add column if not exists ioos_region_code text not null default 'Unknown',
-  add column if not exists date_record_created date not null default current_date;
+  add column if not exists date_record_created date not null default current_date,
+  add column if not exists prompt_used text not null default '';
 
 create index if not exists evidence_matrix_source_id_idx on public.evidence_matrix(source_id);
 create index if not exists evidence_matrix_impact_domain_idx on public.evidence_matrix(impact_domain);

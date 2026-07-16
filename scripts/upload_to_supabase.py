@@ -44,6 +44,7 @@ CANDIDATE_COLUMNS = {
     "Claim allowed": "claim_allowed",
     "Update frequency": "update_frequency",
     "AI extraction notes": "ai_extraction_notes",
+    "Prompt used": "prompt_used",
 }
 
 CSV_TABLES = {

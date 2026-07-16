@@ -67,6 +67,7 @@ INTAKE_SCHEMA = [
     "Claim allowed",
     "Update frequency",
     "AI extraction notes",
+    "Prompt used",
 ]
 
 INTAKE_OPTIONAL_COLUMNS = {
@@ -75,6 +76,7 @@ INTAKE_OPTIONAL_COLUMNS = {
     "IOOS role type",
     "Allowed use",
     "Not allowed use",
+    "Prompt used",
 }
 
 INTAKE_TO_EVIDENCE_COLUMNS = {
@@ -101,6 +103,7 @@ INTAKE_TO_EVIDENCE_COLUMNS = {
     "Claim allowed": "claim_allowed",
     "Update frequency": "update_frequency",
     "AI extraction notes": "ai_extraction_notes",
+    "Prompt used": "prompt_used",
 }
 
 STAGED_DB_TO_INTAKE_COLUMNS = {
@@ -128,6 +131,7 @@ STAGED_DB_TO_INTAKE_COLUMNS = {
     "claim_allowed": "Claim allowed",
     "update_frequency": "Update frequency",
     "ai_extraction_notes": "AI extraction notes",
+    "prompt_used": "Prompt used",
 }
 
 INTAKE_TO_STAGED_DB_COLUMNS = {
@@ -278,6 +282,7 @@ MARACOOS_COLUMN_ALIASES = {
     "Claim allowed": "claim_allowed",
     "Update frequency": "update_frequency",
     "AI extraction notes": "ai_extraction_notes",
+    "Prompt used": "prompt_used",
 }
 MARACOOS_DISPLAY_COLUMNS = [
     "row_id",
@@ -305,6 +310,7 @@ MARACOOS_DISPLAY_COLUMNS = [
     "limitations",
     "update_frequency",
     "ai_extraction_notes",
+    "prompt_used",
     "data_origin",
 ]
 MARACOOS_STRENGTH_RANK = {
@@ -2667,6 +2673,21 @@ def record_created_prompt_rule() -> str:
     )
 
 
+def prompt_used_prompt_rule() -> str:
+    return (
+        "Set Prompt used to the prompt you were given for this extraction, including the "
+        "task inputs and source leads; quote the field because it may contain commas, "
+        "quotes, or line breaks."
+    )
+
+
+def prompt_used_header_note() -> str:
+    return (
+        "Important: the final CSV column is Prompt used. For every row, fill Prompt used "
+        "with the exact prompt text that generated that row."
+    )
+
+
 def split_ioos_region_codes(value: object) -> list[str]:
     return [part.strip() for part in normalize_text(value).split(";") if part.strip()]
 
@@ -2774,6 +2795,8 @@ Produce an actual .csv file as the output, not just comma-separated value text p
 
 {intake_schema_csv_header()}
 
+{prompt_used_header_note()}
+
 Task:
 Research the following IOOS economic impact topic:
 {topic_text}
@@ -2788,6 +2811,7 @@ Rules:
 - Economic number type must be exactly one of: {allowed_economic_number_types_text()}.
 - IOOS role type must be exactly one of: {allowed_ioos_role_types_text()}.
 - {record_created_prompt_rule()}
+- {prompt_used_prompt_rule()}
 - Put rating explanations in Limitations or AI extraction notes, not in the rating fields.
 - If the source supports economic context but not IOOS-attributable benefit, set IOOS attribution strength to Contextual.
 - If the claim is modeled, set Evidence strength to Modeled.
@@ -2813,6 +2837,8 @@ Produce an actual .csv file as the output, not just comma-separated value text p
 
 {intake_schema_csv_header()}
 
+{prompt_used_header_note()}
+
 Rules:
 - Extract only evidence actually supported by the source.
 - Do not create a row if the source is too vague.
@@ -2823,6 +2849,7 @@ Rules:
 - Economic number type must be exactly one of: {allowed_economic_number_types_text()}.
 - IOOS role type must be exactly one of: {allowed_ioos_role_types_text()}.
 - {record_created_prompt_rule()}
+- {prompt_used_prompt_rule()}
 - Put rating explanations in Limitations or AI extraction notes, not in the rating fields.
 - If the source is not IOOS-specific, mark IOOS attribution strength as Contextual.
 - If the source provides economic exposure but not avoided cost or benefit, say that in Limitations.
@@ -2863,6 +2890,8 @@ Produce an actual .csv file as the output, not just comma-separated value text p
 
 {intake_schema_csv_header()}
 
+{prompt_used_header_note()}
+
 Rules:
 - Use only evidence that is actually supported by the linked source.
 - Do not invent numbers, metrics, dollar years, titles, source URLs, agencies, or IOOS attribution.
@@ -2876,6 +2905,7 @@ Rules:
 - Economic number type must be exactly one of: {allowed_economic_number_types_text()}.
 - IOOS role type must be exactly one of: {allowed_ioos_role_types_text()}.
 - {record_created_prompt_rule()}
+- {prompt_used_prompt_rule()}
 - Set Source verification needed to Yes for every row.
 - Put rating explanations, uncertainty, page/table references, and access problems in Limitations or AI extraction notes, not in the rating fields.
 - If the source supports economic context but not IOOS-attributable benefit, set IOOS attribution strength to Contextual.
@@ -3131,6 +3161,8 @@ Produce an actual .csv file as the output, not just comma-separated value text p
 
 {intake_schema_csv_header()}
 
+{prompt_used_header_note()}
+
 Task:
 Find up to {rows_requested} candidate rows that can support a cautious, source-backed regional case study for {association}. Work silently in three passes before returning CSV:
 1. Source scan: identify specific reports, product pages, agency pages, peer-reviewed studies, or datasets that mention {association}, IOOS, or a clearly relevant {region} decision context.
@@ -3161,6 +3193,7 @@ Rules:
 - Economic number type must be exactly one of: {allowed_economic_number_types_text()}.
 - IOOS role type must be exactly one of: {allowed_ioos_role_types_text()}.
 - {record_created_prompt_rule()}
+- {prompt_used_prompt_rule()}
 - Use Economic number type = Observed dollar benefit only for directly supported realized dollar benefits, avoided costs, savings, or revenue effects.
 - Use Economic number type = Modeled dollar estimate for scenario, benefit-transfer, forecast-value, potential, or modeled dollar estimates.
 - Use Economic number type = Dollar exposure/context when the source sizes a sector, market, GDP, jobs, cargo, assets, or exposure without estimating {association} benefits.
@@ -6519,6 +6552,7 @@ def staged_rows_for_evidence_display(staged_df: pd.DataFrame) -> pd.DataFrame:
                 "claim_allowed": normalize_text(row.get("Claim allowed")),
                 "update_frequency": normalize_text(row.get("Update frequency")),
                 "ai_extraction_notes": normalize_text(row.get("AI extraction notes")),
+                "prompt_used": normalize_text(row.get("Prompt used")),
                 "data_origin": "staged_evidence",
             }
         )
@@ -8994,6 +9028,15 @@ def render_intake_upload() -> None:
         st.error(f"Could not read CSV: {exc}")
         return
 
+    prompt_used = normalize_text(
+        st.text_area(
+            "Prompt used for this CSV",
+            placeholder="Paste the exact prompt that generated this candidate CSV.",
+            height=180,
+            key="intake_upload_prompt_used",
+        )
+    )
+
     errors = validate_intake_df(candidate_df)
     if errors:
         st.error("Candidate CSV was not staged.")
@@ -9003,6 +9046,10 @@ def render_intake_upload() -> None:
         return
 
     normalized = normalize_intake_df(candidate_df)
+    if prompt_used:
+        normalized["Prompt used"] = normalized["Prompt used"].apply(
+            lambda value: normalize_text(value) or prompt_used
+        )
     st.success(f"CSV passed intake validation with {len(normalized):,} candidate rows.")
     st.dataframe(normalized, use_container_width=True, hide_index=True)
 
