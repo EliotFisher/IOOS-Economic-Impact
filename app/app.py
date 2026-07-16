@@ -8985,13 +8985,14 @@ def page_congressional_briefing(
     source_df: pd.DataFrame,
     staged_df: pd.DataFrame,
     best_sources_df: pd.DataFrame | None = None,
+    regional_targets_df: pd.DataFrame | None = None,
 ) -> None:
     st.markdown(
         """
         <div class="hub-page-title">
             <div class="hub-kicker">Briefs & Outputs</div>
-            <h1>Claim Basket And Exports</h1>
-            <p>Select trusted claims, generate copy-ready citation blocks, preview a congressional one-pager, and download reusable evidence exports.</p>
+            <h1>Generated Brief And Regional Outputs</h1>
+            <p>Preview the generated congressional brief and review region-specific briefing workspaces for each IOOS Regional Association.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -9001,150 +9002,25 @@ def page_congressional_briefing(
         st.warning("No evidence matrix rows are available for the national brief preview.")
 
     brief_metric_sources_df = best_sources_df if best_sources_df is not None else source_df
-    export_df = enrich_evidence_with_source_fields(evidence_df, source_df)
-    export_df = add_dashboard_fields(export_df, pd.DataFrame())
-    ready_df = export_df[export_df.apply(is_external_ready_row, axis=1)].copy()
-    basket_source = ready_df if not ready_df.empty else export_df
+    regional_best_sources_df = best_sources_df if best_sources_df is not None else pd.DataFrame()
+    regions_df = association_regional_targets(
+        regional_targets_df if regional_targets_df is not None else pd.DataFrame()
+    )
 
-    prepared_cols = st.columns([1, 1, 1])
+    prepared_cols = st.columns([1, 1])
     prepared_for = prepared_cols[0].text_input("Prepared for", value="Congressional Staff")
     prepared_date = prepared_cols[1].date_input("Brief date", value=date.today())
-    basket_mode = prepared_cols[2].selectbox("Basket starter", ["Ready external claims", "Briefing default rows", "All promoted rows"])
 
-    if basket_mode == "Briefing default rows" and "row_id" in export_df.columns:
-        default_ids = [row_id for row_id in BRIEFING_ROW_IDS.values() if row_id in set(export_df["row_id"].map(normalize_text))]
-        option_df = export_df
-    elif basket_mode == "All promoted rows":
-        option_df = export_df
-        default_ids = option_df["row_id"].map(normalize_text).head(4).tolist() if "row_id" in option_df else []
-    else:
-        option_df = basket_source
-        default_ids = option_df["row_id"].map(normalize_text).head(4).tolist() if "row_id" in option_df else []
-
-    option_labels: dict[str, str] = {}
-    for _, row in option_df.iterrows():
-        row_id = row_field(row, "row_id")
-        if row_id:
-            option_labels[row_id] = f"{row_id} - {truncate_text(row_field(row, 'claim_allowed', row_field(row, 'metric')), 92)}"
-
-    selected_ids = st.multiselect(
-        "Claim basket",
-        list(option_labels),
-        default=[row_id for row_id in default_ids if row_id in option_labels],
-        format_func=lambda row_id: option_labels.get(row_id, row_id),
+    regional_targets = [
+        target
+        for _, target in regions_df.iterrows()
+        if normalize_text(target.get("ioos_region_code"))
+    ]
+    tabs = st.tabs(
+        ["Generated Brief"]
+        + [normalize_text(target.get("ioos_region_code")) for target in regional_targets]
     )
-    basket_df = option_df[option_df["row_id"].map(normalize_text).isin(selected_ids)].copy() if selected_ids else option_df.head(0)
-
-    basket_tab, one_pager_tab, source_tab, generated_tab, maracoos_tab = st.tabs(
-        ["Claim Basket", "One-Pager Preview", "Citation List", "Generated Brief", "MARACOOS"]
-    )
-
-    with basket_tab:
-        if basket_df.empty:
-            st.info("No claims are in the basket. Select one or more promoted evidence rows above.")
-        else:
-            copy_blocks = [
-                claim_copy_block(row, source_df)
-                for _, row in basket_df.iterrows()
-            ]
-            basket_text = "\n\n---\n\n".join(copy_blocks)
-            st.subheader("Copy-Ready Claim Blocks")
-            render_copy_button(basket_text, "Copy basket")
-            st.text_area("Claim + citation blocks", value=basket_text, height=360)
-            st.download_button(
-                "Download basket text",
-                basket_text.encode("utf-8"),
-                file_name="ioos_claim_basket.txt",
-                mime="text/plain",
-            )
-            st.download_button(
-                "Download basket CSV",
-                basket_df.to_csv(index=False).encode("utf-8"),
-                file_name="ioos_claim_basket.csv",
-                mime="text/csv",
-            )
-            st.dataframe(
-                evidence_display_dataframe(basket_df),
-                use_container_width=True,
-                hide_index=True,
-                column_config={"source_url": st.column_config.LinkColumn("Source URL")}
-                if "source_url" in basket_df.columns
-                else {},
-            )
-
-    with one_pager_tab:
-        if basket_df.empty:
-            st.info("Add claims to the basket to preview a one-pager.")
-        else:
-            number_blocks = "".join(
-                f"""
-                <div class="brief-number">
-                    <b>{hub_escape(truncate_text(row_field(row, "metric"), 90))}</b>
-                    <span>{hub_escape(row_field(row, "claim_allowed"))}</span>
-                </div>
-                """
-                for _, row in basket_df.head(4).iterrows()
-            )
-            source_line = "; ".join(
-                sorted(
-                    {
-                        row_field(source_for_row(row, source_df), "source_name", row_field(row, "source_id"))
-                        for _, row in basket_df.iterrows()
-                        if row_field(row, "source_id")
-                    }
-                )
-            )
-            st.markdown(
-                f"""
-                <div class="brief-preview">
-                    <div class="hub-kicker">Congressional one-pager preview</div>
-                    <h2>IOOS Economic Impact Evidence</h2>
-                    <p style="color:#405760;line-height:1.55;margin:0;">Prepared for {hub_escape(prepared_for)} on {hub_escape(prepared_date.strftime('%B %d, %Y'))}. Claims below are selected from promoted evidence rows and should retain their limitations when quoted.</p>
-                    {number_blocks}
-                    <div class="detail-section">
-                        <b>Source shelf</b>
-                        <p>{hub_escape(source_line or "Sources pending.")}</p>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-    with source_tab:
-        if basket_df.empty:
-            st.info("No citation list is available until the basket has claims.")
-        else:
-            citation_rows = []
-            for _, row in basket_df.iterrows():
-                source_row = source_for_row(row, source_df)
-                citation_rows.append(
-                    {
-                        "row_id": row_field(row, "row_id"),
-                        "source": row_field(source_row, "source_name", row_field(row, "source_id")),
-                        "source_type": row_field(source_row, "source_type", row_field(row, "source_type")),
-                        "source_url": row_field(source_row, "source_url", row_field(row, "source_url")),
-                        "evidence_strength": row_field(row, "evidence_strength"),
-                        "ioos_attribution_strength": row_field(row, "ioos_attribution_strength"),
-                        "limitations": row_field(row, "limitations"),
-                    }
-                )
-            citation_df = pd.DataFrame(citation_rows)
-            st.dataframe(
-                citation_df,
-                use_container_width=True,
-                hide_index=True,
-                column_config={"source_url": st.column_config.LinkColumn("Source URL")},
-            )
-            citation_text = "\n".join(
-                f"{row['row_id']}: {row['source']}. {row['source_type']}. {row['source_url']}"
-                for row in citation_rows
-            )
-            st.download_button(
-                "Download citation list",
-                citation_text.encode("utf-8"),
-                file_name="ioos_citations.txt",
-                mime="text/plain",
-            )
+    generated_tab = tabs[0]
 
     with generated_tab:
         briefing_html = build_congressional_briefing_html(
@@ -9188,8 +9064,12 @@ def page_congressional_briefing(
                 mime="text/html",
             )
 
-    with maracoos_tab:
-        render_maracoos_congressional_tab(evidence_df, staged_df, prepared_for, prepared_date)
+    for tab, target in zip(tabs[1:], regional_targets):
+        with tab:
+            if normalize_text(target.get("ioos_region_code")) == MARACOOS_CODE:
+                render_maracoos_congressional_tab(evidence_df, staged_df, prepared_for, prepared_date)
+            else:
+                render_region_section(target, evidence_df, source_df, regional_best_sources_df)
 
 
 def render_intake_upload() -> None:
@@ -9868,7 +9748,13 @@ def main() -> None:
     elif page == "Evidence Database":
         page_evidence_matrix(public_evidence_df, public_source_df, public_review_df)
     elif page == "Briefs & Outputs":
-        page_congressional_briefing(public_evidence_df, public_source_df, public_staged_df, public_best_sources_df)
+        page_congressional_briefing(
+            public_evidence_df,
+            public_source_df,
+            public_staged_df,
+            public_best_sources_df,
+            regional_targets_df,
+        )
     elif page == "Best Sources":
         page_best_sources(public_best_sources_df)
     elif page == "Review / Admin":
