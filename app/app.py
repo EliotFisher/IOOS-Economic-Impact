@@ -2144,92 +2144,6 @@ def apply_hub_styles() -> None:
     )
 
 
-def ensure_auth_state() -> None:
-    st.session_state.setdefault("authenticated", False)
-    st.session_state.setdefault("employee_name", "")
-    st.session_state.setdefault("employee_role", "Reviewer")
-
-
-def render_login_page() -> None:
-    st.markdown(
-        """
-        <div class="hub-hero">
-            <div class="hub-kicker">Evidence-guided IOOS story</div>
-            <h1>IOOS Economic Impact Hub</h1>
-            <p>Start with five explanatory tabs, then move into the evidence database, source shelf, briefs, and review workflow behind the claims.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    left, right = st.columns([0.92, 1.08], gap="large")
-    with left:
-        st.subheader("Sign In")
-        st.caption("Prototype access gate. Real authentication can be connected to Supabase Auth, SSO, or another staff identity provider.")
-        with st.form("employee_login"):
-            employee_name = st.text_input("Employee email or name", placeholder="name@organization.gov")
-            role = st.selectbox("Workspace role", list(APP_ROLES), index=2)
-            password = st.text_input("Password", type="password", placeholder="Prototype accepts any value")
-            submitted = st.form_submit_button("Enter Dashboard", type="primary")
-
-        if submitted:
-            if not employee_name.strip():
-                st.error("Enter an employee email or name to continue.")
-            else:
-                st.session_state["authenticated"] = True
-                st.session_state["employee_name"] = employee_name.strip()
-                st.session_state["employee_role"] = role
-                st.rerun()
-
-        st.markdown(
-            f"""
-            <div class="hub-strip">
-                <strong>Selected role:</strong> {role}<br>
-                {APP_ROLES[role]}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with right:
-        if DATA_TO_DECISION_FLOW_PATH.exists():
-            st.image(str(DATA_TO_DECISION_FLOW_PATH), use_container_width=True)
-        st.markdown(
-            """
-            <div class="hub-callout">
-                The hub explains IOOS in plain language first, then keeps draft evidence separate from official evidence until a person verifies the source, attribution, limitation, and claim language.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-
-def render_sidebar_identity() -> None:
-    """Render lightweight app identity without opening Streamlit's sidebar."""
-    name = st.session_state.get("employee_name", "Employee")
-    role = st.session_state.get("employee_role", "Viewer")
-    left, right = st.columns([0.82, 0.18], vertical_alignment="center")
-    with left:
-        st.markdown(
-            f"""
-            <div class="hub-utility">
-                <div>
-                    <span class="hub-utility-brand">IOOS Economic Impact Hub</span>
-                    <span class="hub-chip neutral" style="margin-left:0.55rem;">{hub_escape(role)}</span>
-                </div>
-                <span class="hub-utility-user">{hub_escape(name)} / {hub_escape(APP_ROLES.get(role, ""))}</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with right:
-        if st.button("Sign out", use_container_width=True):
-            st.session_state["authenticated"] = False
-            st.session_state["employee_name"] = ""
-            st.session_state["employee_role"] = "Reviewer"
-            st.rerun()
-
-
 def render_app_hero() -> None:
     """Render the app hero above the primary navigation."""
     st.markdown(
@@ -2252,21 +2166,13 @@ def render_top_navigation() -> str:
         st.session_state["primary_navigation"] = current_page
 
     st.markdown('<div class="hub-top-nav">', unsafe_allow_html=True)
-    nav_col, signout_col = st.columns([0.86, 0.14], vertical_alignment="center")
-    with nav_col:
-        page = st.segmented_control(
-            "Primary navigation",
-            APP_NAVIGATION,
-            default=current_page,
-            label_visibility="collapsed",
-            key="primary_navigation_picker",
-        )
-    with signout_col:
-        if st.button("Sign out", key="sign_out_button", width="stretch"):
-            st.session_state["authenticated"] = False
-            st.session_state["employee_name"] = ""
-            st.session_state["employee_role"] = "Reviewer"
-            st.rerun()
+    page = st.segmented_control(
+        "Primary navigation",
+        APP_NAVIGATION,
+        default=current_page,
+        label_visibility="collapsed",
+        key="primary_navigation_picker",
+    )
     if page is None:
         page = current_page
     st.session_state["primary_navigation"] = page
@@ -9487,11 +9393,6 @@ def page_review_admin(
 
 def main() -> None:
     apply_hub_styles()
-    ensure_auth_state()
-
-    if not st.session_state["authenticated"]:
-        render_login_page()
-        return
 
     evidence_df = load_csv(EVIDENCE_PATH)
     source_df = load_csv(SOURCE_PATH)
