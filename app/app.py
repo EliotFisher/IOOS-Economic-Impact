@@ -533,6 +533,7 @@ APP_ROLES = {
 APP_NAVIGATION = [
     "Overview",
     "Dashboard",
+    "Regions",
     "Financial Evidence",
     "Evidence Database",
     "Briefs & Outputs",
@@ -1102,6 +1103,8 @@ def apply_hub_styles() -> None:
             }}
 
             .overview-card,
+            .region-card,
+            .region-detail-card,
             .sector-card,
             .cost-card,
             .case-card,
@@ -1115,6 +1118,8 @@ def apply_hub_styles() -> None:
             }}
 
             .overview-card b,
+            .region-card b,
+            .region-detail-card b,
             .sector-card b,
             .cost-card b,
             .case-card b,
@@ -1129,6 +1134,8 @@ def apply_hub_styles() -> None:
             }}
 
             .overview-card p,
+            .region-card p,
+            .region-detail-card p,
             .sector-card p,
             .cost-card p,
             .case-card p,
@@ -1142,6 +1149,8 @@ def apply_hub_styles() -> None:
             }}
 
             .overview-grid,
+            .region-grid,
+            .region-metric-grid,
             .sector-grid,
             .cost-grid,
             .case-grid,
@@ -1153,8 +1162,13 @@ def apply_hub_styles() -> None:
             }}
 
             .overview-grid,
+            .region-metric-grid,
             .atlas-level-grid {{
                 grid-template-columns: repeat(4, minmax(150px, 1fr));
+            }}
+
+            .region-grid {{
+                grid-template-columns: repeat(3, minmax(250px, 1fr));
             }}
 
             .sector-grid,
@@ -1178,6 +1192,73 @@ def apply_hub_styles() -> None:
                 font-weight: 860;
                 line-height: 1.05;
                 margin-top: 0.45rem;
+            }}
+
+            .region-card {{
+                min-height: 250px;
+            }}
+
+            .region-card-header {{
+                align-items: flex-start;
+                display: flex;
+                gap: 0.75rem;
+                justify-content: space-between;
+                margin-bottom: 0.6rem;
+            }}
+
+            .region-name {{
+                color: var(--ioos-ink);
+                display: block;
+                font-size: 1.02rem;
+                font-weight: 820;
+                line-height: 1.25;
+                margin-top: 0.3rem;
+            }}
+
+            .region-code {{
+                color: var(--ioos-muted);
+                display: block;
+                font-size: 0.78rem;
+                font-weight: 760;
+                text-transform: uppercase;
+            }}
+
+            .region-stats {{
+                border-top: 1px solid var(--ioos-line);
+                display: grid;
+                gap: 0.55rem;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                margin-top: 0.8rem;
+                padding-top: 0.8rem;
+            }}
+
+            .region-stat span {{
+                color: var(--ioos-blue);
+                display: block;
+                font-size: 1.18rem;
+                font-weight: 840;
+                line-height: 1.05;
+            }}
+
+            .region-stat small {{
+                color: var(--ioos-muted);
+                display: block;
+                font-size: 0.72rem;
+                line-height: 1.25;
+                margin-top: 0.15rem;
+                text-transform: uppercase;
+            }}
+
+            .region-detail-card {{
+                margin: 0.7rem 0 1rem;
+            }}
+
+            .region-detail-card ul {{
+                color: var(--ioos-muted);
+                font-size: 0.86rem;
+                line-height: 1.5;
+                margin: 0.45rem 0 0;
+                padding-left: 1.1rem;
             }}
 
             .atlas-count {{
@@ -2114,6 +2195,8 @@ def apply_hub_styles() -> None:
                 .value-chain-full,
                 .queue-grid,
                 .overview-grid,
+                .region-grid,
+                .region-metric-grid,
                 .sector-grid,
                 .cost-grid,
                 .case-grid,
@@ -2862,6 +2945,136 @@ def evidence_rows_for_regional_target(evidence_df: pd.DataFrame, target: pd.Seri
         column_text = evidence_df[column].map(lambda value: normalize_text(value).lower())
         text_mask = text_mask | column_text.apply(lambda value: any(keyword in value for keyword in keywords))
     return evidence_df[code_mask | text_mask].copy()
+
+
+def association_regional_targets(regional_targets_df: pd.DataFrame) -> pd.DataFrame:
+    """Return the 11 IOOS Regional Association targets in official code order."""
+    target_columns = [
+        "region_id",
+        "region_name",
+        "ioos_association",
+        "ioos_region_code",
+        "phase",
+        "status",
+        "region_keywords",
+        "priority_domains",
+        "starter_research_question",
+        "source_targets",
+        "evidence_gap",
+        "prompt_notes",
+    ]
+    if regional_targets_df.empty or "ioos_region_code" not in regional_targets_df.columns:
+        targets = pd.DataFrame(
+            [
+                {
+                    "region_id": code.lower(),
+                    "region_name": name,
+                    "ioos_association": code,
+                    "ioos_region_code": code,
+                    "phase": "Regional pilot" if code == MARACOOS_CODE else "Regional build queue",
+                    "status": "active" if code == MARACOOS_CODE else "planned",
+                    "region_keywords": f"{code}; {name}",
+                    "priority_domains": "Priority domains pending",
+                    "starter_research_question": (
+                        f"What source-backed evidence shows how {code} data, products, "
+                        f"or observing assets support decisions with economic relevance in {name}?"
+                    ),
+                    "source_targets": "Regional association materials; NOAA; state agencies; ports; peer-reviewed studies; economic baseline data",
+                    "evidence_gap": f"Need regional rows that distinguish direct {code} attribution from broader ocean economy exposure.",
+                    "prompt_notes": "Start with decision-use evidence and conservative claims.",
+                }
+                for code, name in IOOS_REGION_OPTIONS.items()
+            ]
+        )
+    else:
+        targets = regional_targets_df.copy()
+        for column in target_columns:
+            if column not in targets.columns:
+                targets[column] = ""
+
+    official_order = {code: index for index, code in enumerate(IOOS_REGION_OPTIONS)}
+    targets["_region_order"] = targets["ioos_region_code"].map(lambda value: official_order.get(normalize_text(value), 999))
+    targets = targets[targets["_region_order"] < 999].copy()
+    targets = targets.sort_values(["_region_order", "ioos_region_code"], kind="stable")
+    return targets[target_columns].reset_index(drop=True)
+
+
+def region_code_mask(df: pd.DataFrame, code: str, column: str = "ioos_region_code") -> pd.Series:
+    if df.empty or column not in df.columns or not normalize_text(code):
+        return pd.Series(False, index=df.index, dtype=bool)
+    code_key = normalize_text(code).lower()
+    return df[column].apply(
+        lambda value: code_key in {part.lower() for part in split_ioos_region_codes(value)}
+    )
+
+
+def rows_for_region_code(df: pd.DataFrame, code: str, column: str = "ioos_region_code") -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+    return df[region_code_mask(df, code, column)].copy()
+
+
+def regional_section_status(target: pd.Series, evidence_count: int, source_count: int) -> tuple[str, str]:
+    code = normalize_text(target.get("ioos_region_code"))
+    status = normalize_text(target.get("status")).lower()
+    if code == MARACOOS_CODE:
+        return "Pilot build", ""
+    if evidence_count or source_count:
+        return "Seeded", "neutral"
+    if status == "active":
+        return "Active", ""
+    return "Queued", "warning"
+
+
+def split_semicolon_items(value: object) -> list[str]:
+    return [item.strip() for item in normalize_text(value).split(";") if item.strip()]
+
+
+def html_list_items(items: list[str], fallback: str) -> str:
+    if not items:
+        items = [fallback]
+    return "".join(f"<li>{hub_escape(item)}</li>" for item in items)
+
+
+def regional_overview_cards_html(
+    regional_targets_df: pd.DataFrame,
+    evidence_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> str:
+    cards: list[str] = []
+    for _, target in regional_targets_df.iterrows():
+        code = normalize_text(target.get("ioos_region_code"))
+        evidence_count = len(rows_for_region_code(evidence_df, code))
+        source_count = len(rows_for_region_code(best_sources_df, code))
+        status_label, status_class = regional_section_status(target, evidence_count, source_count)
+        priority_items = split_semicolon_items(target.get("priority_domains"))
+        priority_preview = "; ".join(priority_items[:2]) or "Priority domains pending"
+        cards.append(
+            f"""
+            <div class="region-card">
+                <div class="region-card-header">
+                    <div>
+                        <span class="region-code">{hub_escape(code)}</span>
+                        <span class="region-name">{hub_escape(normalize_text(target.get("region_name")) or code)}</span>
+                    </div>
+                    <span class="hub-chip {hub_escape(status_class)}">{hub_escape(status_label)}</span>
+                </div>
+                <p>{hub_escape(priority_preview)}</p>
+                <div class="region-stats">
+                    <div class="region-stat">
+                        <span>{evidence_count:,}</span>
+                        <small>public rows</small>
+                    </div>
+                    <div class="region-stat">
+                        <span>{source_count:,}</span>
+                        <small>best sources</small>
+                    </div>
+                </div>
+                <p>{hub_escape(row_field(target, "evidence_gap", "Regional evidence gap pending."))}</p>
+            </div>
+            """
+        )
+    return f'<div class="region-grid">{"".join(cards)}</div>'
 
 
 def semicolon_bullets(value: object, fallback: str) -> str:
@@ -7810,6 +8023,233 @@ def source_count_for_rows(df: pd.DataFrame) -> int:
     return int(df["source_id"].replace("", pd.NA).dropna().nunique())
 
 
+def regional_handoff_table(
+    regional_targets_df: pd.DataFrame,
+    evidence_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    for _, target in regional_targets_df.iterrows():
+        code = normalize_text(target.get("ioos_region_code"))
+        region_evidence = rows_for_region_code(evidence_df, code)
+        region_sources = rows_for_region_code(best_sources_df, code)
+        status_label, _ = regional_section_status(target, len(region_evidence), len(region_sources))
+        rows.append(
+            {
+                "Region code": code,
+                "Association": normalize_text(target.get("ioos_association")),
+                "Region": normalize_text(target.get("region_name")),
+                "Build status": status_label,
+                "Public evidence rows": len(region_evidence),
+                "Best sources": len(region_sources),
+                "Priority domains": normalize_text(target.get("priority_domains")),
+                "Evidence gap": normalize_text(target.get("evidence_gap")),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def region_detail_card_html(target: pd.Series) -> str:
+    priority_items = split_semicolon_items(target.get("priority_domains"))
+    source_items = split_semicolon_items(target.get("source_targets"))
+    return f"""
+    <div class="region-detail-card">
+        <b>Regional Build Notes</b>
+        <p><strong>Evidence gap:</strong> {hub_escape(row_field(target, "evidence_gap", "Regional evidence gap pending."))}</p>
+        <p><strong>Starter question:</strong> {hub_escape(row_field(target, "starter_research_question", "Starter research question pending."))}</p>
+        <p><strong>Priority domains</strong></p>
+        <ul>{html_list_items(priority_items, "Priority domains pending")}</ul>
+        <p><strong>Source targets</strong></p>
+        <ul>{html_list_items(source_items[:5], "Source targets pending")}</ul>
+    </div>
+    """
+
+
+def render_region_section(
+    target: pd.Series,
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> None:
+    code = normalize_text(target.get("ioos_region_code"))
+    association = normalize_text(target.get("ioos_association")) or code
+    region_name = normalize_text(target.get("region_name")) or IOOS_REGION_OPTIONS.get(code, code)
+    region_evidence = rows_for_region_code(evidence_df, code)
+    region_sources = rows_for_region_code(best_sources_df, code)
+    region_evidence = add_dashboard_fields(region_evidence, pd.DataFrame())
+    ready_count = int(region_evidence.apply(is_external_ready_row, axis=1).sum()) if not region_evidence.empty else 0
+    status_label, status_class = regional_section_status(target, len(region_evidence), len(region_sources))
+
+    st.markdown(
+        f"""
+        <div class="hub-page-title">
+            <div class="hub-kicker">{hub_escape(association)}</div>
+            <h1>{hub_escape(region_name)}</h1>
+            <p>
+                <span class="hub-chip {hub_escape(status_class)}">{hub_escape(status_label)}</span>
+                <span style="margin-left:0.45rem;">{hub_escape(row_field(target, "phase", "Regional build queue"))}</span>
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    metric_cols = st.columns(4)
+    metric_cols[0].metric("Public rows", f"{len(region_evidence):,}")
+    metric_cols[1].metric("Ready claims", f"{ready_count:,}")
+    metric_cols[2].metric("Best sources", f"{len(region_sources):,}")
+    metric_cols[3].metric("Priority areas", f"{len(split_semicolon_items(target.get('priority_domains'))):,}")
+
+    if code == MARACOOS_CODE and MARACOOS_COVERAGE_MAP_PATH.exists():
+        st.image(str(MARACOOS_COVERAGE_MAP_PATH), caption="MARACOOS coverage map", use_container_width=True)
+
+    st.markdown(region_detail_card_html(target), unsafe_allow_html=True)
+
+    evidence_tab, source_tab, prompt_tab = st.tabs(["Evidence Rows", "Source Shelf", "Handoff Prompt"])
+    with evidence_tab:
+        if region_evidence.empty:
+            st.info("No public evidence rows are loaded for this region yet.")
+        else:
+            display_df = evidence_display_dataframe(region_evidence)
+            st.dataframe(
+                display_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "claim": st.column_config.TextColumn("Claim", width="large"),
+                    "metric": st.column_config.TextColumn("Metric", width="large"),
+                    "source_url": st.column_config.LinkColumn("Source URL"),
+                    "external_use_ready": st.column_config.TextColumn("External use", width="small"),
+                    "limitations": st.column_config.TextColumn(width="large"),
+                },
+            )
+            st.download_button(
+                f"Download {code} evidence CSV",
+                region_evidence.to_csv(index=False).encode("utf-8"),
+                file_name=f"ioos_{code.lower()}_evidence.csv",
+                mime="text/csv",
+                key=f"download_{code}_evidence",
+            )
+
+    with source_tab:
+        if region_sources.empty:
+            st.info("No best-source records are loaded for this region yet.")
+        else:
+            source_columns = [
+                "source_id",
+                "source_name",
+                "source_type",
+                "priority_tier",
+                "briefing_role",
+                "impact_domains",
+                "key_metrics",
+                "recommended_claim_language",
+                "caveats",
+                "source_url",
+            ]
+            st.dataframe(
+                region_sources[[column for column in source_columns if column in region_sources.columns]],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "source_url": st.column_config.LinkColumn("Source URL"),
+                    "briefing_role": st.column_config.TextColumn(width="large"),
+                    "key_metrics": st.column_config.TextColumn(width="large"),
+                    "recommended_claim_language": st.column_config.TextColumn(width="large"),
+                    "caveats": st.column_config.TextColumn(width="large"),
+                },
+            )
+            st.download_button(
+                f"Download {code} source CSV",
+                region_sources.to_csv(index=False).encode("utf-8"),
+                file_name=f"ioos_{code.lower()}_best_sources.csv",
+                mime="text/csv",
+                key=f"download_{code}_sources",
+            )
+
+    with prompt_tab:
+        prompt = regional_research_prompt(
+            target,
+            normalize_text(target.get("starter_research_question")),
+            "",
+            8,
+        )
+        st.text_area(
+            "Copy-ready regional research prompt",
+            value=prompt,
+            height=620,
+            key=f"regional_prompt_{code}",
+        )
+        st.download_button(
+            f"Download {code} prompt",
+            prompt.encode("utf-8"),
+            file_name=f"ioos_{code.lower()}_regional_research_prompt.txt",
+            mime="text/plain",
+            key=f"download_{code}_prompt",
+        )
+
+
+def page_regions(
+    regional_targets_df: pd.DataFrame,
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> None:
+    regions_df = association_regional_targets(regional_targets_df)
+    st.markdown(
+        """
+        <div class="hub-page-title">
+            <div class="hub-kicker">Regional evidence buildout</div>
+            <h1>IOOS Regions</h1>
+            <p>Each Regional Association has its own section, while all evidence still flows through the shared staged evidence and best-source tables. MARACOOS is the pilot build to complete first.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if regions_df.empty:
+        st.warning(f"No IOOS Regional Association targets found at {REGIONAL_TARGETS_PATH}")
+        return
+
+    regions_with_rows = sum(
+        1
+        for code in regions_df["ioos_region_code"].map(normalize_text)
+        if len(rows_for_region_code(evidence_df, code)) > 0
+    )
+    maracoos_rows = len(rows_for_region_code(evidence_df, MARACOOS_CODE))
+    metric_cols = st.columns(4)
+    metric_cols[0].metric("Regional sections", f"{len(regions_df):,}")
+    metric_cols[1].metric("Regions with rows", f"{regions_with_rows:,}")
+    metric_cols[2].metric("MARACOOS rows", f"{maracoos_rows:,}")
+    metric_cols[3].metric("Best-source records", f"{len(best_sources_df):,}")
+
+    st.markdown(regional_overview_cards_html(regions_df, evidence_df, best_sources_df), unsafe_allow_html=True)
+
+    st.subheader("Handoff Coverage Table")
+    handoff_df = regional_handoff_table(regions_df, evidence_df, best_sources_df)
+    st.dataframe(
+        handoff_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Priority domains": st.column_config.TextColumn(width="large"),
+            "Evidence gap": st.column_config.TextColumn(width="large"),
+        },
+    )
+    st.download_button(
+        "Download regional handoff table",
+        handoff_df.to_csv(index=False).encode("utf-8"),
+        file_name="ioos_regional_handoff_table.csv",
+        mime="text/csv",
+    )
+
+    st.subheader("Regional Sections")
+    tabs = st.tabs(regions_df["ioos_region_code"].map(normalize_text).tolist())
+    for tab, (_, target) in zip(tabs, regions_df.iterrows()):
+        with tab:
+            render_region_section(target, evidence_df, source_df, best_sources_df)
+
+
 def sector_story_table(evidence_df: pd.DataFrame, review_df: pd.DataFrame) -> pd.DataFrame:
     evidence_dashboard_df = add_dashboard_fields(evidence_df, review_df)
     rows: list[dict[str, object]] = []
@@ -9419,6 +9859,8 @@ def main() -> None:
         page_about_data(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
     elif page == "Dashboard":
         page_dashboard_summary(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
+    elif page == "Regions":
+        page_regions(regional_targets_df, public_evidence_df, public_source_df, public_best_sources_df)
     elif page == "Financial Evidence":
         page_evidence_atlas(public_evidence_df, public_source_df, public_review_df, public_best_sources_df)
     elif page == "Evidence Database":

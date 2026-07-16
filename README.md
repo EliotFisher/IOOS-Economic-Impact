@@ -25,7 +25,9 @@ outputs/
 
 ## What The Project Does
 
-The project tracks evidence that can support IOOS economic impact claims. Each evidence row captures the impact domain, IOOS component, user group, decision supported, economic pathway, metric, source, claim language, limitations, update frequency, and evidence ratings.
+The project tracks evidence that can support IOOS economic impact claims, organized so each of the 11 IOOS Regional Associations has a durable section. The current project deliverable is the MARACOOS regional pilot, while the same app structure, regional prompts, and shared tables stay in place for future teams to continue building the dataset region by region.
+
+Each evidence row captures the impact domain, IOOS component, user group, decision supported, economic pathway, metric, source, claim language, limitations, update frequency, regional code, and evidence ratings.
 
 The source registry stores one record per source so that evidence rows can cite sources by `source_id` without repeating source metadata.
 
@@ -75,6 +77,7 @@ When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are available in `.env` or S
 The dashboard includes:
 
 - Dashboard summary charts
+- Top-level Regions workspace with one section for each IOOS Regional Association and MARACOOS as the active pilot build
 - Proposal-aligned Project Roadmap with timeline, objectives, governance rules, and table status
 - Regional Builds workspace for one-region-at-a-time research, starting with MARACOOS
 - Searchable and filterable evidence matrix
@@ -189,11 +192,11 @@ never represented as a separate evidence table.
 
 ## Regional Build Workflow
 
-Use `data/regional_research_targets.csv` as the planning layer for one-region-at-a-time builds. The first active target is MARACOOS.
+Use `data/regional_research_targets.csv` as the planning layer for one-region-at-a-time builds. The Streamlit `Regions` page turns those targets into 11 handoff-ready regional sections. The first active target, and the region intended to be completed in this project phase, is MARACOOS.
 
 Do not add placeholder rows directly to `data/evidence_matrix.csv`. A regional build should generate source-backed candidate rows, upload them into `staged_evidence`, verify source support and attribution, and then promote accepted rows into the master matrix.
 
-The master matrix remains the certified national evidence set. Regional targets describe what to research; staged evidence holds unverified findings; accepted evidence rows become the durable master data.
+The master matrix remains the certified national evidence set. Regional targets describe what to research; staged evidence holds unverified findings; accepted evidence rows become the durable master data. Future regional work should add rows with the appropriate `ioos_region_code` rather than creating separate tables for each region.
 
 ## Add New Evidence Rows
 
