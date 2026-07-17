@@ -182,7 +182,7 @@ Use the Streamlit dashboard page named `Evidence Intake` for AI-assisted workflo
 The prompt builders require AI to return an actual `.csv` file using this exact candidate schema:
 
 ```text
-row_id,Date record created,Impact domain,IOOS component,Region,IOOS region code,User group,Decision supported,Economic pathway,Metric,Metric year / dollar year,Source,Source URL,Evidence strength,IOOS attribution strength,Economic number type,IOOS role type,Source verification needed,Allowed use,Not allowed use,Limitations,Claim allowed,Update frequency,AI extraction notes,Prompt used
+row_id,Date record created,Impact domain,IOOS component,Region,IOOS region code,User group,Decision supported,Economic pathway,Metric,Metric year / dollar year,Source,Source URL,Source publication year,Evidence strength,IOOS attribution strength,Economic number type,IOOS role type,Source verification needed,Allowed use,Not allowed use,Limitations,Claim allowed,Update frequency,AI extraction notes,Prompt used
 ```
 
 Upload the AI-generated CSV on the `Evidence Intake` page. The app rejects candidate rows unless all required columns are present and these fields are populated:
@@ -196,6 +196,8 @@ Upload the AI-generated CSV on the `Evidence Intake` page. The app rejects candi
 - `IOOS attribution strength`
 
 `Evidence strength` and `IOOS attribution strength` must be exactly one of `Strong`, `Medium`, `Contextual`, `Modeled`, or `Needs verification`. Put any explanation for the rating in `Limitations` or `AI extraction notes`, not in the rating field. `IOOS region code` should use one or more semicolon-separated codes from `AOOS`, `CARICOOS`, `CeNCOOS`, `GCOOS`, `GLOS`, `MARACOOS`, `NANOOS`, `NERACOOS`, `PacIOOS`, `SCCOOS`, `SECOORA`, plus `National`, `Multiple`, or `Unknown` when needed. CSV fields that contain commas, quotes, or line breaks must be quoted.
+
+`Source publication year` stores the visible source publication year or last-updated year as `YYYY`. If no source year is visible, use `Unknown`. The prompt builders include editable earliest/latest source-year controls, and generated prompts tell the AI to stay inside that publication/update-year window unless a clearly necessary exception is explained in `AI extraction notes`.
 
 `Economic number type` must be one of `Observed dollar benefit`, `Modeled dollar estimate`, `Dollar exposure/context`, `Operational metric only`, `No economic number`, or `Do not use`. `IOOS role type` must be one of `Direct impact source`, `Direct decision-support source`, `Backend data source`, `Partner/infrastructure source`, `Context only`, or `No IOOS attribution`. Use `Allowed use` and `Not allowed use` to state whether a row can support a hard-dollar claim, a modeled-dollar claim, an operational value claim, a backend attribution chain, or context only.
 

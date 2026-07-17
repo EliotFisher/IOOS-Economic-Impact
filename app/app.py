@@ -57,6 +57,7 @@ INTAKE_SCHEMA = [
     "Metric year / dollar year",
     "Source",
     "Source URL",
+    "Source publication year",
     "Evidence strength",
     "IOOS attribution strength",
     "Economic number type",
@@ -75,6 +76,7 @@ INTAKE_OPTIONAL_COLUMNS = {
     "Date record created",
     "Economic number type",
     "IOOS role type",
+    "Source publication year",
     "Allowed use",
     "Not allowed use",
     "Prompt used",
@@ -93,6 +95,7 @@ INTAKE_TO_EVIDENCE_COLUMNS = {
     "Metric": "metric",
     "Metric year / dollar year": "metric_year_or_dollar_year",
     "Source": "source_id",
+    "Source publication year": "source_publication_year",
     "Evidence strength": "evidence_strength",
     "IOOS attribution strength": "ioos_attribution_strength",
     "Economic number type": "economic_number_type",
@@ -121,6 +124,7 @@ STAGED_DB_TO_INTAKE_COLUMNS = {
     "metric_year_or_dollar_year": "Metric year / dollar year",
     "source": "Source",
     "source_url": "Source URL",
+    "source_publication_year": "Source publication year",
     "evidence_strength": "Evidence strength",
     "ioos_attribution_strength": "IOOS attribution strength",
     "economic_number_type": "Economic number type",
@@ -261,6 +265,9 @@ BRIEFING_ROW_IDS = {
 MARACOOS_CODE = "MARACOOS"
 MARACOOS_SUPABASE_TABLES = ("MARACOOS", "maracoos")
 APP_DISPLAY_SOURCE_VERIFICATION_NEEDED_VALUE = "Yes"
+DEFAULT_SOURCE_YEAR_START = 2020
+DEFAULT_SOURCE_YEAR_END = date.today().year
+SOURCE_PUBLICATION_YEAR_UNKNOWN = "Unknown"
 REGIONAL_INTAKE_TARGET_TABLES = {
     code: f"staging_{code.lower()}_evidence"
     for code in IOOS_REGION_OPTIONS
@@ -289,6 +296,7 @@ MARACOOS_COLUMN_ALIASES = {
     "Metric year / dollar year": "metric_year_or_dollar_year",
     "Source": "source",
     "Source URL": "source_url",
+    "Source publication year": "source_publication_year",
     "Evidence strength": "evidence_strength",
     "IOOS attribution strength": "ioos_attribution_strength",
     "Economic number type": "economic_number_type",
@@ -316,6 +324,7 @@ MARACOOS_DISPLAY_COLUMNS = [
     "source",
     "source_id",
     "source_url",
+    "source_publication_year",
     "evidence_strength",
     "ioos_attribution_strength",
     "economic_number_type",
@@ -2746,6 +2755,108 @@ def csv_final_delivery_rule(file_name: str) -> str:
     )
 
 
+def source_year_prompt_rule(start_year: int | None = None, end_year: int | None = None) -> str:
+    start = start_year or DEFAULT_SOURCE_YEAR_START
+    end = end_year or DEFAULT_SOURCE_YEAR_END
+    if start > end:
+        start, end = end, start
+    return (
+        f"Source publication/update year filter: only use sources published or last updated from {start} "
+        f"through {end}, inclusive. Fill Source publication year with the visible 4-digit publication "
+        "or last-updated year. If no year is visible, write Unknown and include the source only when it "
+        "is clearly authoritative and directly relevant. Do not use sources outside the year window "
+        "unless the operator-provided source is uniquely necessary; explain any exception at the start "
+        "of AI extraction notes."
+    )
+
+
+def duplicate_guard_prompt_rule(existing_rows_context: str = "") -> str:
+    context = existing_rows_context.strip()
+    rule = """Duplicate guard:
+- Your job is to find net-new evidence, not rewrites of rows already in the evidence table.
+- Treat a candidate as a duplicate when it uses the same source or Source URL and supports the same metric, user group, decision, pathway, or claim as an existing row.
+- Skip duplicates even when the wording is different.
+- It is okay to use the same source only when the row captures a genuinely different metric, geography, user group, decision, time period, or attribution pathway.
+- If a candidate partly overlaps with an existing row, explain the difference at the start of AI extraction notes, for example: "Duplicate check: new metric/user group; not the same as EVID-0004."
+- Return fewer rows rather than padding the CSV with duplicates."""
+    if context:
+        rule = f"{rule}\n\nExisting rows to avoid duplicating:\n{context}"
+    return rule
+
+
+def existing_rows_prompt_context(df: pd.DataFrame, limit: int = 12) -> str:
+    if df.empty:
+        return ""
+
+    lines: list[str] = []
+    for _, row in df.head(limit).iterrows():
+        row_id = row_field(row, "row_id", row_field(row, "id", "existing row"))
+        source = row_field(row, "source", row_field(row, "Source", "source pending"))
+        url = row_field(row, "source_url", row_field(row, "Source URL"))
+        source_year = row_field(row, "source_publication_year", row_field(row, "Source publication year"))
+        metric = row_field(row, "metric", row_field(row, "Metric"))
+        decision = row_field(row, "decision_supported", row_field(row, "Decision supported"))
+        user = row_field(row, "user_group", row_field(row, "User group"))
+        claim = row_field(row, "claim_allowed", row_field(row, "Claim allowed"))
+        parts = [
+            row_id,
+            f"source: {truncate_text(source, 80)}",
+            f"url: {truncate_text(url, 90)}" if url else "",
+            f"source year: {source_year}" if source_year else "",
+            f"metric: {truncate_text(metric, 90)}" if metric else "",
+            f"decision: {truncate_text(decision, 80)}" if decision else "",
+            f"user: {truncate_text(user, 60)}" if user else "",
+            f"claim: {truncate_text(claim, 110)}" if claim else "",
+        ]
+        lines.append("- " + " | ".join(part for part in parts if part))
+
+    if len(df) > limit:
+        lines.append(f"- Plus {len(df) - limit} additional existing rows not shown; avoid repeating their source/claim combinations too.")
+    return "\n".join(lines)
+
+
+def normalize_source_publication_year(value: object) -> str:
+    text = normalize_text(value)
+    if not text:
+        return SOURCE_PUBLICATION_YEAR_UNKNOWN
+    if text.lower() in {"unknown", "n/a", "na", "none", "not visible", "not found", "undated"}:
+        return SOURCE_PUBLICATION_YEAR_UNKNOWN
+    match = re.search(r"\b(18|19|20)\d{2}\b", text)
+    if match:
+        return match.group(0)
+    return text
+
+
+def source_year_filter_controls(key_prefix: str) -> tuple[int, int]:
+    left, right = st.columns(2)
+    with left:
+        start_year = int(
+            st.number_input(
+                "Earliest source publication/update year",
+                min_value=1800,
+                max_value=DEFAULT_SOURCE_YEAR_END,
+                value=DEFAULT_SOURCE_YEAR_START,
+                step=1,
+                key=f"{key_prefix}_source_year_start",
+            )
+        )
+    with right:
+        end_year = int(
+            st.number_input(
+                "Latest source publication/update year",
+                min_value=1800,
+                max_value=DEFAULT_SOURCE_YEAR_END,
+                value=DEFAULT_SOURCE_YEAR_END,
+                step=1,
+                key=f"{key_prefix}_source_year_end",
+            )
+        )
+    if start_year > end_year:
+        st.warning("Earliest source year is after latest source year, so the prompt will use the sorted range.")
+        return end_year, start_year
+    return start_year, end_year
+
+
 def split_ioos_region_codes(value: object) -> list[str]:
     return [part.strip() for part in normalize_text(value).split(";") if part.strip()]
 
@@ -2845,7 +2956,12 @@ def default_not_allowed_use(row: pd.Series | dict[str, object]) -> str:
     return "Do not overstate attribution beyond what the source directly supports."
 
 
-def research_prompt(topic: str) -> str:
+def research_prompt(
+    topic: str,
+    source_year_start: int | None = None,
+    source_year_end: int | None = None,
+    existing_rows_context: str = "",
+) -> str:
     topic_text = topic.strip() or "[INSERT TOPIC]"
     csv_file_name = "ioos_research_candidate_rows.csv"
     return f"""You are generating candidate evidence rows for the IOOS Economic Evidence App.
@@ -2871,6 +2987,7 @@ Rules:
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
 - Economic number type must be exactly one of: {allowed_economic_number_types_text()}.
 - IOOS role type must be exactly one of: {allowed_ioos_role_types_text()}.
+- {source_year_prompt_rule(source_year_start, source_year_end)}
 - {record_created_prompt_rule()}
 - {prompt_used_prompt_rule()}
 - Put rating explanations in Limitations or AI extraction notes, not in the rating fields.
@@ -2882,12 +2999,21 @@ Rules:
 - In Allowed use and Not allowed use, explain exactly what the row can and cannot support in a report.
 - If the source has not been manually checked, set Source verification needed to Yes.
 - Use conservative claim language in Claim allowed.
+- Every row must include Source, Source URL, Source publication year, IOOS region code, Claim allowed, Limitations, Evidence strength, and IOOS attribution strength.
 - Quote every CSV field that contains a comma, quote, or line break.
+
+{duplicate_guard_prompt_rule(existing_rows_context)}
+
 - Include limitations for every row.
 - {csv_final_delivery_rule(csv_file_name)}"""
 
 
-def source_prompt(source_text: str) -> str:
+def source_prompt(
+    source_text: str,
+    source_year_start: int | None = None,
+    source_year_end: int | None = None,
+    existing_rows_context: str = "",
+) -> str:
     source_body = source_text.strip() or "[PASTE SOURCE URL, TITLE, TEXT, ABSTRACT, OR REPORT EXCERPT]"
     csv_file_name = "ioos_source_candidate_rows.csv"
     return f"""You are extracting candidate rows for the IOOS Economic Evidence App.
@@ -2912,6 +3038,7 @@ Rules:
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
 - Economic number type must be exactly one of: {allowed_economic_number_types_text()}.
 - IOOS role type must be exactly one of: {allowed_ioos_role_types_text()}.
+- {source_year_prompt_rule(source_year_start, source_year_end)}
 - {record_created_prompt_rule()}
 - {prompt_used_prompt_rule()}
 - Put rating explanations in Limitations or AI extraction notes, not in the rating fields.
@@ -2923,11 +3050,21 @@ Rules:
 - In Allowed use and Not allowed use, explicitly state whether the row can support a dollar claim, an operational value claim, an attribution chain, or context only.
 - Set Source verification needed to Yes unless the row has been manually checked.
 - Write Claim allowed as a cautious sentence that COL could safely use.
+- Every row must include Source, Source URL, Source publication year, IOOS region code, Claim allowed, Limitations, Evidence strength, and IOOS attribution strength.
 - Quote every CSV field that contains a comma, quote, or line break.
+
+{duplicate_guard_prompt_rule(existing_rows_context)}
+
 - {csv_final_delivery_rule(csv_file_name)}"""
 
 
-def claude_batch_prompt(source_links: str, research_focus: str) -> str:
+def claude_batch_prompt(
+    source_links: str,
+    research_focus: str,
+    source_year_start: int | None = None,
+    source_year_end: int | None = None,
+    existing_rows_context: str = "",
+) -> str:
     csv_file_name = "ioos_claude_batch_candidate_rows.csv"
     links = [line.strip() for line in source_links.splitlines() if line.strip()]
     if links:
@@ -2971,6 +3108,7 @@ Rules:
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
 - Economic number type must be exactly one of: {allowed_economic_number_types_text()}.
 - IOOS role type must be exactly one of: {allowed_ioos_role_types_text()}.
+- {source_year_prompt_rule(source_year_start, source_year_end)}
 - {record_created_prompt_rule()}
 - {prompt_used_prompt_rule()}
 - Set Source verification needed to Yes for every row.
@@ -2987,7 +3125,10 @@ Rules:
 - Write Claim allowed as a cautious sentence that COL could safely use.
 - Include limitations for every row.
 - Quote every CSV field that contains a comma, quote, or line break.
-- Every row must include Source, Source URL, IOOS region code, Claim allowed, Limitations, Evidence strength, and IOOS attribution strength.
+
+{duplicate_guard_prompt_rule(existing_rows_context)}
+
+- Every row must include Source, Source URL, Source publication year, IOOS region code, Claim allowed, Limitations, Evidence strength, and IOOS attribution strength.
 - Before returning, check that every row has exactly the same number of columns as the header.
 - {csv_final_delivery_rule(csv_file_name)}"""
 
@@ -3057,6 +3198,19 @@ def evidence_rows_for_regional_target(evidence_df: pd.DataFrame, target: pd.Seri
         column_text = evidence_df[column].map(lambda value: normalize_text(value).lower())
         text_mask = text_mask | column_text.apply(lambda value: any(keyword in value for keyword in keywords))
     return evidence_df[code_mask | text_mask].copy()
+
+
+def existing_prompt_rows_for_regional_target(evidence_df: pd.DataFrame, target: pd.Series | None) -> pd.DataFrame:
+    if target is None:
+        return pd.DataFrame()
+
+    target_code = normalize_text(target.get("ioos_region_code")) or normalize_text(target.get("ioos_association"))
+    if target_code == MARACOOS_CODE and supabase_enabled():
+        maracoos_df, _, _ = load_maracoos_review_table()
+        if not maracoos_df.empty:
+            return maracoos_df
+
+    return evidence_rows_for_regional_target(evidence_df, target)
 
 
 def association_regional_targets(regional_targets_df: pd.DataFrame) -> pd.DataFrame:
@@ -3201,6 +3355,9 @@ def regional_research_prompt(
     research_focus: str,
     source_leads: str,
     rows_requested: int,
+    source_year_start: int | None = None,
+    source_year_end: int | None = None,
+    existing_rows_context: str = "",
 ) -> str:
     association = normalize_text(target.get("ioos_association")) or "[IOOS REGIONAL ASSOCIATION]"
     association_code = normalize_text(target.get("ioos_region_code")) or association
@@ -3278,6 +3435,7 @@ Rules:
 - If the value is modeled, prospective, scenario-based, or benefit-transfer, set Evidence strength to Modeled.
 - Economic number type must be exactly one of: {allowed_economic_number_types_text()}.
 - IOOS role type must be exactly one of: {allowed_ioos_role_types_text()}.
+- {source_year_prompt_rule(source_year_start, source_year_end)}
 - {record_created_prompt_rule()}
 - {prompt_used_prompt_rule()}
 - Use Economic number type = Observed dollar benefit only for directly supported realized dollar benefits, avoided costs, savings, or revenue effects.
@@ -3293,7 +3451,10 @@ Rules:
 - Write Claim allowed as a conservative sentence COL could safely use.
 - For context rows, Claim allowed must not imply {association} caused, created, saved, reduced, or avoided the economic value.
 - Quote every CSV field that contains a comma, quote, or line break.
-- Every row must include Source, Source URL, IOOS region code, Claim allowed, Limitations, Evidence strength, and IOOS attribution strength.
+
+{duplicate_guard_prompt_rule(existing_rows_context)}
+
+- Every row must include Source, Source URL, Source publication year, IOOS region code, Claim allowed, Limitations, Evidence strength, and IOOS attribution strength.
 - Before returning, check that every row has exactly the same number of columns as the header.
 - {csv_final_delivery_rule(csv_file_name)}"""
 
@@ -3384,6 +3545,9 @@ def normalize_intake_df(df: pd.DataFrame) -> pd.DataFrame:
     normalized["Source verification needed"] = normalized["Source verification needed"].apply(
         lambda value: normalize_text(value) or "Yes"
     )
+    normalized["Source publication year"] = normalized["Source publication year"].apply(
+        normalize_source_publication_year
+    )
     normalized["Economic number type"] = normalized.apply(
         lambda row: normalize_text(row.get("Economic number type")) or infer_economic_number_type(row),
         axis=1,
@@ -3462,6 +3626,16 @@ def validate_intake_df(df: pd.DataFrame) -> list[str]:
                 date.fromisoformat(created_date)
             except ValueError:
                 errors.append(f"{label} Date record created must use YYYY-MM-DD format")
+        source_publication_year = normalize_source_publication_year(row.get("Source publication year"))
+        if source_publication_year != SOURCE_PUBLICATION_YEAR_UNKNOWN:
+            if not re.fullmatch(r"(18|19|20)\d{2}", source_publication_year):
+                errors.append(
+                    f"{label} Source publication year must be a 4-digit year or Unknown"
+                )
+            elif int(source_publication_year) > date.today().year:
+                errors.append(
+                    f"{label} Source publication year cannot be later than {date.today().year}"
+                )
         for column in ["Evidence strength", "IOOS attribution strength"]:
             value = normalize_text(row.get(column))
             if value and value not in ALLOWED_RATINGS:
@@ -8206,11 +8380,15 @@ def render_region_section(
             )
 
     with prompt_tab:
+        source_year_start, source_year_end = source_year_filter_controls(f"regions_prompt_{code}")
         prompt = regional_research_prompt(
             target,
             normalize_text(target.get("starter_research_question")),
             "",
             8,
+            source_year_start,
+            source_year_end,
+            existing_rows_prompt_context(existing_prompt_rows_for_regional_target(evidence_df, target)),
         )
         st.text_area(
             "Copy-ready regional research prompt",
@@ -9513,7 +9691,16 @@ def page_regional_builds(regional_targets_df: pd.DataFrame, evidence_df: pd.Data
         height=150,
         key=f"regional_build_sources_{target_key}",
     )
-    prompt = regional_research_prompt(target, research_focus, source_leads, int(rows_requested))
+    source_year_start, source_year_end = source_year_filter_controls(f"regional_build_{target_key}")
+    prompt = regional_research_prompt(
+        target,
+        research_focus,
+        source_leads,
+        int(rows_requested),
+        source_year_start,
+        source_year_end,
+        existing_rows_prompt_context(existing_prompt_rows_for_regional_target(evidence_df, target)),
+    )
     st.text_area(
         "Copy-ready regional prompt",
         value=prompt,
@@ -9536,7 +9723,7 @@ def page_regional_builds(regional_targets_df: pd.DataFrame, evidence_df: pd.Data
     )
 
 
-def page_evidence_intake(regional_targets_df: pd.DataFrame) -> None:
+def page_evidence_intake(regional_targets_df: pd.DataFrame, evidence_df: pd.DataFrame | None = None) -> None:
     st.title("Evidence Intake")
     st.caption("Generate copy-ready prompts, then stage AI candidate rows before they become official evidence.")
     with st.expander("Claim-use classification guide", expanded=False):
@@ -9558,7 +9745,13 @@ def page_evidence_intake(regional_targets_df: pd.DataFrame) -> None:
 
     with research_tab:
         topic = st.text_area("Research question or topic", placeholder="Find 5 new evidence rows on HF radar and search and rescue.")
-        prompt = research_prompt(topic)
+        source_year_start, source_year_end = source_year_filter_controls("intake_research")
+        prompt = research_prompt(
+            topic,
+            source_year_start,
+            source_year_end,
+            existing_rows_prompt_context(evidence_df) if evidence_df is not None else "",
+        )
         st.text_area("Copy-ready research prompt", value=prompt, height=420)
         st.download_button(
             "Download prompt",
@@ -9594,7 +9787,21 @@ def page_evidence_intake(regional_targets_df: pd.DataFrame) -> None:
                     height=140,
                     key=f"intake_regional_sources_{target_key}",
                 )
-                prompt = regional_research_prompt(target, research_focus, source_leads, int(rows_requested))
+                source_year_start, source_year_end = source_year_filter_controls(f"intake_regional_{target_key}")
+                existing_region_rows = (
+                    existing_prompt_rows_for_regional_target(evidence_df, target)
+                    if evidence_df is not None
+                    else pd.DataFrame()
+                )
+                prompt = regional_research_prompt(
+                    target,
+                    research_focus,
+                    source_leads,
+                    int(rows_requested),
+                    source_year_start,
+                    source_year_end,
+                    existing_rows_prompt_context(existing_region_rows),
+                )
                 st.text_area(
                     "Copy-ready regional prompt",
                     value=prompt,
@@ -9615,7 +9822,13 @@ def page_evidence_intake(regional_targets_df: pd.DataFrame) -> None:
             placeholder="Paste a NOAA report URL, title, abstract, or excerpt.",
             height=180,
         )
-        prompt = source_prompt(source_text)
+        source_year_start, source_year_end = source_year_filter_controls("intake_source")
+        prompt = source_prompt(
+            source_text,
+            source_year_start,
+            source_year_end,
+            existing_rows_prompt_context(evidence_df) if evidence_df is not None else "",
+        )
         st.text_area("Copy-ready source extraction prompt", value=prompt, height=420)
         st.download_button(
             "Download prompt",
@@ -9638,7 +9851,14 @@ def page_evidence_intake(regional_targets_df: pd.DataFrame) -> None:
             placeholder="Focus on PORTS benefits, avoided costs, maritime safety, and emergency response evidence.",
             height=110,
         )
-        prompt = claude_batch_prompt(source_links, research_focus)
+        source_year_start, source_year_end = source_year_filter_controls("intake_claude")
+        prompt = claude_batch_prompt(
+            source_links,
+            research_focus,
+            source_year_start,
+            source_year_end,
+            existing_rows_prompt_context(evidence_df) if evidence_df is not None else "",
+        )
         st.text_area("Copy-ready Claude batch prompt", value=prompt, height=520)
         st.download_button(
             "Download Claude prompt",
@@ -9842,7 +10062,7 @@ def page_review_admin(
         )
 
         if section == "Evidence Intake":
-            page_evidence_intake(regional_targets_df)
+            page_evidence_intake(regional_targets_df, evidence_df)
         elif section == "Review Evidence":
             page_staged_evidence(staged_df, evidence_df, source_df)
         elif section == "Validation Queue":

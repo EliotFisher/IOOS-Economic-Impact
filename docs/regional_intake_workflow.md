@@ -27,6 +27,8 @@ The app uploader appends rows. The bulk script is for intentional table replacem
 
 Use `Review / Admin` -> `MARACOOS table` to verify sources directly from the `MARACOOS` table before backfill.
 
+Regional prompts include editable source publication/update-year filters plus a short duplicate guard using existing rows from the selected evidence set. If the AI cannot find enough non-duplicate evidence inside the selected year window, it should return fewer rows instead of padding the CSV.
+
 ## Backfill Path
 
 1. Upload MARACOOS candidate rows into `MARACOOS`.

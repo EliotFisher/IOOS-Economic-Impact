@@ -43,6 +43,7 @@ CANDIDATE_COLUMNS = {
     "Metric year / dollar year": "metric_year_or_dollar_year",
     "Source": "source",
     "Source URL": "source_url",
+    "Source publication year": "source_publication_year",
     "Evidence strength": "evidence_strength",
     "IOOS attribution strength": "ioos_attribution_strength",
     "Economic number type": "economic_number_type",
@@ -101,7 +102,10 @@ def read_csv_rows(path: Path, columns: dict[str, str] | None = None) -> list[dic
         return [{key: value or "" for key, value in row.items()} for row in rows]
     mapped_rows = []
     for row in rows:
-        mapped_rows.append({columns.get(key, key): value or "" for key, value in row.items()})
+        mapped = {columns.get(key, key): value or "" for key, value in row.items()}
+        if "source_publication_year" in columns.values():
+            mapped["source_publication_year"] = mapped.get("source_publication_year") or "Unknown"
+        mapped_rows.append(mapped)
     return mapped_rows
 
 
