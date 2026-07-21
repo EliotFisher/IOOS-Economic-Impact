@@ -563,14 +563,11 @@ APP_ROLES = {
 }
 
 APP_NAVIGATION = [
-    "Overview",
-    "Dashboard",
-    "Regions",
-    "Financial Evidence",
-    "Evidence Database",
+    "Home",
+    "Sectors",
+    "Explore Evidence",
     "Briefs & Outputs",
-    "Best Sources",
-    "Review / Admin",
+    "Research & Admin",
 ]
 
 REVIEW_ADMIN_NAVIGATION = [
@@ -927,8 +924,8 @@ BENEFIT_STUDY_TEXT_COLUMNS = [
 
 
 st.set_page_config(
-    page_title="IOOS Economic Impact Hub",
-    page_icon=":bar_chart:",
+    page_title="MARACOOS Impact Hub",
+    page_icon=":ocean:",
     layout="wide",
 )
 
@@ -940,14 +937,14 @@ def apply_hub_styles() -> None:
         f"""
         <style>
             :root {{
-                --ioos-ink: #10212b;
-                --ioos-muted: #5e6f79;
-                --ioos-line: #dbe7ea;
+                --ioos-ink: #082b3a;
+                --ioos-muted: #526d78;
+                --ioos-line: #d7e7eb;
                 --ioos-panel: #f7fbfc;
                 --ioos-paper: #ffffff;
                 --ioos-soft: #eef6f7;
-                --ioos-blue: #0a5d8f;
-                --ioos-green: #1f7a68;
+                --ioos-blue: #086e9c;
+                --ioos-green: #087f72;
                 --ioos-gold: #c4892c;
                 --ioos-red: #b84d3f;
                 --ioos-violet: #6c5b8f;
@@ -955,12 +952,12 @@ def apply_hub_styles() -> None:
             }}
 
             .stApp {{
-                background: #fbfdfd;
+                background: linear-gradient(180deg, #f7fbfc 0, #ffffff 28rem);
                 color: var(--ioos-ink);
             }}
 
             .block-container {{
-                padding-top: 1rem;
+                padding-top: 0.7rem;
                 padding-bottom: 3rem;
                 max-width: 1440px;
             }}
@@ -1018,6 +1015,112 @@ def apply_hub_styles() -> None:
             .hub-hero.hub-about-hero {{
                 min-height: 470px;
                 margin-bottom: 1rem;
+            }}
+
+            .maracoos-masthead {{
+                align-items: center;
+                display: flex;
+                justify-content: space-between;
+                padding: 0.3rem 0 0.65rem;
+            }}
+
+            .maracoos-wordmark {{
+                color: var(--ioos-ink);
+                font-size: 1.18rem;
+                font-weight: 850;
+                letter-spacing: -0.02em;
+            }}
+
+            .maracoos-wordmark span {{
+                color: var(--ioos-green);
+            }}
+
+            .maracoos-masthead small {{
+                color: var(--ioos-muted);
+                font-size: 0.76rem;
+                font-weight: 650;
+            }}
+
+            .maracoos-landing-hero {{
+                background:
+                    linear-gradient(90deg, rgba(3, 32, 46, 0.95) 0%, rgba(3, 47, 62, 0.8) 48%, rgba(3, 48, 62, 0.18) 100%),
+                    url("{hero_uri}");
+                background-position: center;
+                background-size: cover;
+                border-radius: 18px;
+                box-shadow: 0 24px 70px rgba(4, 45, 59, 0.16);
+                color: white;
+                min-height: 520px;
+                padding: clamp(2rem, 5vw, 4.8rem);
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                margin: 0.8rem 0 1.6rem;
+            }}
+
+            .maracoos-landing-hero h1 {{
+                color: white;
+                font-size: clamp(2.5rem, 5.2vw, 5.4rem);
+                letter-spacing: -0.055em;
+                line-height: 0.98;
+                margin: 0;
+                max-width: 850px;
+            }}
+
+            .maracoos-landing-hero p {{
+                color: #e8f7f8;
+                font-size: clamp(1rem, 1.5vw, 1.26rem);
+                line-height: 1.58;
+                margin: 1.15rem 0 0;
+                max-width: 680px;
+            }}
+
+            .maracoos-eyebrow {{
+                color: #7fe1d4;
+                font-size: 0.77rem;
+                font-weight: 800;
+                letter-spacing: 0.13em;
+                margin-bottom: 1rem;
+                text-transform: uppercase;
+            }}
+
+            .impact-stat-grid {{
+                display: grid;
+                gap: 1px;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                margin: 1.2rem 0 2.8rem;
+                overflow: hidden;
+                border: 1px solid var(--ioos-line);
+                border-radius: 14px;
+                background: var(--ioos-line);
+                box-shadow: var(--ioos-shadow);
+            }}
+
+            .impact-stat {{ background: #fff; padding: 1.35rem; }}
+            .impact-stat strong {{ color: var(--ioos-blue); display: block; font-size: 2rem; line-height: 1; }}
+            .impact-stat span {{ color: var(--ioos-muted); display: block; font-size: 0.78rem; margin-top: 0.45rem; }}
+
+            .section-heading {{ margin: 2.8rem 0 1rem; }}
+            .section-heading h2 {{ color: var(--ioos-ink); font-size: clamp(1.55rem, 2.4vw, 2.35rem); letter-spacing: -0.035em; margin: 0; }}
+            .section-heading p {{ color: var(--ioos-muted); line-height: 1.6; margin: 0.45rem 0 0; max-width: 760px; }}
+
+            .story-card {{
+                background: linear-gradient(145deg, #07394c, #075c6a);
+                border-radius: 16px;
+                color: white;
+                min-height: 250px;
+                padding: 1.65rem;
+            }}
+            .story-card b {{ color: #8de7dc; display: block; font-size: 0.75rem; letter-spacing: .09em; text-transform: uppercase; }}
+            .story-card h3 {{ color: white; font-size: 1.45rem; margin: .65rem 0; }}
+            .story-card p {{ color: #ddf1f3; line-height: 1.58; }}
+
+            div[data-testid="stSegmentedControl"] {{
+                background: rgba(255,255,255,.9);
+                border: 1px solid var(--ioos-line);
+                border-radius: 999px;
+                padding: .28rem;
+                box-shadow: 0 6px 22px rgba(8,43,58,.05);
             }}
 
             .hub-hero h1 {{
@@ -2240,6 +2343,20 @@ def apply_hub_styles() -> None:
                     grid-template-columns: 1fr;
                 }}
 
+                .impact-stat-grid {{
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }}
+
+                .maracoos-masthead {{
+                    align-items: flex-start;
+                    flex-direction: column;
+                    gap: 0.2rem;
+                }}
+
+                .maracoos-landing-hero {{
+                    min-height: 440px;
+                }}
+
                 .evidence-signal-header {{
                     align-items: flex-start;
                     flex-direction: column;
@@ -2260,13 +2377,12 @@ def apply_hub_styles() -> None:
 
 
 def render_app_hero() -> None:
-    """Render the app hero above the primary navigation."""
+    """Render the compact brand masthead above the primary navigation."""
     st.markdown(
         """
-        <div class="hub-hero hub-about-hero">
-            <div class="hub-kicker">Start here</div>
-            <h1>IOOS Economic Impact Hub</h1>
-            <p>A guided evidence app for explaining what IOOS is, who it serves, what it costs to maintain, and where the database already supports return-on-investment case studies.</p>
+        <div class="maracoos-masthead">
+            <div class="maracoos-wordmark">MARACOOS <span>Impact Hub</span></div>
+            <small>Mid-Atlantic ocean intelligence &amp; economic value</small>
         </div>
         """,
         unsafe_allow_html=True,
@@ -2981,6 +3097,7 @@ Research the following IOOS economic impact topic:
 Rules:
 - Use only real sources.
 - Do not invent numbers, metrics, source titles, or URLs.
+{duplicate_guard_prompt_rule()}
 - IOOS region code must be one or more exact codes separated by semicolons: {allowed_ioos_region_codes_text()}.
 - Use National for national-scale evidence and Multiple for evidence that spans several known regional associations.
 - If the evidence is qualitative, say so in the Metric field.
@@ -3033,6 +3150,7 @@ Rules:
 - Extract only evidence actually supported by the source.
 - Do not create a row if the source is too vague.
 - Do not overstate IOOS attribution.
+{duplicate_guard_prompt_rule()}
 - IOOS region code must be one or more exact codes separated by semicolons: {allowed_ioos_region_codes_text()}.
 - Use National for national-scale evidence and Multiple for evidence that spans several known regional associations.
 - Evidence strength and IOOS attribution strength must be exactly one of: {allowed_ratings_text()}.
@@ -3100,6 +3218,7 @@ Rules:
 - Use only evidence that is actually supported by the linked source.
 - Do not invent numbers, metrics, dollar years, titles, source URLs, agencies, or IOOS attribution.
 - If a link is inaccessible or too vague, do not create a row from it.
+{duplicate_guard_prompt_rule()}
 - Leave row_id blank unless the source itself provides a stable row identifier.
 - Source must be the paper/report/source title.
 - Source URL must be the exact link used for the row.
@@ -3422,6 +3541,7 @@ Rules:
 - Do not create or imply official master-matrix rows. These are candidate rows for staged_evidence review.
 - Use only real sources and include the exact source URL used for each row.
 - Do not invent numbers, metrics, dollar years, source titles, agencies, or attribution.
+{duplicate_guard_prompt_rule(existing_rows_context)}
 - Prefer one source per row. If a claim requires multiple sources, create separate rows or explain the dependency in AI extraction notes.
 - Set Region to a specific regional label such as "{region}", a state/local area, or the source-specific geography.
 - Set IOOS region code to "{association_code}" for direct {association} rows.
@@ -10077,6 +10197,215 @@ def page_review_admin(
             page_project_roadmap(evidence_df, source_df, review_df, staged_df, best_sources_df)
 
 
+def render_section_heading(kicker: str, title: str, body: str) -> None:
+    st.markdown(
+        f"""
+        <div class="section-heading">
+            <div class="hub-kicker">{hub_escape(kicker)}</div>
+            <h2>{hub_escape(title)}</h2>
+            <p>{hub_escape(body)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def page_home(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> None:
+    maracoos_df = rows_for_region_code(evidence_df, MARACOOS_CODE)
+    maracoos_dashboard_df = add_dashboard_fields(maracoos_df, filter_review_to_rows(review_df, set(maracoos_df.get("row_id", []))))
+    ready_count = int(maracoos_dashboard_df.apply(is_external_ready_row, axis=1).sum()) if not maracoos_dashboard_df.empty else 0
+    sector_df = sector_story_table(maracoos_df, review_df)
+    represented_sectors = int((sector_df["Rows"] > 0).sum()) if not sector_df.empty else 0
+    maracoos_sources = source_count_for_rows(maracoos_df)
+
+    st.markdown(
+        """
+        <div class="maracoos-landing-hero">
+            <div class="maracoos-eyebrow">Mid-Atlantic Regional Association Coastal Ocean Observing System</div>
+            <h1>Ocean intelligence that moves the Mid-Atlantic forward.</h1>
+            <p>MARACOOS connects observations, models, and trusted information to the decisions that protect people, strengthen coastal economies, and keep marine operations moving.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    stats = [
+        (len(maracoos_df), "MARACOOS evidence records"),
+        (maracoos_sources, "Sources represented"),
+        (represented_sectors, "Sectors with evidence"),
+        (ready_count, "Claims ready for external use"),
+    ]
+    stat_html = "".join(
+        f'<div class="impact-stat"><strong>{value:,}</strong><span>{hub_escape(label)}</span></div>'
+        for value, label in stats
+    )
+    st.markdown(f'<div class="impact-stat-grid">{stat_html}</div>', unsafe_allow_html=True)
+
+    render_section_heading(
+        "How value is created",
+        "From ocean conditions to confident decisions",
+        "MARACOOS makes complex coastal and ocean information usable. The evidence hub traces that pathway without overstating what any individual source can prove.",
+    )
+    chain_html = "".join(
+        f"""
+        <div class="value-chain-node">
+            <span class="hub-chip neutral">{index}</span>
+            <b>{hub_escape(label)}</b>
+            <span>{hub_escape(description)}</span>
+        </div>
+        """
+        for index, (_, label, description) in enumerate(VALUE_CHAIN_LAYERS, start=1)
+    )
+    st.markdown(f'<div class="value-chain-full">{chain_html}</div>', unsafe_allow_html=True)
+
+    render_section_heading(
+        "Explore by sector",
+        "One observing system, many kinds of value",
+        "Start with the people and decisions MARACOOS supports, then follow the evidence behind each story.",
+    )
+    cards = "".join(
+        (
+            '<div class="sector-card">'
+            f'<span class="hub-chip neutral">{int(row["Rows"]):,} evidence records</span>'
+            f'<b>{hub_escape(row["Sector"])}</b>'
+            f'<p>{hub_escape(row["Why it matters"])}</p>'
+            '</div>'
+        )
+        for _, row in sector_df.iterrows()
+    )
+    st.markdown(f'<div class="sector-grid">{cards}</div>', unsafe_allow_html=True)
+
+    render_section_heading(
+        "Regional focus",
+        "Built around the Mid-Atlantic",
+        "MARACOOS brings together regional observations and partners while remaining part of the national U.S. IOOS network.",
+    )
+    map_col, story_col = st.columns([1.1, 0.9], gap="large")
+    with map_col:
+        if MARACOOS_COVERAGE_MAP_PATH.exists():
+            st.image(str(MARACOOS_COVERAGE_MAP_PATH), caption="MARACOOS coverage across the Mid-Atlantic", use_container_width=True)
+    with story_col:
+        st.markdown(
+            """
+            <div class="story-card">
+                <b>MARACOOS is the regional connection</b>
+                <h3>Local knowledge. Shared infrastructure. Better decisions.</h3>
+                <p>Regional observations become forecasts, maps, alerts, and data services used across ports, fisheries, emergency response, coastal planning, and the growing blue economy.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with st.expander("How to interpret the evidence", expanded=False):
+        st.write(
+            "Economic activity, documented benefits, operational savings, and avoided losses are kept distinct. "
+            "Every reusable claim retains its source, attribution strength, limitations, and approved-use boundary."
+        )
+
+
+def page_sectors(evidence_df: pd.DataFrame, source_df: pd.DataFrame, review_df: pd.DataFrame) -> None:
+    maracoos_df = rows_for_region_code(evidence_df, MARACOOS_CODE)
+    sector_df = sector_story_table(maracoos_df, review_df)
+    st.markdown(
+        """
+        <div class="hub-page-title">
+            <div class="hub-kicker">Explore MARACOOS impact</div>
+            <h1>Sectors</h1>
+            <p>See how regional ocean information supports real decisions across the Mid-Atlantic economy.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    selected_sector = st.selectbox("Choose a sector", sector_df["Sector"].tolist())
+    selected_story = next(story for story in SECTOR_STORYLINES if story["name"] == selected_sector)
+    matches = keyword_filter(maracoos_df, selected_story["keywords"], NARRATIVE_TEXT_COLUMNS)
+    dashboard_matches = add_dashboard_fields(matches, review_df)
+    ready = int(dashboard_matches.apply(is_external_ready_row, axis=1).sum()) if not dashboard_matches.empty else 0
+
+    st.markdown(
+        f"""
+        <div class="hub-callout">
+            <strong>{hub_escape(selected_sector)}</strong><br>
+            {hub_escape(selected_story["why"])}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    cols = st.columns(3)
+    cols[0].metric("Evidence records", f"{len(matches):,}")
+    cols[1].metric("Distinct sources", f"{source_count_for_rows(matches):,}")
+    cols[2].metric("Externally ready", f"{ready:,}")
+
+    render_section_heading(
+        "The MARACOOS pathway",
+        "How information becomes sector value",
+        "Use this sequence to understand the role MARACOOS plays before reviewing individual claims.",
+    )
+    pathway = [
+        ("Observe", "Measure the ocean and coast in real time."),
+        ("Translate", "Combine observations with models and forecasts."),
+        ("Decide", "Give sector users information they can act on."),
+        ("Create value", "Improve safety, efficiency, preparedness, or resilience."),
+    ]
+    pathway_html = "".join(
+        f'<div class="overview-card"><b>{hub_escape(title)}</b><p>{hub_escape(body)}</p></div>'
+        for title, body in pathway
+    )
+    st.markdown(f'<div class="overview-grid">{pathway_html}</div>', unsafe_allow_html=True)
+
+    render_section_heading(
+        "Supporting evidence",
+        "Claims and sources for this sector",
+        "Open the records below when you need the precise claim language, attribution, or limitations.",
+    )
+    if matches.empty:
+        st.info("No MARACOOS evidence has been classified in this sector yet.")
+    else:
+        display = enrich_evidence_with_source_fields(dashboard_matches, source_df)
+        preferred = [column for column in ["row_id", "metric", "claim_allowed", "source_name", "source_url", "evidence_strength", "limitations"] if column in display.columns]
+        st.dataframe(display[preferred], use_container_width=True, hide_index=True, column_config=link_column_config(display))
+
+
+def page_explore_evidence(
+    regional_targets_df: pd.DataFrame,
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    staged_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> None:
+    section = st.segmented_control(
+        "Evidence view",
+        ["MARACOOS", "Financial Evidence", "Evidence Database", "IOOS Regions", "Data Health", "Best Sources"],
+        default="MARACOOS",
+        key="evidence_view_navigation",
+    ) or "MARACOOS"
+    if section == "MARACOOS":
+        regions_df = association_regional_targets(regional_targets_df)
+        target_rows = regions_df[regions_df["ioos_region_code"].map(normalize_text) == MARACOOS_CODE]
+        st.markdown('<div class="hub-page-title"><div class="hub-kicker">Featured region</div><h1>MARACOOS Evidence</h1><p>The Mid-Atlantic evidence build is the focal point of this hub.</p></div>', unsafe_allow_html=True)
+        if target_rows.empty:
+            st.info("The MARACOOS regional target is not available.")
+        else:
+            render_region_section(target_rows.iloc[0], evidence_df, source_df, best_sources_df)
+    elif section == "Financial Evidence":
+        page_evidence_atlas(evidence_df, source_df, review_df, best_sources_df)
+    elif section == "Evidence Database":
+        page_evidence_matrix(evidence_df, source_df, review_df)
+    elif section == "IOOS Regions":
+        page_regions(regional_targets_df, evidence_df, source_df, best_sources_df)
+    elif section == "Data Health":
+        page_dashboard_summary(evidence_df, source_df, review_df, staged_df, best_sources_df)
+    else:
+        page_best_sources(best_sources_df)
+
+
 def main() -> None:
     apply_hub_styles()
 
@@ -10097,16 +10426,19 @@ def main() -> None:
     render_app_hero()
     page = render_top_navigation()
 
-    if page == "Overview":
-        page_about_data(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
-    elif page == "Dashboard":
-        page_dashboard_summary(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
-    elif page == "Regions":
-        page_regions(regional_targets_df, public_evidence_df, public_source_df, public_best_sources_df)
-    elif page == "Financial Evidence":
-        page_evidence_atlas(public_evidence_df, public_source_df, public_review_df, public_best_sources_df)
-    elif page == "Evidence Database":
-        page_evidence_matrix(public_evidence_df, public_source_df, public_review_df)
+    if page == "Home":
+        page_home(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
+    elif page == "Sectors":
+        page_sectors(public_evidence_df, public_source_df, public_review_df)
+    elif page == "Explore Evidence":
+        page_explore_evidence(
+            regional_targets_df,
+            public_evidence_df,
+            public_source_df,
+            public_review_df,
+            public_staged_df,
+            public_best_sources_df,
+        )
     elif page == "Briefs & Outputs":
         page_congressional_briefing(
             public_evidence_df,
@@ -10115,9 +10447,7 @@ def main() -> None:
             public_best_sources_df,
             regional_targets_df,
         )
-    elif page == "Best Sources":
-        page_best_sources(public_best_sources_df)
-    elif page == "Review / Admin":
+    elif page == "Research & Admin":
         page_review_admin(regional_targets_df, evidence_df, source_df, review_df, staged_df, best_sources_df)
 
 
