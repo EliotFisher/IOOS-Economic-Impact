@@ -10411,37 +10411,14 @@ def page_sectors(evidence_df: pd.DataFrame, source_df: pd.DataFrame, review_df: 
 
 
 def page_explore_evidence(
-    regional_targets_df: pd.DataFrame,
     evidence_df: pd.DataFrame,
     source_df: pd.DataFrame,
     review_df: pd.DataFrame,
-    staged_df: pd.DataFrame,
     best_sources_df: pd.DataFrame,
 ) -> None:
-    section = st.segmented_control(
-        "Evidence view",
-        ["MARACOOS", "Financial Evidence", "Evidence Database", "IOOS Regions", "Data Health", "Best Sources"],
-        default="MARACOOS",
-        key="evidence_view_navigation",
-    ) or "MARACOOS"
-    if section == "MARACOOS":
-        regions_df = association_regional_targets(regional_targets_df)
-        target_rows = regions_df[regions_df["ioos_region_code"].map(normalize_text) == MARACOOS_CODE]
-        st.markdown('<div class="hub-page-title"><div class="hub-kicker">Featured region</div><h1>MARACOOS Evidence</h1><p>The Mid-Atlantic evidence build is the focal point of this hub.</p></div>', unsafe_allow_html=True)
-        if target_rows.empty:
-            st.info("The MARACOOS regional target is not available.")
-        else:
-            render_region_section(target_rows.iloc[0], evidence_df, source_df, best_sources_df)
-    elif section == "Financial Evidence":
-        page_evidence_atlas(evidence_df, source_df, review_df, best_sources_df)
-    elif section == "Evidence Database":
-        page_evidence_matrix(evidence_df, source_df, review_df)
-    elif section == "IOOS Regions":
-        page_regions(regional_targets_df, evidence_df, source_df, best_sources_df)
-    elif section == "Data Health":
-        page_dashboard_summary(evidence_df, source_df, review_df, staged_df, best_sources_df)
-    else:
-        page_best_sources(best_sources_df)
+    page_evidence_atlas(evidence_df, source_df, review_df, best_sources_df)
+    st.divider()
+    page_evidence_matrix(evidence_df, source_df, review_df)
 
 
 def main() -> None:
@@ -10500,11 +10477,9 @@ def main() -> None:
         page_sectors(public_evidence_df, public_source_df, public_review_df)
     elif page == "Explore Evidence":
         page_explore_evidence(
-            regional_targets_df,
             public_evidence_df,
             public_source_df,
             public_review_df,
-            public_staged_df,
             public_best_sources_df,
         )
     elif page == "Briefs & Outputs":
