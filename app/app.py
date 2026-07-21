@@ -264,6 +264,7 @@ BRIEFING_ROW_IDS = {
 }
 MARACOOS_CODE = "MARACOOS"
 MARACOOS_SUPABASE_TABLES = ("MARACOOS", "maracoos")
+VERIFIED_MARACOOS_SUPABASE_TABLES = ("Verified_MARACOOS", "verified_maracoos")
 APP_DISPLAY_SOURCE_VERIFICATION_NEEDED_VALUE = "Yes"
 DEFAULT_SOURCE_YEAR_START = 2020
 DEFAULT_SOURCE_YEAR_END = date.today().year
@@ -281,7 +282,13 @@ INTAKE_TARGET_TABLE_LABELS = {
     },
 }
 CUSTOM_INTAKE_TARGET_LABEL = "Custom table"
-STAGED_EVIDENCE_SCHEMA_TABLES = {"staged_evidence", "MARACOOS", "maracoos"} | set(REGIONAL_INTAKE_TARGET_TABLES.values())
+STAGED_EVIDENCE_SCHEMA_TABLES = {
+    "staged_evidence",
+    "MARACOOS",
+    "maracoos",
+    "Verified_MARACOOS",
+    "verified_maracoos",
+} | set(REGIONAL_INTAKE_TARGET_TABLES.values())
 SUPABASE_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 MARACOOS_COLUMN_ALIASES = {
     "Date record created": "date_record_created",
@@ -7035,6 +7042,38 @@ def public_two_table_views(
     return public_evidence, public_sources, public_review, public_staged, public_best_sources
 
 
+def maracoos_supabase_views() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame] | None:
+    """Build every app-facing view from MARACOOS and Verified_MARACOOS only."""
+    if not supabase_enabled():
+        return None
+
+    maracoos_df, maracoos_table, _ = load_optional_supabase_table(MARACOOS_SUPABASE_TABLES)
+    verified_df, verified_table, _ = load_optional_supabase_table(VERIFIED_MARACOOS_SUPABASE_TABLES)
+    if not maracoos_table and not verified_table:
+        return None
+
+    frames: list[pd.DataFrame] = []
+    if not maracoos_df.empty:
+        candidate_display = staged_rows_for_evidence_display(maracoos_df)
+        candidate_display["data_origin"] = f"supabase:{maracoos_table}"
+        frames.append(candidate_display)
+    if not verified_df.empty:
+        verified_display = staged_rows_for_evidence_display(verified_df)
+        verified_display["data_origin"] = f"supabase:{verified_table}"
+        frames.insert(0, verified_display)
+
+    if frames:
+        public_evidence = pd.concat(frames, ignore_index=True, sort=False).fillna("")
+        dedupe_columns = [column for column in ["row_id", "source_url", "metric"] if column in public_evidence.columns]
+        if dedupe_columns:
+            public_evidence = public_evidence.drop_duplicates(subset=dedupe_columns, keep="first")
+    else:
+        public_evidence = pd.DataFrame()
+
+    public_sources = source_registry_from_two_table_model(public_evidence, pd.DataFrame())
+    return public_evidence, public_sources, pd.DataFrame(), maracoos_df, pd.DataFrame()
+
+
 def status_counts_table(evidence_df: pd.DataFrame) -> pd.DataFrame:
     counts = evidence_df["dashboard_status"].value_counts().rename_axis("Status").reset_index(name="Rows")
     order = {status: index for index, status in enumerate(REPORT_STATUS_ORDER)}
@@ -10415,13 +10454,29 @@ def main() -> None:
     staged_df = load_csv(STAGED_EVIDENCE_PATH)
     best_sources_df = load_csv(BEST_SOURCES_PATH)
     regional_targets_df = load_csv(REGIONAL_TARGETS_PATH)
-    (
-        public_evidence_df,
-        public_source_df,
-        public_review_df,
-        public_staged_df,
-        public_best_sources_df,
-    ) = public_two_table_views(evidence_df, source_df, review_df, staged_df, best_sources_df)
+    supabase_views = maracoos_supabase_views()
+    if supabase_views is not None:
+        (
+            public_evidence_df,
+            public_source_df,
+            public_review_df,
+            public_staged_df,
+            public_best_sources_df,
+        ) = supabase_views
+        # Keep the admin workflow on the same two-table source of truth.
+        evidence_df = public_evidence_df
+        source_df = public_source_df
+        review_df = public_review_df
+        staged_df = public_staged_df
+        best_sources_df = public_best_sources_df
+    else:
+        (
+            public_evidence_df,
+            public_source_df,
+            public_review_df,
+            public_staged_df,
+            public_best_sources_df,
+        ) = public_two_table_views(evidence_df, source_df, review_df, staged_df, best_sources_df)
 
     render_app_hero()
     page = render_top_navigation()
