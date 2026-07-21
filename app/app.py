@@ -10282,23 +10282,7 @@ def page_home(
     best_sources_df: pd.DataFrame,
 ) -> None:
     maracoos_df = rows_for_region_code(evidence_df, MARACOOS_CODE)
-    maracoos_dashboard_df = add_dashboard_fields(maracoos_df, filter_review_to_rows(review_df, set(maracoos_df.get("row_id", []))))
-    ready_count = int(maracoos_dashboard_df.apply(is_external_ready_row, axis=1).sum()) if not maracoos_dashboard_df.empty else 0
     sector_df = sector_story_table(maracoos_df, review_df)
-    represented_sectors = int((sector_df["Rows"] > 0).sum()) if not sector_df.empty else 0
-    maracoos_sources = source_count_for_rows(maracoos_df)
-
-    stats = [
-        (len(maracoos_df), "MARACOOS evidence records"),
-        (maracoos_sources, "Sources represented"),
-        (represented_sectors, "Sectors with evidence"),
-        (ready_count, "Claims ready for external use"),
-    ]
-    stat_html = "".join(
-        f'<div class="impact-stat"><strong>{value:,}</strong><span>{hub_escape(label)}</span></div>'
-        for value, label in stats
-    )
-    st.markdown(f'<div class="impact-stat-grid">{stat_html}</div>', unsafe_allow_html=True)
 
     render_section_heading(
         "How value is created",
