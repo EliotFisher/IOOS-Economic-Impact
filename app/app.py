@@ -265,6 +265,10 @@ BRIEFING_ROW_IDS = {
 MARACOOS_CODE = "MARACOOS"
 MARACOOS_SUPABASE_TABLES = ("MARACOOS", "maracoos")
 VERIFIED_MARACOOS_SUPABASE_TABLES = ("Verified_MARACOOS", "verified_maracoos")
+ALLOWED_APP_EVIDENCE_TABLES = {
+    *MARACOOS_SUPABASE_TABLES,
+    *VERIFIED_MARACOOS_SUPABASE_TABLES,
+}
 APP_DISPLAY_SOURCE_VERIFICATION_NEEDED_VALUE = "Yes"
 DEFAULT_SOURCE_YEAR_START = 2020
 DEFAULT_SOURCE_YEAR_END = date.today().year
@@ -5657,10 +5661,7 @@ def congressional_briefing_context(
     prepared_date: date,
 ) -> dict[str, object]:
     """Collect the short text values used by both HTML and PDF brief exports."""
-    rows = {
-        row_id: evidence_row_by_id(evidence_df, row_id)
-        for row_id in BRIEFING_ROW_IDS.values()
-    }
+    rows = current_briefing_rows(evidence_df)
     prepared_for = normalize_text(prepared_for) or "Congressional Staff"
     date_label = prepared_date.strftime("%B %#d, %Y") if os.name == "nt" else prepared_date.strftime("%B %-d, %Y")
 
@@ -5670,26 +5671,52 @@ def congressional_briefing_context(
         "evidence_count": len(evidence_df),
         "source_count": len(source_df),
         "ocean_enterprise_metric": row_field(
-            rows[BRIEFING_ROW_IDS["ocean_enterprise"]],
+            rows["ocean_enterprise"],
             "metric",
-            "Ocean Enterprise business, employment, revenue, and export metrics are tracked in the evidence matrix.",
+            "No approved table-backed Ocean Enterprise metric is available.",
         ),
         "tampa_metric": row_field(
-            rows[BRIEFING_ROW_IDS["ports"]],
+            rows["ports"],
             "metric",
-            "Tampa Bay PORTS case-study benefits are tracked in the matrix.",
+            "No approved table-backed port metric is available.",
         ),
         "hab_forecast_claim": row_field(
-            rows[BRIEFING_ROW_IDS["habs"]],
+            rows["habs"],
             "claim_allowed",
-            "HAB forecasts help managers focus testing and guide closure/advisory decisions.",
+            "No approved table-backed HAB claim is available.",
         ),
         "hf_radar_claim": row_field(
-            rows[BRIEFING_ROW_IDS["hf_radar"]],
+            rows["hf_radar"],
             "claim_allowed",
-            "HF radar surface-current data support USCG search planning through SAROPS.",
+            "No approved table-backed HF radar claim is available.",
         ),
     }
+
+
+def current_briefing_rows(evidence_df: pd.DataFrame) -> dict[str, pd.Series | None]:
+    """Select brief examples only from the already-approved app evidence frame."""
+    themes = {
+        "ports": ("port", "ports", "navigation", "vessel"),
+        "habs": ("harmful algal", "hab ", "shellfish", "water quality"),
+        "hf_radar": ("hf radar", "hf-radar", "sarops", "search and rescue"),
+        "ocean_enterprise": ("ocean enterprise", "marine economy"),
+    }
+    text_columns = [
+        column
+        for column in [
+            "impact_domain", "ioos_component", "decision_supported", "economic_pathway",
+            "metric", "claim_allowed", "source_name",
+        ]
+        if column in evidence_df.columns
+    ]
+    if evidence_df.empty or not text_columns:
+        return {key: None for key in themes}
+    combined = evidence_df[text_columns].astype(str).agg(" ".join, axis=1).str.lower()
+    selected: dict[str, pd.Series | None] = {}
+    for key, keywords in themes.items():
+        matches = evidence_df[combined.map(lambda value: any(keyword in value for keyword in keywords))]
+        selected[key] = None if matches.empty else matches.iloc[0]
+    return selected
 
 
 def congressional_brief_item(
@@ -5704,10 +5731,10 @@ def congressional_brief_item(
     if row is None:
         return {
             "title": fallback_title,
-            "claim": fallback_body,
-            "metric": fallback_metric,
-            "source": fallback_source,
-            "caveat": fallback_caveat,
+            "claim": "No matching claim is available from the approved MARACOOS tables.",
+            "metric": "Not available",
+            "source": "MARACOOS / Verified_MARACOOS",
+            "caveat": "This slot is intentionally left unsupported rather than filled with legacy or canned evidence.",
         }
 
     source_row = source_for_row(row, source_df)
@@ -5765,10 +5792,7 @@ def build_congressional_briefing_html(
     source_count = int(context["source_count"])
     ocean_enterprise_metric = str(context["ocean_enterprise_metric"])
 
-    rows = {
-        key: evidence_row_by_id(evidence_df, row_id)
-        for key, row_id in BRIEFING_ROW_IDS.items()
-    }
+    rows = current_briefing_rows(evidence_df)
     disaster = congressional_brief_item(
         rows["hf_radar"],
         source_df,
@@ -7074,6 +7098,16 @@ def maracoos_supabase_views() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame,
     return public_evidence, public_sources, pd.DataFrame(), maracoos_df, pd.DataFrame()
 
 
+def allowed_evidence_origin_mask(evidence_df: pd.DataFrame) -> pd.Series:
+    """Fail closed unless a row came from one of the two approved table families."""
+    if evidence_df.empty:
+        return pd.Series(dtype=bool)
+    if "data_origin" not in evidence_df.columns:
+        return pd.Series(False, index=evidence_df.index)
+    allowed_origins = {f"supabase:{table}".lower() for table in ALLOWED_APP_EVIDENCE_TABLES}
+    return evidence_df["data_origin"].map(normalize_text).str.lower().isin(allowed_origins)
+
+
 def status_counts_table(evidence_df: pd.DataFrame) -> pd.DataFrame:
     counts = evidence_df["dashboard_status"].value_counts().rename_axis("Status").reset_index(name="Rows")
     order = {status: index for index, status in enumerate(REPORT_STATUS_ORDER)}
@@ -7625,7 +7659,7 @@ def operational_safety_signal(evidence_df: pd.DataFrame, best_sources_df: pd.Dat
         return "59%", "lower vessel-grounding risk", "PORTS safety evidence documents reduced vessel-risk outcomes.", 59
     if re.search(r"\b50\s*%|50 percent", text) and "ground" in text:
         return "50%", "lower vessel-grounding risk", "PORTS safety evidence documents reduced vessel-risk outcomes.", 50
-    return "Documented", "vessel-risk reductions", "HF radar / SAR and PORTS safety rows are tracked without monetizing every outcome.", 45
+    return "Not available", "approved safety metric", "No qualifying safety metric was found in the approved tables.", 0
 
 
 def ocean_enterprise_signal(best_sources_df: pd.DataFrame, evidence_df: pd.DataFrame) -> tuple[str, str]:
@@ -10448,11 +10482,13 @@ def page_explore_evidence(
 def main() -> None:
     apply_hub_styles()
 
-    evidence_df = load_csv(EVIDENCE_PATH)
-    source_df = load_csv(SOURCE_PATH)
-    review_df = load_csv(REVIEW_PATH)
-    staged_df = load_csv(STAGED_EVIDENCE_PATH)
-    best_sources_df = load_csv(BEST_SOURCES_PATH)
+    # Evidence is deliberately fail-closed. Legacy CSV/Supabase tables remain in
+    # the repository for migration and administration, but never feed app pages.
+    evidence_df = pd.DataFrame()
+    source_df = pd.DataFrame()
+    review_df = pd.DataFrame()
+    staged_df = pd.DataFrame()
+    best_sources_df = pd.DataFrame()
     regional_targets_df = load_csv(REGIONAL_TARGETS_PATH)
     supabase_views = maracoos_supabase_views()
     if supabase_views is not None:
@@ -10463,6 +10499,10 @@ def main() -> None:
             public_staged_df,
             public_best_sources_df,
         ) = supabase_views
+        public_evidence_df = public_evidence_df[
+            allowed_evidence_origin_mask(public_evidence_df)
+        ].copy()
+        public_source_df = source_registry_from_two_table_model(public_evidence_df, pd.DataFrame())
         # Keep the admin workflow on the same two-table source of truth.
         evidence_df = public_evidence_df
         source_df = public_source_df
@@ -10470,15 +10510,19 @@ def main() -> None:
         staged_df = public_staged_df
         best_sources_df = public_best_sources_df
     else:
-        (
-            public_evidence_df,
-            public_source_df,
-            public_review_df,
-            public_staged_df,
-            public_best_sources_df,
-        ) = public_two_table_views(evidence_df, source_df, review_df, staged_df, best_sources_df)
+        public_evidence_df = pd.DataFrame()
+        public_source_df = pd.DataFrame()
+        public_review_df = pd.DataFrame()
+        public_staged_df = pd.DataFrame()
+        public_best_sources_df = pd.DataFrame()
 
     render_app_hero()
+    if supabase_views is None:
+        st.warning(
+            "Evidence is unavailable because neither the MARACOOS nor "
+            "Verified_MARACOOS Supabase table could be loaded. Legacy evidence "
+            "tables and local CSVs are intentionally not used as fallbacks."
+        )
     page = render_top_navigation()
 
     if page == "Home":
