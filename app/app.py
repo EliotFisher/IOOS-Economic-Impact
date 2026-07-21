@@ -575,7 +575,6 @@ APP_ROLES = {
 
 APP_NAVIGATION = [
     "Home",
-    "Sectors",
     "Explore Evidence",
     "Briefs & Outputs",
     "Research & Admin",
@@ -10473,8 +10472,6 @@ def main() -> None:
 
     if page == "Home":
         page_home(public_evidence_df, public_source_df, public_review_df, public_staged_df, public_best_sources_df)
-    elif page == "Sectors":
-        page_sectors(public_evidence_df, public_source_df, public_review_df)
     elif page == "Explore Evidence":
         page_explore_evidence(
             public_evidence_df,
