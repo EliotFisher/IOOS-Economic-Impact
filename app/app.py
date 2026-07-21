@@ -10281,14 +10281,15 @@ def page_home(
         "From ocean conditions to confident decisions",
         "MARACOOS makes complex coastal and ocean information usable. The evidence hub traces that pathway without overstating what any individual source can prove.",
     )
+    # Keep each node on one line. Indented multiline HTML is parsed as a
+    # Markdown code block after the first node, which exposes nodes 2-5 as raw
+    # markup instead of rendering them as cards.
     chain_html = "".join(
-        f"""
-        <div class="value-chain-node">
-            <span class="hub-chip neutral">{index}</span>
-            <b>{hub_escape(label)}</b>
-            <span>{hub_escape(description)}</span>
-        </div>
-        """
+        '<div class="value-chain-node">'
+        f'<span class="hub-chip neutral">{index}</span>'
+        f'<b>{hub_escape(label)}</b>'
+        f'<span>{hub_escape(description)}</span>'
+        '</div>'
         for index, (_, label, description) in enumerate(VALUE_CHAIN_LAYERS, start=1)
     )
     st.markdown(f'<div class="value-chain-full">{chain_html}</div>', unsafe_allow_html=True)
