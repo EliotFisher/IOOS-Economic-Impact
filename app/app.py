@@ -1058,22 +1058,42 @@ def apply_hub_styles() -> None:
                     url("{hero_uri}");
                 background-position: center;
                 background-size: cover;
-                border-radius: 18px;
+                border-radius: 0;
                 box-shadow: 0 24px 70px rgba(4, 45, 59, 0.16);
                 color: white;
                 min-height: 520px;
-                padding: clamp(2rem, 5vw, 4.8rem);
+                padding: clamp(2rem, 5vw, 4.8rem) max(2rem, calc((100vw - 1180px) / 2));
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
-                margin: 0.8rem 0 1.6rem;
+                margin: -1rem calc(50% - 50vw) 1.25rem;
+            }}
+
+            .maracoos-hero-wordmark {{
+                align-items: baseline;
+                display: flex;
+                gap: 0.45rem;
+                margin-bottom: 1.25rem;
+            }}
+
+            .maracoos-hero-wordmark strong {{
+                color: #ffffff;
+                font-size: clamp(1.25rem, 2vw, 1.75rem);
+                font-weight: 900;
+                letter-spacing: -0.025em;
+            }}
+
+            .maracoos-hero-wordmark span {{
+                color: #7fe1d4;
+                font-size: clamp(1.05rem, 1.7vw, 1.45rem);
+                font-weight: 800;
             }}
 
             .maracoos-landing-hero h1 {{
                 color: white;
-                font-size: clamp(2.5rem, 5.2vw, 5.4rem);
-                letter-spacing: -0.055em;
-                line-height: 0.98;
+                font-size: clamp(2rem, 3.6vw, 3.8rem);
+                letter-spacing: -0.045em;
+                line-height: 1.02;
                 margin: 0;
                 max-width: 850px;
             }}
@@ -2394,6 +2414,21 @@ def render_app_hero() -> None:
         <div class="maracoos-masthead">
             <div class="maracoos-wordmark">MARACOOS <span>Impact Hub</span></div>
             <small>Mid-Atlantic ocean intelligence &amp; economic value</small>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_home_hero() -> None:
+    """Render the full-width MARACOOS banner at the top of the Home page."""
+    st.markdown(
+        """
+        <div class="maracoos-landing-hero">
+            <div class="maracoos-hero-wordmark"><strong>MARACOOS</strong><span>Impact Hub</span></div>
+            <div class="maracoos-eyebrow">Mid-Atlantic Regional Association Coastal Ocean Observing System</div>
+            <h1>Ocean intelligence that moves the Mid-Atlantic forward.</h1>
+            <p>MARACOOS connects observations, models, and trusted information to the decisions that protect people, strengthen coastal economies, and keep marine operations moving.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -10253,17 +10288,6 @@ def page_home(
     represented_sectors = int((sector_df["Rows"] > 0).sum()) if not sector_df.empty else 0
     maracoos_sources = source_count_for_rows(maracoos_df)
 
-    st.markdown(
-        """
-        <div class="maracoos-landing-hero">
-            <div class="maracoos-eyebrow">Mid-Atlantic Regional Association Coastal Ocean Observing System</div>
-            <h1>Ocean intelligence that moves the Mid-Atlantic forward.</h1>
-            <p>MARACOOS connects observations, models, and trusted information to the decisions that protect people, strengthen coastal economies, and keep marine operations moving.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     stats = [
         (len(maracoos_df), "MARACOOS evidence records"),
         (maracoos_sources, "Sources represented"),
@@ -10473,7 +10497,11 @@ def main() -> None:
         public_staged_df = pd.DataFrame()
         public_best_sources_df = pd.DataFrame()
 
-    render_app_hero()
+    requested_page = st.session_state.get("primary_navigation", APP_NAVIGATION[0])
+    if requested_page == "Home":
+        render_home_hero()
+    else:
+        render_app_hero()
     if supabase_views is None:
         st.warning(
             "Evidence is unavailable because neither the MARACOOS nor "
