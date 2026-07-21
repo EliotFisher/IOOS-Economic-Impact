@@ -9645,6 +9645,7 @@ def render_claim_source_review(
     table_name: str = "staged_evidence",
     title: str = "Source Review",
     state_prefix: str = "staged",
+    copy_to_best_sources: bool = True,
 ) -> None:
     st.subheader(title)
 
@@ -9658,20 +9659,21 @@ def render_claim_source_review(
     pending = pending_source_review_rows(staged_df)
     if pending.empty:
         st.success(f"No generated claims are waiting for source verification in `{table_name}`.")
-        if not best_sources_df.empty:
+        if copy_to_best_sources and not best_sources_df.empty:
             st.caption(f"{len(best_sources_df):,} rows are already available in best_sources.")
         return
 
     total_staged = len(normalize_intake_df(staged_df))
-    verified_sources = (
-        int((best_sources_df["source_verification_needed"].map(normalize_text) == "No").sum())
-        if not best_sources_df.empty and "source_verification_needed" in best_sources_df.columns
-        else 0
-    )
-    metric_columns = st.columns(3)
+    metric_columns = st.columns(3 if copy_to_best_sources else 2)
     metric_columns[0].metric("Generated claims waiting", f"{len(pending):,}")
-    metric_columns[1].metric("Total staged claims", f"{total_staged:,}")
-    metric_columns[2].metric("Verified best sources", f"{verified_sources:,}")
+    metric_columns[1].metric(f"Total {table_name} claims", f"{total_staged:,}")
+    if copy_to_best_sources:
+        verified_sources = (
+            int((best_sources_df["source_verification_needed"].map(normalize_text) == "No").sum())
+            if not best_sources_df.empty and "source_verification_needed" in best_sources_df.columns
+            else 0
+        )
+        metric_columns[2].metric("Verified best sources", f"{verified_sources:,}")
 
     options = [int(index) for index in pending.index.tolist()]
     row_index_key = f"{state_prefix}_review_claim_row_index"
@@ -9734,9 +9736,11 @@ def render_claim_source_review(
     with verify_column:
         if st.button("Yes - verified source", type="primary", use_container_width=True, key=f"{state_prefix}_verify_source_{selected_index}"):
             try:
-                records, source_id = upsert_best_source_from_staged_row(row, best_sources_df)
-                write_csv(BEST_SOURCES_PATH, records, BEST_SOURCE_SCHEMA)
-                review_note = f"Source verified on {date.today().isoformat()}; copied to best_sources as {source_id}."
+                review_note = f"Source verified on {date.today().isoformat()}."
+                if copy_to_best_sources:
+                    records, source_id = upsert_best_source_from_staged_row(row, best_sources_df)
+                    write_csv(BEST_SOURCES_PATH, records, BEST_SOURCE_SCHEMA)
+                    review_note = f"{review_note} Copied to best_sources as {source_id}."
                 updated_staged = update_staged_review_row(staged_df, selected_index, "No", review_note)
                 save_review_candidate_rows(table_name, updated_staged.to_dict("records"))
             except Exception as exc:
@@ -9744,7 +9748,7 @@ def render_claim_source_review(
             else:
                 st.session_state.pop(rejection_index_key, None)
                 clear_data_cache()
-                st.success(f"Verified {row_id} in `{table_name}` and copied the source record to best_sources.")
+                st.success(f"Verified {row_id} in `{table_name}`.")
                 st.rerun()
 
     with reject_column:
@@ -9787,7 +9791,7 @@ def render_claim_source_review(
                 st.rerun()
 
 
-def render_maracoos_source_review(best_sources_df: pd.DataFrame) -> None:
+def render_maracoos_source_review() -> None:
     maracoos_df, table_name, errors = load_maracoos_review_table()
     if not table_name:
         st.warning("The MARACOOS Supabase table is not readable yet.")
@@ -9800,10 +9804,11 @@ def render_maracoos_source_review(best_sources_df: pd.DataFrame) -> None:
 
     render_claim_source_review(
         maracoos_df,
-        best_sources_df,
+        pd.DataFrame(),
         table_name=table_name,
         title=f"MARACOOS Source Review ({table_name})",
         state_prefix="maracoos",
+        copy_to_best_sources=False,
     )
 
     if not maracoos_df.empty:
@@ -10206,68 +10211,19 @@ def page_run_validation() -> None:
             st.info(f"Refreshed `{REVIEW_PATH}`.")
 
 
-def page_review_admin(
-    regional_targets_df: pd.DataFrame,
-    evidence_df: pd.DataFrame,
-    source_df: pd.DataFrame,
-    review_df: pd.DataFrame,
-    staged_df: pd.DataFrame,
-    best_sources_df: pd.DataFrame,
-) -> None:
+def page_review_admin() -> None:
     st.markdown(
         """
         <div class="hub-page-title">
             <div class="hub-kicker">Maintainer workspace</div>
             <h1>Review / Admin</h1>
-            <p>Review each generated staged claim against its source, then send verified source records to the best_sources table.</p>
+            <p>Review MARACOOS claims directly against their cited sources.</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    review_table = st.segmented_control(
-        "Source review table",
-        ["Shared staged_evidence", "MARACOOS table"],
-        default=st.session_state.get("review_admin_source_table", "Shared staged_evidence"),
-        key="review_admin_source_table",
-    )
-    if review_table == "MARACOOS table":
-        render_maracoos_source_review(best_sources_df)
-    else:
-        render_claim_source_review(staged_df, best_sources_df)
-
-    with st.expander("Advanced admin tools", expanded=False):
-        render_ai_staging_comparison(staged_df, review_df)
-        st.divider()
-
-        current_section = st.session_state.get("review_admin_navigation", REVIEW_ADMIN_NAVIGATION[0])
-        if current_section not in REVIEW_ADMIN_NAVIGATION:
-            current_section = REVIEW_ADMIN_NAVIGATION[0]
-            st.session_state["review_admin_navigation"] = current_section
-
-        section = st.radio(
-            "Review/Admin section",
-            REVIEW_ADMIN_NAVIGATION,
-            index=REVIEW_ADMIN_NAVIGATION.index(current_section),
-            horizontal=True,
-            label_visibility="collapsed",
-            key="review_admin_navigation",
-        )
-
-        if section == "Evidence Intake":
-            page_evidence_intake(regional_targets_df, evidence_df)
-        elif section == "Review Evidence":
-            page_staged_evidence(staged_df, evidence_df, source_df)
-        elif section == "Validation Queue":
-            page_review_needed(review_df)
-        elif section == "Add Evidence Row":
-            page_add_evidence_row(evidence_df)
-        elif section == "Run Validation":
-            page_run_validation()
-        elif section == "Regional Builds":
-            page_regional_builds(regional_targets_df, evidence_df)
-        elif section == "Project Roadmap":
-            page_project_roadmap(evidence_df, source_df, review_df, staged_df, best_sources_df)
+    render_maracoos_source_review()
 
 
 def render_section_heading(kicker: str, title: str, body: str) -> None:
@@ -10547,7 +10503,7 @@ def main() -> None:
             regional_targets_df,
         )
     elif page == "Research & Admin":
-        page_review_admin(regional_targets_df, evidence_df, source_df, review_df, staged_df, best_sources_df)
+        page_review_admin()
 
 
 if __name__ == "__main__":
