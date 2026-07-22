@@ -34,6 +34,8 @@ BEST_SOURCES_PATH = DATA_DIR / "best_sources.csv"
 REGIONAL_TARGETS_PATH = DATA_DIR / "regional_research_targets.csv"
 VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_matrix.py"
 FILLED_BRIEFING_PATH = REPO_ROOT / "outputs" / "IOOS_Congressional_Briefing_Filled.html"
+MARACOOS_BRIEF_HTML_PATH = REPO_ROOT / "outputs" / "MARACOOS_Congressional_Brief_Spread_Pathways_v2.html"
+MARACOOS_BRIEF_DOCX_PATH = REPO_ROOT / "outputs" / "MARACOOS_Congressional_Brief_Spread_Pathways_v2.docx"
 UCAR_LOGO_PATH = APP_DIR / "logo-ucar.avif"
 COL_LOGO_PATH = APP_DIR / "col-logo.avif"
 IOOS_HERO_IMAGE_PATH = APP_DIR / "HERO1.png"
@@ -9414,96 +9416,42 @@ def page_best_sources(best_sources_df: pd.DataFrame) -> None:
     )
 
 
-def page_congressional_briefing(
-    evidence_df: pd.DataFrame,
-    source_df: pd.DataFrame,
-    staged_df: pd.DataFrame,
-    best_sources_df: pd.DataFrame | None = None,
-    regional_targets_df: pd.DataFrame | None = None,
-) -> None:
+def page_congressional_briefing() -> None:
     st.markdown(
         """
         <div class="hub-page-title">
             <div class="hub-kicker">Briefs & Outputs</div>
-            <h1>Generated Brief And Regional Outputs</h1>
-            <p>Preview the generated congressional brief and review region-specific briefing workspaces for each IOOS Regional Association.</p>
+            <h1>MARACOOS Congressional Brief</h1>
+            <p>View the current Mid-Atlantic congressional brief or download a copy for the web or Microsoft Word.</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    if evidence_df.empty:
-        st.warning("No evidence matrix rows are available for the national brief preview.")
+    if not MARACOOS_BRIEF_HTML_PATH.exists() or not MARACOOS_BRIEF_DOCX_PATH.exists():
+        st.error("The MARACOOS congressional brief files are unavailable.")
+        return
 
-    brief_metric_sources_df = best_sources_df if best_sources_df is not None else source_df
-    regional_best_sources_df = best_sources_df if best_sources_df is not None else pd.DataFrame()
-    regions_df = association_regional_targets(
-        regional_targets_df if regional_targets_df is not None else pd.DataFrame()
-    )
-
-    prepared_cols = st.columns([1, 1])
-    prepared_for = prepared_cols[0].text_input("Prepared for", value="Congressional Staff")
-    prepared_date = prepared_cols[1].date_input("Brief date", value=date.today())
-
-    regional_targets = [
-        target
-        for _, target in regions_df.iterrows()
-        if normalize_text(target.get("ioos_region_code"))
-    ]
-    tabs = st.tabs(
-        ["Generated Brief"]
-        + [normalize_text(target.get("ioos_region_code")) for target in regional_targets]
-    )
-    generated_tab = tabs[0]
-
-    with generated_tab:
-        briefing_html = build_congressional_briefing_html(
-            evidence_df,
-            source_df,
-            prepared_for,
-            prepared_date,
-            brief_metric_sources_df,
-        )
-        components.html(briefing_html, height=1700, scrolling=True)
+    briefing_html = MARACOOS_BRIEF_HTML_PATH.read_text(encoding="utf-8")
+    download_columns = st.columns(2)
+    with download_columns[0]:
         st.download_button(
-            "Download live congressional brief HTML",
+            "Download HTML",
             briefing_html.encode("utf-8"),
-            file_name="ioos_congressional_brief_live.html",
+            file_name=MARACOOS_BRIEF_HTML_PATH.name,
             mime="text/html",
+            width="stretch",
         )
-        if st.button("Build PDF export"):
-            try:
-                briefing_pdf = build_congressional_briefing_pdf(
-                    evidence_df,
-                    source_df,
-                    prepared_for,
-                    prepared_date,
-                    brief_metric_sources_df,
-                )
-            except Exception as exc:
-                st.warning(f"PDF export is unavailable: {exc}")
-            else:
-                st.download_button(
-                    "Download live congressional brief PDF",
-                    briefing_pdf,
-                    file_name="ioos_congressional_brief_live.pdf",
-                    mime="application/pdf",
-                )
+    with download_columns[1]:
+        st.download_button(
+            "Download .docx",
+            MARACOOS_BRIEF_DOCX_PATH.read_bytes(),
+            file_name=MARACOOS_BRIEF_DOCX_PATH.name,
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            width="stretch",
+        )
 
-        if FILLED_BRIEFING_PATH.exists():
-            st.download_button(
-                "Download generated congressional brief draft",
-                briefing_html.encode("utf-8"),
-                file_name=FILLED_BRIEFING_PATH.name,
-                mime="text/html",
-            )
-
-    for tab, target in zip(tabs[1:], regional_targets):
-        with tab:
-            if normalize_text(target.get("ioos_region_code")) == MARACOOS_CODE:
-                render_maracoos_congressional_tab(evidence_df, staged_df, prepared_for, prepared_date)
-            else:
-                render_region_section(target, evidence_df, source_df, regional_best_sources_df)
+    components.html(briefing_html, height=1900, scrolling=True)
 
 
 def render_intake_upload() -> None:
@@ -10480,13 +10428,7 @@ def main() -> None:
             public_best_sources_df,
         )
     elif page == "Briefs & Outputs":
-        page_congressional_briefing(
-            public_evidence_df,
-            public_source_df,
-            public_staged_df,
-            public_best_sources_df,
-            regional_targets_df,
-        )
+        page_congressional_briefing()
     elif page == "Research & Admin":
         page_review_admin()
 
