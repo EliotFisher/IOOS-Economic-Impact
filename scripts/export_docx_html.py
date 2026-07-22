@@ -24,10 +24,11 @@ def export(destination: Path, page_paths: list[Path]) -> None:
   <title>MARACOOS Congressional Brief</title>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; padding: 32px 16px; background: #e8eef0; }
-    main { display: grid; gap: 28px; margin: 0 auto; max-width: 8.5in; }
-    img { display: block; width: 100%; height: auto; background: white; box-shadow: 0 12px 32px rgba(18,61,82,.18); }
-    @media (max-width: 640px) { body { padding: 12px 8px; } main { gap: 12px; } }
+    html { scroll-snap-type: y mandatory; }
+    body { margin: 0; padding: 18px 12px; background: #e8eef0; }
+    main { display: grid; gap: 22px; margin: 0 auto; max-width: 6.5in; }
+    img { display: block; width: 100%; height: auto; background: white; box-shadow: 0 10px 26px rgba(18,61,82,.18); scroll-snap-align: start; }
+    @media (max-width: 640px) { body { padding: 10px 6px; } main { gap: 10px; } }
     @media print { body { padding: 0; background: white; } main { display: block; max-width: none; } img { box-shadow: none; break-after: page; } img:last-child { break-after: auto; } }
   </style>
 </head>

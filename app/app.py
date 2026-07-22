@@ -9751,9 +9751,7 @@ def page_congressional_briefing() -> None:
             width="stretch",
         )
 
-    for page_path in MARACOOS_BRIEF_PAGE_PATHS:
-        with st.container(border=True):
-            st.image(str(page_path), width="stretch")
+    components.html(briefing_html, height=870, scrolling=True)
 
 
 def render_intake_upload() -> None:
