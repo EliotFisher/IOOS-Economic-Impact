@@ -2520,7 +2520,7 @@ def render_app_hero() -> None:
 
 
 def render_home_hero() -> None:
-    """Render the full-width MARACOOS banner at the top of the Home page."""
+    """Render the full-width MARACOOS banner above every app page."""
     st.markdown(
         """
         <div class="maracoos-landing-hero">
@@ -10705,11 +10705,10 @@ def main() -> None:
         public_staged_df = pd.DataFrame()
         public_best_sources_df = pd.DataFrame()
 
-    requested_page = st.session_state.get("primary_navigation", APP_NAVIGATION[0])
-    if requested_page == "Home":
-        render_home_hero()
-    else:
-        render_app_hero()
+    # Keep the image-backed brand banner stable across navigation. Rendering a
+    # different masthead from the previous session-state value made the hero
+    # disappear when moving between tabs because navigation is resolved below.
+    render_home_hero()
     if supabase_views is None:
         st.warning(
             "Evidence is unavailable because neither the MARACOOS nor "
