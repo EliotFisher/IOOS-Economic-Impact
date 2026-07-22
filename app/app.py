@@ -36,6 +36,10 @@ VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_matrix.py"
 FILLED_BRIEFING_PATH = REPO_ROOT / "outputs" / "IOOS_Congressional_Briefing_Filled.html"
 MARACOOS_BRIEF_HTML_PATH = REPO_ROOT / "outputs" / "MARACOOS_Congressional_Brief_Spread_Pathways_v2.html"
 MARACOOS_BRIEF_DOCX_PATH = REPO_ROOT / "outputs" / "MARACOOS_Congressional_Brief_Spread_Pathways_v2.docx"
+MARACOOS_BRIEF_PAGE_PATHS = (
+    REPO_ROOT / "outputs" / "MARACOOS_Congressional_Brief_Spread_Pathways_v2-page-1.png",
+    REPO_ROOT / "outputs" / "MARACOOS_Congressional_Brief_Spread_Pathways_v2-page-2.png",
+)
 UCAR_LOGO_PATH = APP_DIR / "logo-ucar.avif"
 COL_LOGO_PATH = APP_DIR / "col-logo.avif"
 IOOS_HERO_IMAGE_PATH = APP_DIR / "HERO1.png"
@@ -9723,7 +9727,8 @@ def page_congressional_briefing() -> None:
         unsafe_allow_html=True,
     )
 
-    if not MARACOOS_BRIEF_HTML_PATH.exists() or not MARACOOS_BRIEF_DOCX_PATH.exists():
+    brief_paths = (MARACOOS_BRIEF_HTML_PATH, MARACOOS_BRIEF_DOCX_PATH, *MARACOOS_BRIEF_PAGE_PATHS)
+    if not all(path.exists() for path in brief_paths):
         st.error("The MARACOOS congressional brief files are unavailable.")
         return
 
@@ -9746,7 +9751,9 @@ def page_congressional_briefing() -> None:
             width="stretch",
         )
 
-    components.html(briefing_html, height=1900, scrolling=True)
+    for page_path in MARACOOS_BRIEF_PAGE_PATHS:
+        with st.container(border=True):
+            st.image(str(page_path), width="stretch")
 
 
 def render_intake_upload() -> None:

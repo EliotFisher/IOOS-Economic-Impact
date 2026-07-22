@@ -1,5 +1,4 @@
 pandas
 Pillow
-python-docx
 reportlab
 streamlit
