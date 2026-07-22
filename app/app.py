@@ -8292,15 +8292,17 @@ def render_public_evidence_card(row: pd.Series, position: int, show_dollar_value
     else:
         dollar_value_html = ""
         reported_result_html = f'<div class="reported-result"><strong>Reported result</strong><br>{hub_escape(metric)}</div>'
-    st.markdown(
-        f"""<article class="public-evidence-card">
-        <div class="card-kicker">{hub_escape(row_id)}</div><h3>{hub_escape(claim)}</h3>
-        {dollar_value_html}
-        {reported_result_html}
-        <div class="card-badges">{badges_html}</div>
-        <div class="source-line"><strong>{hub_escape(source_name)}</strong><br>{source_html}</div>
-        </article>""", unsafe_allow_html=True,
+    card_html = (
+        '<div class="public-evidence-card">'
+        f'<div class="card-kicker">{hub_escape(row_id)}</div>'
+        f'<h3>{hub_escape(claim)}</h3>'
+        f'{dollar_value_html}{reported_result_html}'
+        f'<div class="card-badges">{badges_html}</div>'
+        '<div class="source-line">'
+        f'<strong>{hub_escape(source_name)}</strong><br>{source_html}'
+        '</div></div>'
     )
+    st.markdown(card_html, unsafe_allow_html=True)
     with st.expander("Read evidence details"):
         left, right = st.columns(2)
         with left:
