@@ -2085,6 +2085,75 @@ def apply_hub_styles() -> None:
                 margin-top: 0.5rem;
             }}
 
+            .evidence-library-intro {{
+                background: linear-gradient(135deg, #eef8f7, #ffffff);
+                border: 1px solid #c9e2e2;
+                border-left: 5px solid var(--ioos-green);
+                border-radius: 10px;
+                color: #294750;
+                line-height: 1.65;
+                margin: 0.4rem 0 1.35rem;
+                padding: 1.1rem 1.2rem;
+            }}
+
+            .evidence-pathway-card {{
+                background: #fff;
+                border: 1px solid var(--ioos-line);
+                border-radius: 12px;
+                box-shadow: 0 10px 28px rgba(4,45,59,.07);
+                min-height: 210px;
+                padding: 1.05rem;
+            }}
+
+            .evidence-pathway-card.selected {{
+                background: linear-gradient(160deg, #eff9f8, #fff 72%);
+                border-color: #2e968d;
+                box-shadow: 0 12px 34px rgba(12,112,104,.14);
+            }}
+
+            .evidence-pathway-card .pathway-number,
+            .public-evidence-card .card-kicker {{
+                color: #39746f;
+                display: block;
+                font-size: .72rem;
+                font-weight: 850;
+                letter-spacing: .08em;
+                margin-bottom: .7rem;
+                text-transform: uppercase;
+            }}
+
+            .evidence-pathway-card h3 {{ color: var(--ioos-ink); font-size: 1.02rem; line-height: 1.25; margin: 0; }}
+            .evidence-pathway-card p {{ color: var(--ioos-muted); font-size: .84rem; line-height: 1.5; margin: .6rem 0 .85rem; }}
+            .evidence-pathway-card .pathway-count {{ color: var(--ioos-blue); font-size: .82rem; font-weight: 820; }}
+
+            .public-evidence-card {{
+                background: #fff;
+                border: 1px solid var(--ioos-line);
+                border-radius: 12px;
+                box-shadow: 0 9px 26px rgba(4,45,59,.065);
+                margin: .85rem 0 .45rem;
+                padding: 1.15rem 1.2rem 1rem;
+            }}
+
+            .public-evidence-card h3 {{ color: var(--ioos-ink); font-size: 1.08rem; line-height: 1.38; margin: .4rem 0 .75rem; }}
+            .public-evidence-card .reported-result {{ background: #f2f8f9; border-left: 3px solid var(--ioos-blue); color: #24454f; font-size: .91rem; line-height: 1.55; margin-bottom: .85rem; padding: .72rem .8rem; }}
+            .public-evidence-card .card-badges {{ display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .75rem; }}
+            .public-evidence-card .card-badges span {{ background: #f6f8f9; border: 1px solid #dce5e7; border-radius: 999px; color: #405b64; font-size: .72rem; font-weight: 720; padding: .26rem .52rem; }}
+            .public-evidence-card .source-line {{ border-top: 1px solid #e6ecee; color: var(--ioos-muted); font-size: .82rem; line-height: 1.45; padding-top: .75rem; }}
+            .public-evidence-card .source-line a {{ color: var(--ioos-blue); font-weight: 820; text-decoration: none; }}
+            .public-evidence-card .source-line a:hover {{ text-decoration: underline; }}
+
+            .library-results-heading {{
+                align-items: flex-end;
+                border-bottom: 1px solid var(--ioos-line);
+                display: flex;
+                justify-content: space-between;
+                margin: 1.6rem 0 .85rem;
+                padding-bottom: .75rem;
+            }}
+            .library-results-heading h2 {{ color: var(--ioos-ink); font-size: 1.35rem; margin: 0; }}
+            .library-results-heading span {{ color: var(--ioos-muted); font-size: .82rem; }}
+
             .detail-panel {{
                 padding: 1rem;
                 position: sticky;
@@ -7888,7 +7957,7 @@ def page_dashboard_summary(
         render_freshness_indicators(evidence_dashboard_df)
 
 
-def page_evidence_atlas(
+def page_evidence_atlas_legacy(
     evidence_df: pd.DataFrame,
     source_df: pd.DataFrame,
     review_df: pd.DataFrame,
@@ -8126,6 +8195,155 @@ def page_evidence_atlas(
             hide_index=True,
             column_config={"Purpose": st.column_config.TextColumn(width="large")},
         )
+
+
+def evidence_library_source_name(row: pd.Series) -> str:
+    return row_field(row, "source_name", row_field(row, "source", row_field(row, "source_id", "Source title not recorded")))
+
+
+def render_public_evidence_card(row: pd.Series, position: int) -> None:
+    claim = row_field(row, "claim_allowed", row_field(row, "metric", "Evidence claim not recorded."))
+    metric = row_field(row, "metric", "Reported result not recorded.")
+    source_name = evidence_library_source_name(row)
+    source_url = row_field(row, "source_url")
+    row_id = row_field(row, "row_id", f"Evidence record {position}")
+    badges = [
+        row_field(row, "impact_domain"), row_field(row, "ioos_region_code"),
+        row_field(row, "economic_number_type"),
+        f"Evidence: {row_field(row, 'evidence_strength')}" if row_field(row, "evidence_strength") else "",
+        row_field(row, "metric_year_or_dollar_year"),
+    ]
+    badges_html = "".join(f"<span>{hub_escape(value)}</span>" for value in badges if value)
+    source_html = (
+        f'<a href="{hub_escape(source_url)}" target="_blank" rel="noopener noreferrer">View original source &#8599;</a>'
+        if source_url else "Source link not recorded"
+    )
+    st.markdown(
+        f"""<article class="public-evidence-card">
+        <div class="card-kicker">{hub_escape(row_id)}</div><h3>{hub_escape(claim)}</h3>
+        <div class="reported-result"><strong>Reported result</strong><br>{hub_escape(metric)}</div>
+        <div class="card-badges">{badges_html}</div>
+        <div class="source-line"><strong>{hub_escape(source_name)}</strong><br>{source_html}</div>
+        </article>""", unsafe_allow_html=True,
+    )
+    with st.expander("Read evidence details"):
+        left, right = st.columns(2)
+        with left:
+            st.markdown("**How the information is used**")
+            st.write(row_field(row, "decision_supported", "Not recorded."))
+            st.markdown("**Economic pathway**")
+            st.write(row_field(row, "economic_pathway", "Not recorded."))
+            st.markdown("**IOOS component and users**")
+            st.write(f"{row_field(row, 'ioos_component', 'Not recorded')} · {row_field(row, 'user_group', 'Users not recorded')}")
+        with right:
+            st.markdown("**Appropriate use**")
+            st.write(row_field(row, "allowed_use", "Not classified."))
+            st.markdown("**Do not use this evidence to claim**")
+            st.write(row_field(row, "not_allowed_use", "Not classified."))
+            st.markdown("**Limitations and caveats**")
+            st.write(row_field(row, "limitations", "No limitations recorded."))
+        st.caption(
+            f"IOOS attribution: {row_field(row, 'ioos_attribution_strength', 'Not recorded')} · "
+            f"Source verification needed: {row_field(row, 'source_verification_needed', 'Not recorded')} · "
+            f"Record created: {row_field(row, 'date_record_created', 'Not recorded')}"
+        )
+
+
+def page_evidence_atlas(
+    evidence_df: pd.DataFrame,
+    source_df: pd.DataFrame,
+    review_df: pd.DataFrame,
+    best_sources_df: pd.DataFrame,
+) -> None:
+    st.markdown(
+        """<div class="hub-page-title"><div class="hub-kicker">Explore Evidence</div>
+        <h1>Explore The Evidence Behind The Report</h1>
+        <p>Browse the published studies, operational examples, and economic models behind MARACOOS impact claims. Every record keeps the reported result, careful claim language, caveats, and original source together.</p></div>
+        <div class="evidence-library-intro"><strong>Start with a type of evidence, or browse the complete library.</strong>
+        These categories are a guide—not totals that should be added together. A study may appear in more than one category when it documents more than one kind of value.</div>""",
+        unsafe_allow_html=True,
+    )
+    explorer_df = enrich_evidence_with_source_fields(evidence_df, source_df)
+    explorer_df = add_dashboard_fields(explorer_df, review_df)
+    explorer_df = add_metric_year_column(explorer_df)
+    atlas_df = add_evidence_atlas_fields(explorer_df)
+    if atlas_df.empty:
+        st.info("No public evidence records are available right now.")
+        return
+
+    selected_key = st.session_state.get("evidence_library_category", "all")
+    valid_keys = {level["key"] for level in EVIDENCE_ATLAS_LEVELS} | {"all"}
+    if selected_key not in valid_keys:
+        selected_key = "all"
+    columns = st.columns(4)
+    for index, (column, level) in enumerate(zip(columns, EVIDENCE_ATLAS_LEVELS), start=1):
+        count = len(atlas_rows_for_level(atlas_df, level["key"]))
+        selected_class = " selected" if selected_key == level["key"] else ""
+        with column:
+            st.markdown(
+                f"""<div class="evidence-pathway-card{selected_class}"><span class="pathway-number">Evidence pathway {index}</span>
+                <h3>{hub_escape(level['title'])}</h3><p>{hub_escape(level['definition'])}</p>
+                <span class="pathway-count">{count:,} records</span></div>""", unsafe_allow_html=True,
+            )
+            if st.button("Selected" if selected_key == level["key"] else "Explore records", key=f"select_library_{level['key']}", width="stretch", type="primary" if selected_key == level["key"] else "secondary"):
+                st.session_state["evidence_library_category"] = level["key"]
+                st.rerun()
+
+    if selected_key == "all":
+        title, selected_df = "All Evidence", atlas_df.copy()
+        description = "The complete public evidence library across all four pathways."
+    else:
+        level = EVIDENCE_ATLAS_LEVEL_BY_KEY[selected_key]
+        title, selected_df, description = level["title"], atlas_rows_for_level(atlas_df, selected_key), level["safe_use"]
+    head, reset = st.columns([4, 1])
+    with head:
+        st.markdown(f'<div class="library-results-heading"><div><h2>{hub_escape(title)}</h2><span>{hub_escape(description)}</span></div><span>{len(selected_df):,} records</span></div>', unsafe_allow_html=True)
+    with reset:
+        st.write("")
+        st.write("")
+        if selected_key != "all" and st.button("Browse all evidence", width="stretch"):
+            st.session_state["evidence_library_category"] = "all"
+            st.rerun()
+
+    query = st.text_input("Search the evidence library", placeholder="Search a claim, use case, metric, source, sector, or region...", key=f"evidence_library_search_{selected_key}")
+    filtered = search_dataframe(selected_df, query)
+    filters = st.columns(4)
+    filter_specs = [
+        ("impact_domain", "Use case or sector"), ("ioos_region_code", "IOOS region"),
+        ("economic_number_type", "Evidence type"), ("evidence_strength", "Evidence strength"),
+    ]
+    for filter_column, (column_name, label) in zip(filters, filter_specs):
+        if column_name not in selected_df.columns:
+            continue
+        if column_name == "ioos_region_code":
+            options = sorted({part for value in selected_df[column_name] for part in split_semicolon_values(value) if part})
+        else:
+            options = sorted({normalize_text(value) for value in selected_df[column_name] if normalize_text(value)})
+        chosen = filter_column.multiselect(label, options, key=f"evidence_library_{column_name}_{selected_key}")
+        if chosen:
+            if column_name == "ioos_region_code":
+                filtered = filtered[filtered[column_name].map(lambda value: bool(set(chosen).intersection(split_semicolon_values(value))))]
+            else:
+                filtered = filtered[filtered[column_name].isin(chosen)]
+
+    sort_choice = st.selectbox("Sort results", ["Most recent metric year", "Source title", "Use case or sector", "Record ID"], key=f"evidence_library_sort_{selected_key}")
+    if sort_choice == "Most recent metric year" and "metric_year" in filtered.columns:
+        filtered = filtered.sort_values(["metric_year", "row_id"], ascending=[False, True], na_position="last")
+    elif sort_choice == "Source title":
+        filtered = filtered.assign(_source_sort=filtered.apply(evidence_library_source_name, axis=1)).sort_values("_source_sort").drop(columns=["_source_sort"])
+    elif sort_choice == "Use case or sector" and "impact_domain" in filtered.columns:
+        filtered = filtered.sort_values(["impact_domain", "row_id"], na_position="last")
+    elif "row_id" in filtered.columns:
+        filtered = filtered.sort_values("row_id", na_position="last")
+    st.caption(f"Showing {len(filtered):,} of {len(selected_df):,} records in this view")
+    if filtered.empty:
+        st.info("No evidence records match those filters. Try clearing one or broadening your search.")
+        return
+    page_count = max(1, (len(filtered) + 9) // 10)
+    page_number = st.selectbox("Results page", list(range(1, page_count + 1)), format_func=lambda value: f"Page {value} of {page_count}", key=f"evidence_library_page_{selected_key}")
+    start = (page_number - 1) * 10
+    for position, (_, row) in enumerate(filtered.iloc[start:start + 10].iterrows(), start=start + 1):
+        render_public_evidence_card(row, position)
 
 
 def render_record_detail(
@@ -10364,8 +10582,6 @@ def page_explore_evidence(
     best_sources_df: pd.DataFrame,
 ) -> None:
     page_evidence_atlas(evidence_df, source_df, review_df, best_sources_df)
-    st.divider()
-    page_evidence_matrix(evidence_df, source_df, review_df)
 
 
 def main() -> None:
