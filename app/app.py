@@ -2111,7 +2111,6 @@ def apply_hub_styles() -> None:
                 box-shadow: 0 12px 34px rgba(12,112,104,.14);
             }}
 
-            .evidence-pathway-card .pathway-number,
             .public-evidence-card .card-kicker {{
                 color: #39746f;
                 display: block;
@@ -8276,12 +8275,12 @@ def page_evidence_atlas(
     if selected_key not in valid_keys:
         selected_key = "all"
     columns = st.columns(4)
-    for index, (column, level) in enumerate(zip(columns, EVIDENCE_ATLAS_LEVELS), start=1):
+    for column, level in zip(columns, EVIDENCE_ATLAS_LEVELS):
         count = len(atlas_rows_for_level(atlas_df, level["key"]))
         selected_class = " selected" if selected_key == level["key"] else ""
         with column:
             st.markdown(
-                f"""<div class="evidence-pathway-card{selected_class}"><span class="pathway-number">Evidence pathway {index}</span>
+                f"""<div class="evidence-pathway-card{selected_class}">
                 <h3>{hub_escape(level['title'])}</h3><p>{hub_escape(level['definition'])}</p>
                 <span class="pathway-count">{count:,} records</span></div>""", unsafe_allow_html=True,
             )
