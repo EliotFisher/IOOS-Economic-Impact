@@ -8274,8 +8274,8 @@ def render_public_evidence_card(row: pd.Series, position: int, show_dollar_value
         if source_url else "Source link not recorded"
     )
     dollar_values = evidence_library_dollar_values(row) if show_dollar_value else []
-    if show_dollar_value:
-        value_context = metric if dollar_values else claim
+    if show_dollar_value and dollar_values:
+        value_context = metric
         value_context_html = hub_escape(value_context)
         for value in sorted(dollar_values, key=len, reverse=True):
             escaped_value = hub_escape(value)
