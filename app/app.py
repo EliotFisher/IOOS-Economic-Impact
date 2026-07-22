@@ -2151,10 +2151,15 @@ def apply_hub_styles() -> None:
                 margin-bottom: .15rem;
                 text-transform: uppercase;
             }}
-            .public-evidence-card .reported-dollar-value strong {{
-                display: block;
-                font-size: clamp(1.35rem, 2.2vw, 1.9rem);
-                line-height: 1.15;
+            .public-evidence-card .reported-dollar-value .value-context {{
+                color: #24454f;
+                font-size: .96rem;
+                line-height: 1.5;
+            }}
+            .public-evidence-card .reported-dollar-value .value-context strong {{
+                color: #075d58;
+                font-size: 1.18rem;
+                font-weight: 900;
             }}
             .public-evidence-card .reported-result {{ background: #f2f8f9; border-left: 3px solid var(--ioos-blue); color: #24454f; font-size: .91rem; line-height: 1.55; margin-bottom: .85rem; padding: .72rem .8rem; }}
             .public-evidence-card .card-badges {{ display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .75rem; }}
@@ -8269,19 +8274,29 @@ def render_public_evidence_card(row: pd.Series, position: int, show_dollar_value
         if source_url else "Source link not recorded"
     )
     dollar_values = evidence_library_dollar_values(row) if show_dollar_value else []
-    dollar_value_html = (
-        '<div class="reported-dollar-value"><span>Reported dollar value</span>'
-        f'<strong>{hub_escape(" · ".join(dollar_values))}</strong></div>'
-        if dollar_values
-        else '<div class="reported-dollar-value"><span>Reported dollar value</span><strong>See published result below</strong></div>'
-        if show_dollar_value
-        else ""
-    )
+    if show_dollar_value:
+        value_context = metric if dollar_values else claim
+        value_context_html = hub_escape(value_context)
+        for value in sorted(dollar_values, key=len, reverse=True):
+            escaped_value = hub_escape(value)
+            value_context_html = value_context_html.replace(
+                escaped_value,
+                f"<strong>{escaped_value}</strong>",
+            )
+        dollar_value_html = (
+            '<div class="reported-dollar-value">'
+            '<span>Reported dollar value and what it measures</span>'
+            f'<div class="value-context">{value_context_html}</div></div>'
+        )
+        reported_result_html = ""
+    else:
+        dollar_value_html = ""
+        reported_result_html = f'<div class="reported-result"><strong>Reported result</strong><br>{hub_escape(metric)}</div>'
     st.markdown(
         f"""<article class="public-evidence-card">
         <div class="card-kicker">{hub_escape(row_id)}</div><h3>{hub_escape(claim)}</h3>
         {dollar_value_html}
-        <div class="reported-result"><strong>Reported result</strong><br>{hub_escape(metric)}</div>
+        {reported_result_html}
         <div class="card-badges">{badges_html}</div>
         <div class="source-line"><strong>{hub_escape(source_name)}</strong><br>{source_html}</div>
         </article>""", unsafe_allow_html=True,
