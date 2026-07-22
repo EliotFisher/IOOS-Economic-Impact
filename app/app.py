@@ -2135,6 +2135,27 @@ def apply_hub_styles() -> None:
             }}
 
             .public-evidence-card h3 {{ color: var(--ioos-ink); font-size: 1.08rem; line-height: 1.38; margin: .4rem 0 .75rem; }}
+            .public-evidence-card .reported-dollar-value {{
+                background: linear-gradient(135deg, #e8f6f3, #f5fbfa);
+                border: 1px solid #b9ddd6;
+                border-radius: 9px;
+                color: #075d58;
+                margin: 0 0 .8rem;
+                padding: .75rem .85rem;
+            }}
+            .public-evidence-card .reported-dollar-value span {{
+                display: block;
+                font-size: .7rem;
+                font-weight: 850;
+                letter-spacing: .08em;
+                margin-bottom: .15rem;
+                text-transform: uppercase;
+            }}
+            .public-evidence-card .reported-dollar-value strong {{
+                display: block;
+                font-size: clamp(1.35rem, 2.2vw, 1.9rem);
+                line-height: 1.15;
+            }}
             .public-evidence-card .reported-result {{ background: #f2f8f9; border-left: 3px solid var(--ioos-blue); color: #24454f; font-size: .91rem; line-height: 1.55; margin-bottom: .85rem; padding: .72rem .8rem; }}
             .public-evidence-card .card-badges {{ display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .75rem; }}
             .public-evidence-card .card-badges span {{ background: #f6f8f9; border: 1px solid #dce5e7; border-radius: 999px; color: #405b64; font-size: .72rem; font-weight: 720; padding: .26rem .52rem; }}
@@ -8200,7 +8221,37 @@ def evidence_library_source_name(row: pd.Series) -> str:
     return row_field(row, "source_name", row_field(row, "source", row_field(row, "source_id", "Source title not recorded")))
 
 
-def render_public_evidence_card(row: pd.Series, position: int) -> None:
+def evidence_library_dollar_values(row: pd.Series) -> list[str]:
+    """Return published dollar figures as written, without recalculating them."""
+    values: list[str] = []
+    for column in ["original_dollar_value", "adjusted_2026_value"]:
+        stored_value = row_field(row, column)
+        if stored_value:
+            values.append(stored_value if "$" in stored_value else f"${stored_value}")
+
+    source_text = " ".join(
+        row_field(row, column)
+        for column in ["metric", "claim_allowed", "allowed_use"]
+        if row_field(row, column)
+    )
+    patterns = [
+        r"\$\s?\d[\d,]*(?:\.\d+)?(?:\s*(?:trillion|billion|million|thousand|[TBMK])\b)?(?:\s*(?:per year|annually|annual|each year))?",
+        r"\b\d[\d,]*(?:\.\d+)?\s*(?:trillion|billion|million|thousand)\s+dollars?(?:\s*(?:per year|annually|annual|each year))?",
+    ]
+    for pattern in patterns:
+        values.extend(match.group(0).strip() for match in re.finditer(pattern, source_text, re.I))
+
+    unique_values: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        key = re.sub(r"\s+", " ", value).lower()
+        if key not in seen:
+            seen.add(key)
+            unique_values.append(value)
+    return unique_values[:3]
+
+
+def render_public_evidence_card(row: pd.Series, position: int, show_dollar_value: bool = False) -> None:
     claim = row_field(row, "claim_allowed", row_field(row, "metric", "Evidence claim not recorded."))
     metric = row_field(row, "metric", "Reported result not recorded.")
     source_name = evidence_library_source_name(row)
@@ -8217,9 +8268,19 @@ def render_public_evidence_card(row: pd.Series, position: int) -> None:
         f'<a href="{hub_escape(source_url)}" target="_blank" rel="noopener noreferrer">View original source &#8599;</a>'
         if source_url else "Source link not recorded"
     )
+    dollar_values = evidence_library_dollar_values(row) if show_dollar_value else []
+    dollar_value_html = (
+        '<div class="reported-dollar-value"><span>Reported dollar value</span>'
+        f'<strong>{hub_escape(" · ".join(dollar_values))}</strong></div>'
+        if dollar_values
+        else '<div class="reported-dollar-value"><span>Reported dollar value</span><strong>See published result below</strong></div>'
+        if show_dollar_value
+        else ""
+    )
     st.markdown(
         f"""<article class="public-evidence-card">
         <div class="card-kicker">{hub_escape(row_id)}</div><h3>{hub_escape(claim)}</h3>
+        {dollar_value_html}
         <div class="reported-result"><strong>Reported result</strong><br>{hub_escape(metric)}</div>
         <div class="card-badges">{badges_html}</div>
         <div class="source-line"><strong>{hub_escape(source_name)}</strong><br>{source_html}</div>
@@ -8342,7 +8403,7 @@ def page_evidence_atlas(
     page_number = st.selectbox("Results page", list(range(1, page_count + 1)), format_func=lambda value: f"Page {value} of {page_count}", key=f"evidence_library_page_{selected_key}")
     start = (page_number - 1) * 10
     for position, (_, row) in enumerate(filtered.iloc[start:start + 10].iterrows(), start=start + 1):
-        render_public_evidence_card(row, position)
+        render_public_evidence_card(row, position, show_dollar_value=selected_key == "level_1")
 
 
 def render_record_detail(
